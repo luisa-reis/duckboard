@@ -1,0 +1,15 @@
+[package]
+name = "panel-ddp"
+version = "0.1.0"
+edition = "2021"
+description = "Streams frames to the WLED panel over DDP; draws them with embedded-graphics"
+
+[[bin]]
+name = "panel-ddp"
+path = "src/main.rs"
+
+[dependencies]
+embedded-graphics = "0.8"
+
+[profile.release]
+opt-level = 2
