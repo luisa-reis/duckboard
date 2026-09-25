@@ -1,17 +1,27 @@
 //! panel-ddp: draws dashboard frames and streams them to a WLED matrix.
 //!
+//!     panel-ddp run [--config FILE] [--frames N]
+//!     panel-ddp preview [--config FILE] [--out FILE] [--test]
 //!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
-//!     panel-ddp preview [--gaps FILE] [--out FILE]
 //!
-//! HOST defaults to 4.3.2.1 (WLED-AP), PORT to 4048.
+//! The config file defaults to dashboard.toml in the current directory.
+//! `preview` renders one frame from sample data into a PNG with the mask
+//! applied; `--test` renders the test frame instead. HOST defaults to
+//! 4.3.2.1 (WLED-AP), PORT to 4048.
 
 mod canvas;
+mod config;
+mod dashboard;
+mod data;
 mod ddp;
 mod mask;
+mod palette;
 mod testframe;
+mod tiles;
 
 use anyhow::{bail, Context, Result};
 use canvas::Canvas;
+use config::Config;
 use ddp::DdpSender;
 use embedded_graphics::pixelcolor::Rgb888;
 use mask::Mask;
@@ -19,11 +29,11 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 const USAGE: &str = "usage:
-  panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
-  panel-ddp preview [--gaps FILE] [--out FILE]";
+  panel-ddp run [--config FILE] [--frames N]
+  panel-ddp preview [--config FILE] [--out FILE] [--test]
+  panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]";
 
-/// The gap file, relative to this crate, when run from anywhere in the repo.
-const DEFAULT_GAPS: &str = "2d-gaps.json";
+const DEFAULT_CONFIG: &str = "dashboard.toml";
 
 struct Stream {
     target: String,
@@ -90,26 +100,59 @@ fn cmd_test(args: &[String]) -> Result<()> {
     stream(&s, testframe::draw)
 }
 
-fn cmd_preview(args: &[String]) -> Result<()> {
-    let mut gaps = PathBuf::from(DEFAULT_GAPS);
-    let mut out = PathBuf::from("preview.png");
+fn cmd_run(args: &[String]) -> Result<()> {
+    let mut config = PathBuf::from(DEFAULT_CONFIG);
+    let mut frames = None;
     let mut it = args.iter();
     while let Some(a) = it.next() {
         match a.as_str() {
-            "--gaps" => gaps = it.next().context("--gaps needs a file")?.into(),
-            "--out" => out = it.next().context("--out needs a file")?.into(),
+            "--config" => config = it.next().context("--config needs a file")?.into(),
+            "--frames" => {
+                frames = Some(
+                    it.next().and_then(|v| v.parse().ok()).context("--frames needs a number")?,
+                )
+            }
             o => bail!("unknown option {o}"),
         }
     }
-    let mask = if gaps.exists() {
-        Mask::load(&gaps)?
+    let cfg = Config::load(&config)?;
+    let s = Stream { target: ddp::target_with_default_port(&cfg.target), fps: cfg.fps, frames };
+    let data = data::Snapshot::default();
+    stream(&s, |c, frame| {
+        let ctx = tiles::Ctx { now: chrono::Local::now(), frame, data: &data };
+        dashboard::draw(&cfg.tiles, c, &ctx);
+    })
+}
+
+fn cmd_preview(args: &[String]) -> Result<()> {
+    let mut config = PathBuf::from(DEFAULT_CONFIG);
+    let mut out = PathBuf::from("preview.png");
+    let mut test = false;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--config" => config = it.next().context("--config needs a file")?.into(),
+            "--out" => out = it.next().context("--out needs a file")?.into(),
+            "--test" => test = true,
+            o => bail!("unknown option {o}"),
+        }
+    }
+    let cfg = Config::load(&config)?;
+    let mask = if cfg.gaps.exists() {
+        Mask::load(&cfg.gaps)?
     } else {
-        eprintln!("panel-ddp: no gap file at {}; the preview shows the whole panel", gaps.display());
+        eprintln!("panel-ddp: no gap file at {}; the preview shows the whole panel", cfg.gaps.display());
         Mask::none()
     };
     let mut canvas = Canvas::new();
     mask::draw_outline(&mut canvas, &mask, Rgb888::new(20, 20, 20));
-    testframe::draw(&mut canvas, 0);
+    if test {
+        testframe::draw(&mut canvas, 0);
+    } else {
+        let data = data::Snapshot::sample();
+        let ctx = tiles::Ctx { now: chrono::Local::now(), frame: 0, data: &data };
+        dashboard::draw(&cfg.tiles, &mut canvas, &ctx);
+    }
     mask.preview_png(&canvas, 4, &out)?;
     eprintln!("panel-ddp: wrote {}", out.display());
     Ok(())
@@ -125,8 +168,9 @@ fn main() {
         }
     };
     let result = match cmd {
-        "test" => cmd_test(rest),
+        "run" => cmd_run(rest),
         "preview" => cmd_preview(rest),
+        "test" => cmd_test(rest),
         "-h" | "--help" => {
             eprintln!("{USAGE}");
             return;

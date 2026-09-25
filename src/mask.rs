@@ -22,7 +22,6 @@ pub enum Tile {
 }
 
 impl Tile {
-    pub const ALL: [Tile; 4] = [Tile::TopLeft, Tile::TopRight, Tile::BottomLeft, Tile::BottomRight];
 
     pub fn rect(self) -> Rectangle {
         let origin = match self {
@@ -57,10 +56,11 @@ impl Mask {
         Ok(Self { lit: values.iter().map(|&v| v == 1).collect() })
     }
 
-    /// A mask that shows everything, for running without the gap file.
+    /// A mask that shows everything, for previews without a gap file.
     pub fn none() -> Self {
         Self { lit: vec![true; (WIDTH * HEIGHT) as usize] }
     }
+
 
     pub fn is_lit(&self, x: u32, y: u32) -> bool {
         self.lit[(y * WIDTH + x) as usize]

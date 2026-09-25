@@ -1,0 +1,18 @@
+# panel-ddp dashboard configuration. Copy to dashboard.toml (git-ignored)
+# and fill in. Every table but `target` is optional.
+
+# WLED host, "host" or "host:port". 4.3.2.1 is the WLED-AP address.
+target = "4.3.2.1"
+fps = 10
+# Gap file for `preview`, relative to this file: a copy of the board's WLED
+# gap file, so hidden pixels come out grey. Optional; without it the preview
+# shows the whole panel. 2d-gaps.example.json hides just the four corners.
+# gaps = "2d-gaps.json"
+
+# What the four tiles show. Kinds: clock, date, blank.
+[tiles]
+top_left = { kind = "clock" }
+top_right = { kind = "date" }
+bottom_left = { kind = "blank" }
+bottom_right = { kind = "blank" }
+hub = { kind = "blank" }
