@@ -14,6 +14,8 @@ mod config;
 mod dashboard;
 mod data;
 mod ddp;
+mod ha;
+mod hub;
 mod icons;
 mod mask;
 mod palette;
@@ -85,7 +87,7 @@ fn stream(s: &Stream, mut draw: impl FnMut(&mut Canvas, u32)) -> Result<()> {
     let mut canvas = Canvas::new();
     let start = Instant::now();
     let mut frame = 0u32;
-    while s.frames.map_or(true, |n| frame < n) {
+    while s.frames.is_none_or(|n| frame < n) {
         draw(&mut canvas, frame);
         sender.send_frame(&canvas.px).context("sending frame")?;
         frame += 1;
@@ -159,7 +161,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     if test {
         testframe::draw(&mut canvas, 0);
     } else {
-        let mut data = data::Snapshot::sample();
+        let mut data = data::Snapshot::sample(&cfg);
         if let (Some(code), Some(w)) = (weather_code, data.weather.as_mut()) {
             w.code = code;
             w.is_day = code < 1000;

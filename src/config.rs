@@ -18,6 +18,24 @@ pub struct Config {
     #[serde(default)]
     pub tiles: Tiles,
     pub weather: Option<WeatherConfig>,
+    pub home_assistant: Option<HomeAssistantConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HomeAssistantConfig {
+    /// e.g. "http://homeassistant.local:8123"
+    pub url: String,
+    /// A long-lived access token (profile page, bottom).
+    pub token: String,
+    /// The media_player entity for the now_playing tile and media hub.
+    pub media_player: Option<String>,
+    #[serde(default = "default_refresh_seconds")]
+    pub refresh_seconds: u64,
+}
+
+fn default_refresh_seconds() -> u64 {
+    10
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -115,6 +133,17 @@ pub enum TileSpec {
     Date,
     /// Sky icon and temperature; needs the [weather] table.
     Weather,
+    /// A Home Assistant entity's state under a label; needs [home_assistant].
+    Sensor {
+        entity: String,
+        label: String,
+        /// Overrides the entity's unit_of_measurement; "" hides it.
+        unit: Option<String>,
+        /// Decimal places for a numeric state; fewer are used if it does not fit.
+        decimals: Option<u8>,
+    },
+    /// Artist and title scrolling; needs [home_assistant].media_player.
+    NowPlaying,
     /// Nothing.
     Blank,
 }
@@ -123,9 +152,27 @@ pub enum TileSpec {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HubSpec {
     Blank,
+    /// Album art as a spinning disc; needs [home_assistant].media_player.
+    Media,
 }
 
 impl Config {
+    /// The four corner tiles, in reading order.
+    pub fn corner_tiles(&self) -> [&TileSpec; 4] {
+        [&self.tiles.top_left, &self.tiles.top_right, &self.tiles.bottom_left, &self.tiles.bottom_right]
+    }
+
+    /// Every entity a sensor tile reads.
+    pub fn sensor_entities(&self) -> Vec<String> {
+        self.corner_tiles()
+            .iter()
+            .filter_map(|t| match t {
+                TileSpec::Sensor { entity, .. } => Some(entity.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
     pub fn load(path: &Path) -> Result<Self> {
         let text = std::fs::read_to_string(path)
             .with_context(|| format!("reading config {}", path.display()))?;
@@ -134,9 +181,20 @@ impl Config {
         if cfg.fps == 0 {
             anyhow::bail!("fps must be positive");
         }
-        let tiles = [&cfg.tiles.top_left, &cfg.tiles.top_right, &cfg.tiles.bottom_left, &cfg.tiles.bottom_right];
+        let tiles = cfg.corner_tiles();
         if cfg.weather.is_none() && tiles.iter().any(|t| matches!(t, TileSpec::Weather)) {
             anyhow::bail!("a weather tile needs the [weather] table");
+        }
+        let needs_ha = tiles.iter().any(|t| matches!(t, TileSpec::Sensor { .. } | TileSpec::NowPlaying))
+            || matches!(cfg.tiles.hub, HubSpec::Media);
+        let needs_player = tiles.iter().any(|t| matches!(t, TileSpec::NowPlaying))
+            || matches!(cfg.tiles.hub, HubSpec::Media);
+        match &cfg.home_assistant {
+            None if needs_ha => anyhow::bail!("sensor, now_playing and media tiles need the [home_assistant] table"),
+            Some(ha) if needs_player && ha.media_player.is_none() => {
+                anyhow::bail!("now_playing and media tiles need [home_assistant].media_player")
+            }
+            _ => {}
         }
         if cfg.gaps.is_relative() {
             if let Some(dir) = path.parent() {

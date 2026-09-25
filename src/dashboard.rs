@@ -1,8 +1,9 @@
 //! Puts the tiles in the corners and the hub in the middle.
 
 use crate::canvas::Canvas;
-use crate::config::{HubSpec, Tiles};
-use crate::mask::{hub, Tile};
+use crate::config::Tiles;
+use crate::hub;
+use crate::mask::Tile;
 use crate::palette::BLACK;
 use crate::tiles::{self, Ctx};
 use embedded_graphics::prelude::*;
@@ -18,9 +19,5 @@ pub fn draw(tiles: &Tiles, c: &mut Canvas, ctx: &Ctx) {
     for (tile, spec) in specs {
         tiles::draw(spec, c, tile.rect(), ctx);
     }
-    match tiles.hub {
-        HubSpec::Blank => {
-            let _ = hub();
-        }
-    }
+    hub::draw(&tiles.hub, c, ctx.data, ctx.frame);
 }

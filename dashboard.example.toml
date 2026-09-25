@@ -17,10 +17,21 @@ longitude = -122.42
 units = "celsius"
 refresh_minutes = 10
 
-# What the four tiles show. Kinds: clock, date, weather, blank.
+# Home Assistant, for the sensor and now_playing tiles and the media hub.
+# The token is a long-lived access token from your profile page. Remove
+# the table to run without it.
+[home_assistant]
+url = "http://homeassistant.local:8123"
+token = "PASTE-TOKEN"
+media_player = "media_player.living_room"
+refresh_seconds = 10
+
+# What the four tiles show and what goes in the hub.
+# Tile kinds: clock, date, weather, sensor, now_playing, blank.
+# Hub kinds: media, blank.
 [tiles]
 top_left = { kind = "clock" }
 top_right = { kind = "date" }
 bottom_left = { kind = "weather" }
-bottom_right = { kind = "blank" }
-hub = { kind = "blank" }
+bottom_right = { kind = "sensor", entity = "sensor.nozzle_temperature", label = "NOZZLE", decimals = 0 }
+hub = { kind = "media" }

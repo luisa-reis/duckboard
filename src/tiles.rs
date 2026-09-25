@@ -29,6 +29,10 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx) {
         TileSpec::Clock => clock(&mut clipped, area, ctx),
         TileSpec::Date => date(&mut clipped, area, ctx),
         TileSpec::Weather => weather(&mut clipped, area, ctx),
+        TileSpec::Sensor { entity, label, unit, decimals } => {
+            sensor(&mut clipped, area, ctx, entity, label, unit.as_deref(), *decimals)
+        }
+        TileSpec::NowPlaying => now_playing(&mut clipped, area, ctx),
         TileSpec::Blank => {}
     }
 }
@@ -57,7 +61,7 @@ fn clock<D: DrawTarget<Color = Rgb888>>(t: &mut D, area: Rectangle, ctx: &Ctx) {
     let big = MonoTextStyle::new(&FONT_6X10, SKY);
     centred(t, &format!("{:02}", ctx.now.minute()), cx, o.y + 12, big);
     // Seconds as a bar along the bottom edge, growing left to right.
-    let w = (ctx.now.second() as u32 * 24 / 59).max(1);
+    let w = (ctx.now.second() * 24 / 59).max(1);
     fill(t, Rectangle::new(Point::new(o.x, o.y + 23), Size::new(24, 1)), DIM);
     fill(t, Rectangle::new(Point::new(o.x, o.y + 23), Size::new(w, 1)), AMBER);
 }
@@ -86,4 +90,75 @@ fn weather<D: DrawTarget<Color = Rgb888>>(t: &mut D, area: Rectangle, ctx: &Ctx)
     icons::draw(t, Sky::from_code(w.code), w.is_day, o + Point::new((24 - icons::SIZE as i32) / 2, 0));
     let temp = format!("{}°", w.temperature.round() as i32);
     centred(t, &temp, cx, o.y + 13, MonoTextStyle::new(&FONT_6X10, WHITE));
+}
+
+/// Pixel width of `text` in a font whose characters are `cw` wide.
+fn text_width(text: &str, cw: i32) -> i32 {
+    text.chars().count() as i32 * cw - 1
+}
+
+fn sensor<D: DrawTarget<Color = Rgb888>>(
+    t: &mut D,
+    area: Rectangle,
+    ctx: &Ctx,
+    entity: &str,
+    label: &str,
+    unit: Option<&str>,
+    decimals: Option<u8>,
+) {
+    let o = area.top_left;
+    let cx = o.x + 12;
+    centred(t, label, cx, o.y, MonoTextStyle::new(&FONT_4X6, GREY));
+    let Some(s) = ctx.data.sensors.get(entity) else {
+        centred(t, "--", cx, o.y + 8, MonoTextStyle::new(&FONT_6X10, DIM));
+        return;
+    };
+    let value = match s.state.parse::<f64>() {
+        Ok(v) => {
+            // Fit 24 pixels: four characters of the big font. Decimals go
+            // first, then the font.
+            let want = decimals.map(usize::from).unwrap_or(if s.state.contains('.') { 1 } else { 0 });
+            let mut text = format!("{v:.want$}");
+            if text_width(&text, 6) > 24 {
+                text = format!("{v:.0}");
+            }
+            text
+        }
+        Err(_) => s.state.to_uppercase(),
+    };
+    if text_width(&value, 6) <= 24 {
+        centred(t, &value, cx, o.y + 8, MonoTextStyle::new(&FONT_6X10, WHITE));
+    } else {
+        centred(t, &value, cx, o.y + 10, MonoTextStyle::new(&FONT_4X6, WHITE));
+    }
+    let unit = unit.map(str::to_string).or_else(|| s.unit.clone()).unwrap_or_default();
+    centred(t, &unit, cx, o.y + 18, MonoTextStyle::new(&FONT_4X6, GREY));
+}
+
+/// Text on one line, scrolling left when wider than the tile.
+fn marquee<D: DrawTarget<Color = Rgb888>>(t: &mut D, text: &str, area: Rectangle, top: i32, frame: u32, colour: Rgb888) {
+    let style = MonoTextStyle::new(&FONT_4X6, colour);
+    let o = area.top_left;
+    let w = text_width(text, 4);
+    let width = area.size.width as i32;
+    if w <= width {
+        centred(t, text, o.x + width / 2, top, style);
+        return;
+    }
+    let gap = 12;
+    let offset = (frame / 2) as i32 % (w + gap);
+    let ts = TextStyleBuilder::new().alignment(Alignment::Left).baseline(Baseline::Top).build();
+    for start in [o.x - offset, o.x - offset + w + gap] {
+        let _ = Text::with_text_style(text, Point::new(start, top), style, ts).draw(t);
+    }
+}
+
+fn now_playing<D: DrawTarget<Color = Rgb888>>(t: &mut D, area: Rectangle, ctx: &Ctx) {
+    let o = area.top_left;
+    let Some(m) = ctx.data.media.as_ref().filter(|m| m.playing) else {
+        centred(t, "--", o.x + 12, o.y + 8, MonoTextStyle::new(&FONT_6X10, DIM));
+        return;
+    };
+    marquee(t, &m.artist, area, o.y + 4, ctx.frame, GREY);
+    marquee(t, &m.title, area, o.y + 13, ctx.frame, WHITE);
 }
