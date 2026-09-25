@@ -17,6 +17,39 @@ pub struct Config {
     pub gaps: PathBuf,
     #[serde(default)]
     pub tiles: Tiles,
+    pub weather: Option<WeatherConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WeatherConfig {
+    pub latitude: f64,
+    pub longitude: f64,
+    #[serde(default)]
+    pub units: Units,
+    #[serde(default = "default_refresh_minutes")]
+    pub refresh_minutes: u64,
+}
+
+fn default_refresh_minutes() -> u64 {
+    10
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Units {
+    #[default]
+    Celsius,
+    Fahrenheit,
+}
+
+impl Units {
+    pub fn api_name(self) -> &'static str {
+        match self {
+            Units::Celsius => "celsius",
+            Units::Fahrenheit => "fahrenheit",
+        }
+    }
 }
 
 fn default_fps() -> u32 {
@@ -80,6 +113,8 @@ pub enum TileSpec {
     Clock,
     /// Weekday, day of month, month.
     Date,
+    /// Sky icon and temperature; needs the [weather] table.
+    Weather,
     /// Nothing.
     Blank,
 }
@@ -98,6 +133,10 @@ impl Config {
             toml::from_str(&text).with_context(|| format!("parsing config {}", path.display()))?;
         if cfg.fps == 0 {
             anyhow::bail!("fps must be positive");
+        }
+        let tiles = [&cfg.tiles.top_left, &cfg.tiles.top_right, &cfg.tiles.bottom_left, &cfg.tiles.bottom_right];
+        if cfg.weather.is_none() && tiles.iter().any(|t| matches!(t, TileSpec::Weather)) {
+            anyhow::bail!("a weather tile needs the [weather] table");
         }
         if cfg.gaps.is_relative() {
             if let Some(dir) = path.parent() {

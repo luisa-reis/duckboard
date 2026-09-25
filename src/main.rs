@@ -14,10 +14,12 @@ mod config;
 mod dashboard;
 mod data;
 mod ddp;
+mod icons;
 mod mask;
 mod palette;
 mod testframe;
 mod tiles;
+mod weather;
 
 use anyhow::{bail, Context, Result};
 use canvas::Canvas;
@@ -30,7 +32,7 @@ use std::time::{Duration, Instant};
 
 const USAGE: &str = "usage:
   panel-ddp run [--config FILE] [--frames N]
-  panel-ddp preview [--config FILE] [--out FILE] [--test]
+  panel-ddp preview [--config FILE] [--out FILE] [--test | --weather-code N]
   panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]";
 
 const DEFAULT_CONFIG: &str = "dashboard.toml";
@@ -117,8 +119,10 @@ fn cmd_run(args: &[String]) -> Result<()> {
     }
     let cfg = Config::load(&config)?;
     let s = Stream { target: ddp::target_with_default_port(&cfg.target), fps: cfg.fps, frames };
-    let data = data::Snapshot::default();
+    let shared: data::Shared = Default::default();
+    data::spawn_sources(&cfg, &shared);
     stream(&s, |c, frame| {
+        let data = shared.lock().unwrap().clone();
         let ctx = tiles::Ctx { now: chrono::Local::now(), frame, data: &data };
         dashboard::draw(&cfg.tiles, c, &ctx);
     })
@@ -128,12 +132,18 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     let mut config = PathBuf::from(DEFAULT_CONFIG);
     let mut out = PathBuf::from("preview.png");
     let mut test = false;
+    let mut weather_code = None;
     let mut it = args.iter();
     while let Some(a) = it.next() {
         match a.as_str() {
             "--config" => config = it.next().context("--config needs a file")?.into(),
             "--out" => out = it.next().context("--out needs a file")?.into(),
             "--test" => test = true,
+            "--weather-code" => {
+                weather_code = Some(
+                    it.next().and_then(|v| v.parse().ok()).context("--weather-code needs a number")?,
+                )
+            }
             o => bail!("unknown option {o}"),
         }
     }
@@ -149,7 +159,12 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     if test {
         testframe::draw(&mut canvas, 0);
     } else {
-        let data = data::Snapshot::sample();
+        let mut data = data::Snapshot::sample();
+        if let (Some(code), Some(w)) = (weather_code, data.weather.as_mut()) {
+            w.code = code;
+            w.is_day = code < 1000;
+            w.code %= 1000;
+        }
         let ctx = tiles::Ctx { now: chrono::Local::now(), frame: 0, data: &data };
         dashboard::draw(&cfg.tiles, &mut canvas, &ctx);
     }

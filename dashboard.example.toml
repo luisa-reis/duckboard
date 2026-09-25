@@ -9,10 +9,18 @@ fps = 10
 # shows the whole panel. 2d-gaps.example.json hides just the four corners.
 # gaps = "2d-gaps.json"
 
-# What the four tiles show. Kinds: clock, date, blank.
+# Current conditions from Open-Meteo (no key needed). units: celsius or
+# fahrenheit. Remove the table to drop the weather tile.
+[weather]
+latitude = 37.77
+longitude = -122.42
+units = "celsius"
+refresh_minutes = 10
+
+# What the four tiles show. Kinds: clock, date, weather, blank.
 [tiles]
 top_left = { kind = "clock" }
 top_right = { kind = "date" }
-bottom_left = { kind = "blank" }
+bottom_left = { kind = "weather" }
 bottom_right = { kind = "blank" }
 hub = { kind = "blank" }

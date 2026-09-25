@@ -4,7 +4,9 @@
 use crate::canvas::Canvas;
 use crate::config::TileSpec;
 use crate::data::Snapshot;
+use crate::icons;
 use crate::palette::*;
+use crate::weather::Sky;
 use chrono::{DateTime, Datelike, Local, Timelike};
 use embedded_graphics::{
     mono_font::{iso_8859_1::FONT_4X6, iso_8859_1::FONT_5X8, iso_8859_1::FONT_6X10, MonoTextStyle},
@@ -26,6 +28,7 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx) {
     match spec {
         TileSpec::Clock => clock(&mut clipped, area, ctx),
         TileSpec::Date => date(&mut clipped, area, ctx),
+        TileSpec::Weather => weather(&mut clipped, area, ctx),
         TileSpec::Blank => {}
     }
 }
@@ -71,4 +74,16 @@ fn date<D: DrawTarget<Color = Rgb888>>(t: &mut D, area: Rectangle, ctx: &Ctx) {
     centred(t, weekday, cx, o.y, MonoTextStyle::new(&FONT_5X8, AMBER));
     centred(t, &ctx.now.day().to_string(), cx, o.y + 8, MonoTextStyle::new(&FONT_6X10, WHITE));
     centred(t, month, cx, o.y + 18, MonoTextStyle::new(&FONT_4X6, GREY));
+}
+
+fn weather<D: DrawTarget<Color = Rgb888>>(t: &mut D, area: Rectangle, ctx: &Ctx) {
+    let o = area.top_left;
+    let cx = o.x + 12;
+    let Some(w) = &ctx.data.weather else {
+        centred(t, "--", cx, o.y + 13, MonoTextStyle::new(&FONT_6X10, DIM));
+        return;
+    };
+    icons::draw(t, Sky::from_code(w.code), w.is_day, o + Point::new((24 - icons::SIZE as i32) / 2, 0));
+    let temp = format!("{}°", w.temperature.round() as i32);
+    centred(t, &temp, cx, o.y + 13, MonoTextStyle::new(&FONT_6X10, WHITE));
 }
