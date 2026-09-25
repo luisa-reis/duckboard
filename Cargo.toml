@@ -1,15 +1,22 @@
 [package]
 name = "panel-ddp"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Streams frames to the WLED panel over DDP; draws them with embedded-graphics"
+description = "Dashboard for a 64x64 WLED matrix: draws with embedded-graphics, streams over DDP"
 
 [[bin]]
 name = "panel-ddp"
 path = "src/main.rs"
 
 [dependencies]
+anyhow = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 embedded-graphics = "0.8"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+ureq = { version = "2", features = ["json"] }
 
 [profile.release]
 opt-level = 2
