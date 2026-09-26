@@ -91,8 +91,9 @@ Loading refuses a config whose tiles need a table it lacks. When both
 ## Spotify
 
 Spotify's API needs an app of your own, which takes a minute: at
-developer.spotify.com/dashboard create an app, add the redirect URI
-`http://127.0.0.1:8888/callback`, and copy its Client ID into `[spotify]`.
+developer.spotify.com/dashboard create an app: any name and description, the
+redirect URI `http://127.0.0.1:8888/callback`, and under "Which API/SDKs are
+you planning to use?" tick Web API only. Copy its Client ID into `[spotify]`.
 Then log in once:
 
 ```sh
