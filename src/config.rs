@@ -61,6 +61,9 @@ pub struct DemoConfig {
     /// The print progress filling from 0 to 100.
     #[serde(default = "d_progress")]
     pub progress_seconds: f32,
+    /// The laundry temperature in place of the progress, before the alert.
+    #[serde(default = "d_sensor")]
+    pub sensor_seconds: f32,
     /// The water leak alert.
     #[serde(default = "d_alert")]
     pub alert_seconds: f32,
@@ -104,6 +107,9 @@ fn d_weather() -> f32 {
 fn d_progress() -> f32 {
     10.0
 }
+fn d_sensor() -> f32 {
+    4.0
+}
 fn d_alert() -> f32 {
     5.0
 }
@@ -133,6 +139,7 @@ impl Default for DemoConfig {
             clock_seconds: d_clock(),
             weather_seconds: d_weather(),
             progress_seconds: d_progress(),
+            sensor_seconds: d_sensor(),
             alert_seconds: d_alert(),
             dashboard_seconds: d_dashboard(),
             hub_seconds: d_hub(),
@@ -604,6 +611,7 @@ impl Config {
                 d.clock_seconds,
                 d.weather_seconds,
                 d.progress_seconds,
+                d.sensor_seconds,
                 d.alert_seconds,
                 d.dashboard_seconds,
                 d.hub_seconds,

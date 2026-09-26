@@ -120,6 +120,7 @@ keep_originals = false
 # clock_seconds = 5.0       # after the clock joins
 # weather_seconds = 2.5     # each sky, nine of them
 # progress_seconds = 10.0   # the bar filling
+# sensor_seconds = 4.0      # the laundry temperature in its place
 # alert_seconds = 5.0       # the alert
 # dashboard_seconds = 5.0   # the dashboard after it, plain
 # hub_seconds = 5.0         # a cover as a disc in the hub

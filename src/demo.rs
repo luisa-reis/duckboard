@@ -5,11 +5,12 @@
 //! 2. The clock joins it.
 //! 3. The weather, showing every kind of sky.
 //! 4. The print progress, filling from 0 to 100.
-//! 5. The water leak alert.
-//! 6. The whole dashboard again, plain.
-//! 7. The same with a cover as a disc in the hub.
-//! 8. The same over cached album covers, one after another.
-//! 9. The covers alone, nothing else drawn.
+//! 5. The laundry temperature in its place.
+//! 6. The water leak alert.
+//! 7. The whole dashboard again, plain.
+//! 8. The same with a cover as a disc in the hub.
+//! 9. The same over cached album covers, one after another.
+//! 10. The covers alone, nothing else drawn.
 
 use crate::artcache::{ArtCache, Entry};
 use crate::canvas::Canvas;
@@ -32,6 +33,7 @@ const ART_FILE_SCALE: u32 = 4;
 const SKIES: [(u16, bool); 9] =
     [(0, true), (0, false), (1, true), (1, false), (3, true), (45, true), (61, true), (71, true), (95, true)];
 const PROGRESS_ENTITY: &str = "sensor.demo_print_progress";
+const SENSOR_ENTITY: &str = "sensor.demo_laundry_temperature";
 const LEAK_ENTITY: &str = "binary_sensor.demo_water_leak";
 /// The date's tour of the tiles: top left, bottom left, bottom right, and
 /// top right, where it stays.
@@ -43,6 +45,7 @@ pub struct Demo {
     clock: u32,
     sky: u32,
     progress: u32,
+    sensor: u32,
     alert: u32,
     dashboard: u32,
     hub: u32,
@@ -92,6 +95,7 @@ impl Demo {
             clock: frames(d.clock_seconds),
             sky: frames(d.weather_seconds),
             progress: frames(d.progress_seconds),
+            sensor: frames(d.sensor_seconds),
             alert: frames(d.alert_seconds),
             dashboard: frames(d.dashboard_seconds),
             hub: frames(d.hub_seconds),
@@ -145,6 +149,7 @@ impl Demo {
             + self.clock
             + self.sky * SKIES.len() as u32
             + self.progress
+            + self.sensor
             + self.alert
             + self.dashboard
             + self.hub * self.covers.len().min(1) as u32
@@ -159,16 +164,18 @@ impl Demo {
         let mut clock = false;
         let mut sky: Option<(u16, bool)> = None;
         let mut progress: Option<f64> = None;
+        let mut sensor = false;
         let mut leak = false;
         let mut cover: Option<usize> = None;
         let mut placement = Placement::Background;
 
         let n_covers = self.covers.len() as u32;
-        let stages: [(u32, u32); 9] = [
+        let stages: [(u32, u32); 10] = [
             (self.tile, 4),
             (self.clock, 1),
             (self.sky, SKIES.len() as u32),
             (self.progress, 1),
+            (self.sensor, 1),
             (self.alert, 1),
             (self.dashboard, 1),
             (self.hub, n_covers.min(1)),
@@ -194,17 +201,22 @@ impl Demo {
             sky = Some(SKIES[0]);
             progress = Some(100.0);
         }
+        if stage >= 4 {
+            // The print is done; the tile shows the laundry from here on.
+            progress = None;
+            sensor = true;
+        }
         match stage {
             0 => date_tile = TOUR[index as usize],
             2 => sky = Some(SKIES[index as usize]),
             3 => progress = Some((within as f64 / self.progress as f64 * 100.0).round().min(100.0)),
-            4 => leak = true,
-            6 => {
+            5 => leak = true,
+            7 => {
                 cover = Some(0);
                 placement = Placement::Hub;
             }
-            7 => cover = Some(index as usize),
-            8 => {
+            8 => cover = Some(index as usize),
+            9 => {
                 cover = Some(index as usize);
                 placement = Placement::Alone;
             }
@@ -215,11 +227,13 @@ impl Demo {
         }
 
         self.write_art_file(cover);
-        let tiles = self.tiles(date_tile, clock, sky.is_some(), progress.is_some(), cover.is_some(), placement);
+        let tiles = self.tiles(date_tile, clock, sky.is_some(), progress.is_some(), sensor, cover.is_some(), placement);
         let mut sensors = HashMap::new();
         if let Some(v) = progress {
             sensors.insert(PROGRESS_ENTITY.to_string(), Sensor { state: format!("{v}"), unit: Some("%".into()) });
         }
+        // 29 °C, shown in whichever unit the config asks for.
+        sensors.insert(SENSOR_ENTITY.to_string(), Sensor { state: "29".into(), unit: Some("°C".into()) });
         sensors.insert(LEAK_ENTITY.to_string(), Sensor { state: if leak { "on" } else { "off" }.into(), unit: None });
         let media = cover.map(|i| {
             let e = &self.covers[i];
@@ -246,12 +260,14 @@ impl Demo {
         dashboard::draw(&tiles, std::slice::from_ref(&self.alert_spec), c, &ctx);
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn tiles(
         &self,
         date_tile: usize,
         clock: bool,
         weather: bool,
         progress: bool,
+        sensor: bool,
         art: bool,
         placement: Placement,
     ) -> Tiles {
@@ -275,6 +291,14 @@ impl Demo {
                 label: "PRINT".into(),
                 max: 100.0,
                 decimals: 0,
+            });
+        }
+        if sensor {
+            tiles[2] = entry(TileSpec::Sensor {
+                entity: SENSOR_ENTITY.into(),
+                label: "LNDRY".into(),
+                unit: None,
+                decimals: None,
             });
         }
         if art && placement == Placement::Alone {

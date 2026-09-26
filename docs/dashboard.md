@@ -186,8 +186,8 @@ corners of the faded shape; the background has its `alpha`.
 `panel-ddp demo` streams a scripted crescendo on made-up data, for showing
 the panel off: the date alone, visiting each tile in turn; the clock joining
 it; the weather tile showing every kind of sky, day and night; the print
-progress filling from 0 to 100; the water leak alert; the whole dashboard
-plain for a moment; the same with a cover as a disc in the hub; the same
+progress filling from 0 to 100; the laundry temperature in its place; the
+water leak alert; the whole dashboard plain for a moment; the same with a cover as a disc in the hub; the same
 over each album cover from the art cache, newest first; and finally the
 covers alone, nothing else drawn. It loops until
 Ctrl-C, or `--once` plays a single pass. It needs no source: only `target`,
@@ -203,6 +203,7 @@ tile_seconds = 3.0        # the date in each tile
 clock_seconds = 5.0       # after the clock joins
 weather_seconds = 2.5     # each sky, nine of them
 progress_seconds = 10.0   # the bar filling
+sensor_seconds = 4.0      # the laundry temperature in its place
 alert_seconds = 5.0       # the alert
 dashboard_seconds = 5.0   # the dashboard after it, plain
 hub_seconds = 5.0         # a cover as a disc in the hub
