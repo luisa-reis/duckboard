@@ -1,4 +1,5 @@
-//! The dashboard configuration, a TOML file. See dashboard.example.toml.
+//! The dashboard configuration, a TOML file or the same in JSON. See
+//! dashboard.example.toml, and demo.json for pages.
 
 use crate::palette::{Overrides, Rgba};
 use anyhow::{Context, Result};
@@ -731,8 +732,12 @@ impl Config {
     pub fn load(path: &Path) -> Result<Self> {
         let text = std::fs::read_to_string(path)
             .with_context(|| format!("reading config {}", path.display()))?;
-        let mut cfg: Config =
-            toml::from_str(&text).with_context(|| format!("parsing config {}", path.display()))?;
+        // TOML, or JSON for a `.json` file; the fields are the same.
+        let mut cfg: Config = if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("json")) {
+            serde_json::from_str(&text).with_context(|| format!("parsing config {}", path.display()))?
+        } else {
+            toml::from_str(&text).with_context(|| format!("parsing config {}", path.display()))?
+        };
         if cfg.fps == 0 {
             anyhow::bail!("fps must be positive");
         }
@@ -882,6 +887,30 @@ fn validate_tiles(t: &Tiles) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::Units;
+
+    #[test]
+    fn json_and_toml_read_the_same() {
+        let dir = std::env::temp_dir().join(format!("panel-ddp-cfg-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let toml_path = dir.join("c.toml");
+        let json_path = dir.join("c.json");
+        std::fs::write(
+            &toml_path,
+            "target = \"x\"\n[[pages]]\nseconds = 2\ntop_left = { kind = \"clock\", colors = { track = \"#ffffff10\" } }\ndata = { sensors = { \"sensor.a\" = { sweep = [0, 100] } } }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            &json_path,
+            r##"{"target": "x", "pages": [{"seconds": 2, "top_left": {"kind": "clock", "colors": {"track": "#ffffff10"}}, "data": {"sensors": {"sensor.a": {"sweep": [0, 100]}}}}]}"##,
+        )
+        .unwrap();
+        let a = super::Config::load(&toml_path).unwrap();
+        let b = super::Config::load(&json_path).unwrap();
+        assert_eq!(format!("{:?}", a.pages), format!("{:?}", b.pages));
+        let bad = dir.join("bad.json");
+        std::fs::write(&bad, r#"{"target": "x", "pages": [{"seconds": 2, "top_left": {"kind": "date", "bogus": 1}}]}"#).unwrap();
+        assert!(super::Config::load(&bad).is_err(), "stray keys are refused in JSON too");
+    }
 
     #[test]
     fn converts_between_degrees_only() {

@@ -1,0 +1,62 @@
+{
+  "target": "4.3.2.1",
+  "fps": 10,
+  "art_file": "demo-art.jpg",
+  "art_cache": {
+    "keep_originals": true
+  },
+  "frame": {
+    "dir": "frame"
+  },
+  "alerts": [
+    {
+      "entity": "binary_sensor.demo_water_leak",
+      "label": "WATER LEAK"
+    }
+  ],
+  "pages": [
+    {"seconds": 2.0, "top_left": {"kind": "date"}},
+    {"seconds": 2.0, "bottom_left": {"kind": "date"}},
+    {"seconds": 2.0, "bottom_right": {"kind": "date"}},
+    {"seconds": 2.0, "top_right": {"kind": "date"}},
+    {"seconds": 5.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}},
+    {"seconds": 2.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_right": {"kind": "weather"}, "data": {"weather": {"code": 0, "is_day": true, "temperature": 72}}},
+    {"seconds": 2.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_right": {"kind": "weather"}, "data": {"weather": {"code": 0, "is_day": false, "temperature": 72}}},
+    {"seconds": 2.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_right": {"kind": "weather"}, "data": {"weather": {"code": 1, "is_day": true, "temperature": 72}}},
+    {"seconds": 2.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_right": {"kind": "weather"}, "data": {"weather": {"code": 1, "is_day": false, "temperature": 72}}},
+    {"seconds": 2.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_right": {"kind": "weather"}, "data": {"weather": {"code": 3, "is_day": true, "temperature": 72}}},
+    {"seconds": 2.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_right": {"kind": "weather"}, "data": {"weather": {"code": 45, "is_day": true, "temperature": 72}}},
+    {"seconds": 2.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_right": {"kind": "weather"}, "data": {"weather": {"code": 61, "is_day": true, "temperature": 72}}},
+    {"seconds": 2.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_right": {"kind": "weather"}, "data": {"weather": {"code": 71, "is_day": true, "temperature": 72}}},
+    {"seconds": 2.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_right": {"kind": "weather"}, "data": {"weather": {"code": 95, "is_day": true, "temperature": 72}}},
+    {"seconds": 10.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "progress", "entity": "sensor.demo_print_progress", "label": "PRINT"}, "bottom_right": {"kind": "weather"}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_print_progress": {"sweep": [0, 100], "unit": "%"}}}},
+    {"seconds": 4.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}}},
+    {"seconds": 5.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}, "binary_sensor.demo_water_leak": {"state": "on"}}}},
+    {"seconds": 5.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}}},
+    {"seconds": 5.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "hub": {"kind": "media"}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}, "cover": 0}},
+    {"seconds": 4.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "background": {"kind": "media", "alpha": 0.12}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}, "cover": 0}},
+    {"seconds": 4.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "background": {"kind": "media", "alpha": 0.12}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}, "cover": 1}},
+    {"seconds": 4.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "background": {"kind": "media", "alpha": 0.12}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}, "cover": 2}},
+    {"seconds": 4.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "background": {"kind": "media", "alpha": 0.12}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}, "cover": 3}},
+    {"seconds": 4.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "background": {"kind": "media", "alpha": 0.12}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}, "cover": 4}},
+    {"seconds": 4.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "background": {"kind": "media", "alpha": 0.12}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}, "cover": 5}},
+    {"seconds": 4.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "background": {"kind": "media", "alpha": 0.12}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}, "cover": 6}},
+    {"seconds": 4.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "background": {"kind": "media", "alpha": 0.12}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}, "cover": 7}},
+    {"seconds": 4.0, "background": {"kind": "media", "alpha": 1.0}, "data": {"cover": 0}},
+    {"seconds": 4.0, "background": {"kind": "media", "alpha": 1.0}, "data": {"cover": 1}},
+    {"seconds": 4.0, "background": {"kind": "media", "alpha": 1.0}, "data": {"cover": 2}},
+    {"seconds": 4.0, "background": {"kind": "media", "alpha": 1.0}, "data": {"cover": 3}},
+    {"seconds": 4.0, "background": {"kind": "media", "alpha": 1.0}, "data": {"cover": 4}},
+    {"seconds": 4.0, "background": {"kind": "media", "alpha": 1.0}, "data": {"cover": 5}},
+    {"seconds": 4.0, "background": {"kind": "media", "alpha": 1.0}, "data": {"cover": 6}},
+    {"seconds": 4.0, "background": {"kind": "media", "alpha": 1.0}, "data": {"cover": 7}},
+    {"seconds": 4.0, "background": {"kind": "frame", "alpha": 1.0}, "data": {"picture": 0}},
+    {"seconds": 4.0, "background": {"kind": "frame", "alpha": 1.0}, "data": {"picture": 1}},
+    {"seconds": 4.0, "background": {"kind": "frame", "alpha": 1.0}, "data": {"picture": 2}},
+    {"seconds": 4.0, "background": {"kind": "frame", "alpha": 1.0}, "data": {"picture": 3}},
+    {"seconds": 4.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "background": {"kind": "frame", "alpha": 0.12}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}, "picture": 0}},
+    {"seconds": 4.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "background": {"kind": "frame", "alpha": 0.12}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}, "picture": 1}},
+    {"seconds": 4.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "background": {"kind": "frame", "alpha": 0.12}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}, "picture": 2}},
+    {"seconds": 4.0, "top_left": {"kind": "clock"}, "top_right": {"kind": "date"}, "bottom_left": {"kind": "sensor", "entity": "sensor.demo_laundry_temperature", "label": "LNDRY"}, "bottom_right": {"kind": "weather"}, "background": {"kind": "frame", "alpha": 0.12}, "data": {"weather": {"code": 0, "temperature": 72}, "sensors": {"sensor.demo_laundry_temperature": {"state": "29", "unit": "°C"}}, "picture": 3}}
+  ]
+}
