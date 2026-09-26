@@ -220,7 +220,7 @@ impl Default for Tiles {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum TileSpec {
-    /// Hours over minutes, with a seconds bar.
+    /// Hours over minutes inside a seconds ring.
     Clock,
     /// Weekday, day of month, month.
     Date,

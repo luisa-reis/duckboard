@@ -12,7 +12,7 @@ use embedded_graphics::{
     mono_font::{iso_8859_1::FONT_4X6, iso_8859_1::FONT_5X8, iso_8859_1::FONT_6X10, MonoTextStyle},
     pixelcolor::Rgb888,
     prelude::*,
-    primitives::{PrimitiveStyle, Rectangle},
+    primitives::{Circle, PrimitiveStyle, Rectangle},
     text::{Alignment, Baseline, Text, TextStyleBuilder},
 };
 
@@ -60,13 +60,24 @@ fn clock<D: DrawTarget<Color = Rgb888>>(t: &mut D, area: Rectangle, ctx: &Ctx) {
     let o = area.top_left;
     let cx = o.x + 12;
     let big = MonoTextStyle::new(&FONT_6X10, WHITE);
-    centred(t, &format!("{:02}", ctx.now.hour()), cx, o.y + 1, big);
+    centred(t, &format!("{:02}", ctx.now.hour()), cx, o.y + 2, big);
     let big = MonoTextStyle::new(&FONT_6X10, SKY);
     centred(t, &format!("{:02}", ctx.now.minute()), cx, o.y + 12, big);
-    // Seconds as a bar along the bottom edge, growing left to right.
-    let w = (ctx.now.second() * 24 / 59).max(1);
-    fill(t, Rectangle::new(Point::new(o.x, o.y + 23), Size::new(24, 1)), DIM);
-    fill(t, Rectangle::new(Point::new(o.x, o.y + 23), Size::new(w, 1)), AMBER);
+    // Seconds as a ring around the tile, filling clockwise from twelve
+    // o'clock, one step per second. The ring's pixels come from the circle
+    // itself, so the track and the fill agree.
+    let ring = Circle::new(o, 24).into_styled(PrimitiveStyle::with_stroke(DIM, 1));
+    let filled = ctx.now.second() as f32 / 60.0 * std::f32::consts::TAU;
+    let centre = 11.5;
+    let _ = t.draw_iter(ring.pixels().map(|Pixel(p, _)| {
+        let dx = (p.x - o.x) as f32 - centre;
+        let dy = (p.y - o.y) as f32 - centre;
+        let mut angle = dx.atan2(-dy); // 0 at twelve, clockwise
+        if angle < 0.0 {
+            angle += std::f32::consts::TAU;
+        }
+        Pixel(p, if angle < filled { AMBER } else { DIM })
+    }));
 }
 
 const WEEKDAYS: [&str; 7] = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
