@@ -297,6 +297,23 @@ target/release/panel-ddp preview --alert            # the alert view
 target/release/panel-ddp test <board-ip>            # colour bars, ramp, counter, bouncing dot
 ```
 
+Common patterns:
+
+```sh
+# One demo pass, then back to the live dashboard: --once makes the first
+# command end, so the second takes over.
+target/release/panel-ddp run --config demo.json --target <board> --once && \
+  target/release/panel-ddp run --config dashboard.toml
+
+# Stop whatever is streaming, from another terminal. Ctrl-C does the same in
+# its own; either way the run ends cleanly and removes its art_file. The
+# board falls back to its presets a couple of seconds later.
+pkill -f "panel-ddp run"
+```
+
+Only one sender at a time: two streams to the same board fight over the
+panel, so stop the running one before starting another.
+
 Each source runs on its own thread with its own refresh interval and keeps the
 last good reading, so a slow or dead service never stalls a frame. A failure is
 logged once, when its message changes. Album art is fetched only when the
