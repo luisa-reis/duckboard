@@ -20,22 +20,35 @@ The screen is split into five areas, four tiles and a hub:
 | bottom right | (38, 38) | 24×24 |
 | hub          | (21, 21) | 22×22 |
 
-Each corner shows one tile, the hub one of its own kinds:
+Each corner shows one tile, the hub one of its own kinds. A clock-and-weather
+panel needs no account at all; the rest switch on with a table in the config.
+
+No source needed:
 
 - `clock` — hours over minutes, a seconds bar along the bottom edge.
 - `date` — weekday, day of month, month.
-- `weather` — sky icon and temperature from Open-Meteo, no key needed.
-- `sensor` — one Home Assistant entity: label, value, unit. A numeric value
-  loses decimals, then switches to the small font, to fit four characters.
-- `progress` — one Home Assistant entity as a label, the value with its unit
-  beside it, and a bar along the bottom edge that is full at `max` (default
-  100), amber on the way and green when full.
-- `now_playing` — artist and title of the media player, scrolling when wider
-  than the tile, blank while nothing plays.
 - `blank`
+
+With `[weather]`, which is just a location:
+
+- `weather` — sky icon and temperature from Open-Meteo, no key needed.
+
+With `[spotify]`, or a Home Assistant media player:
+
+- `now_playing` — artist and title, scrolling when wider than the tile, blank
+  while nothing plays.
 - hub `media` — the album art as a disc, spinning while playing, dimmed and
   still while paused, a faint ripple when idle.
-- hub `blank`
+
+With `[home_assistant]`:
+
+- `sensor` — one entity: label, value, unit. A numeric value loses decimals,
+  then switches to the small font, to fit four characters.
+- `progress` — one entity as a label, the value with its unit beside it, and
+  a bar along the bottom edge that is full at `max` (default 100), amber on
+  the way and green when full.
+
+The hub also takes `blank`.
 
 ![sample dashboard behind the mask](dashboard-preview.png)
 
@@ -63,14 +76,35 @@ optional:
   hides the four corners.
 - `[weather]` — latitude, longitude, `units` (`celsius` or `fahrenheit`),
   `refresh_minutes`.
+- `[spotify]` — `client_id`, and optionally `token_file` (default
+  `spotify-token.json` next to the config) and `refresh_seconds`. See below.
 - `[home_assistant]` — `url`, a long-lived access `token` (profile page,
-  bottom), the `media_player` entity for `now_playing` and the `media` hub,
-  `refresh_seconds`.
+  Security tab), the `media_player` entity to use as the media source when
+  there is no `[spotify]`, `refresh_seconds`.
 - `[tiles]` — a tile per corner and one for the hub. A `sensor` tile names its
   `entity` and `label`, and may set `unit` (`""` hides it) and `decimals`. A
   `progress` tile names `entity` and `label`, and may set `max` and `decimals`.
 
-Loading refuses a config whose tiles need a table it lacks.
+Loading refuses a config whose tiles need a table it lacks. When both
+`[spotify]` and a Home Assistant media player are set, Spotify feeds the hub.
+
+## Spotify
+
+Spotify's API needs an app of your own, which takes a minute: at
+developer.spotify.com/dashboard create an app, add the redirect URI
+`http://127.0.0.1:8888/callback`, and copy its Client ID into `[spotify]`.
+Then log in once:
+
+```sh
+target/release/panel-ddp spotify-login        # --port N if 8888 is taken; register that URI instead
+```
+
+It opens Spotify's consent page (or prints the link), catches the redirect
+on the local port, and writes the token file next to the config. The flow is
+PKCE, so there is no client secret anywhere. Spotify rotates the refresh
+token on every use, so the file is rewritten as the dashboard runs; keep it
+private and out of version control (the crate's `.gitignore` covers the
+default name). If it is lost, log in again.
 
 ## Running
 
