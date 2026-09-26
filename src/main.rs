@@ -35,7 +35,17 @@ use ddp::DdpSender;
 use mask::Mask;
 use palette::{Palette, Rgba};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+/// Set by Ctrl-C; the stream loop then ends and the command tidies up.
+fn stop_flag() -> Arc<AtomicBool> {
+    let stop = Arc::new(AtomicBool::new(false));
+    let s = Arc::clone(&stop);
+    let _ = ctrlc::set_handler(move || s.store(true, Ordering::SeqCst));
+    stop
+}
 
 const USAGE: &str = "usage:
   panel-ddp run [--config FILE] [--frames N] [--sample]
@@ -94,7 +104,8 @@ fn stream(s: &Stream, mut draw: impl FnMut(&mut Canvas, u32)) -> Result<()> {
     let mut canvas = Canvas::new();
     let start = Instant::now();
     let mut frame = 0u32;
-    while s.frames.is_none_or(|n| frame < n) {
+    let stop = stop_flag();
+    while s.frames.is_none_or(|n| frame < n) && !stop.load(Ordering::SeqCst) {
         draw(&mut canvas, frame);
         sender.send_frame(&canvas.px).context("sending frame")?;
         frame += 1;
@@ -183,7 +194,16 @@ fn cmd_demo(args: &[String]) -> Result<()> {
         fps: cfg.fps,
         frames: once.then_some(total),
     };
-    stream(&s, |c, frame| demo.draw(c, frame))
+    let result = stream(&s, |c, frame| demo.draw(c, frame));
+    // The art file is only meaningful while the demo runs.
+    if let Some(f) = &cfg.demo.art_file {
+        if f.exists() {
+            if let Err(e) = std::fs::remove_file(f) {
+                eprintln!("panel-ddp: demo: removing {}: {e}", f.display());
+            }
+        }
+    }
+    result
 }
 
 fn cmd_preview(args: &[String]) -> Result<()> {
