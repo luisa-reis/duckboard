@@ -25,8 +25,9 @@ panel needs no account at all; the rest switch on with a table in the config.
 
 No source needed:
 
-- `clock` — hours over minutes inside a ring that fills clockwise with the
-  seconds, one step a second.
+- `clock` — hours over minutes inside a seconds ring, advanced once a
+  second: `seconds = "ring"` (the default) fills it clockwise from twelve,
+  `seconds = "dot"` moves a single dot round it like a second hand.
 - `date` — weekday, day of month, month.
 - `blank`
 

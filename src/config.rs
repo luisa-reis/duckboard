@@ -223,7 +223,7 @@ fn split_colors<'de, D: serde::Deserializer<'de>>(
 
 impl<'de> Deserialize<'de> for TileEntry {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let (rest, colors) = split_colors(d, &["clock", "date", "weather", "now_playing", "blank"])?;
+        let (rest, colors) = split_colors(d, &["date", "weather", "now_playing", "blank"])?;
         let spec = rest.try_into().map_err(serde::de::Error::custom)?;
         Ok(Self { spec, colors })
     }
@@ -251,7 +251,7 @@ impl<'de> Deserialize<'de> for HubEntry {
 
 impl Tiles {
     fn default_top_left() -> TileEntry {
-        TileSpec::Clock.into()
+        TileSpec::Clock { seconds: Seconds::Ring }.into()
     }
     fn default_top_right() -> TileEntry {
         TileSpec::Date.into()
@@ -280,11 +280,25 @@ impl Default for Tiles {
     }
 }
 
+/// How the clock shows the seconds on its ring.
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Seconds {
+    /// The ring fills clockwise from twelve.
+    #[default]
+    Ring,
+    /// A single dot travels round the ring, like a second hand.
+    Dot,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum TileSpec {
     /// Hours over minutes inside a seconds ring.
-    Clock,
+    Clock {
+        #[serde(default)]
+        seconds: Seconds,
+    },
     /// Weekday, day of month, month.
     Date,
     /// Sky icon and temperature; needs the [weather] table.

@@ -3,7 +3,7 @@
 //! palette in the context, by role.
 
 use crate::canvas::Canvas;
-use crate::config::TileSpec;
+use crate::config::{Seconds, TileSpec};
 use crate::data::Snapshot;
 use crate::icons;
 use crate::palette::{Palette, Rgba};
@@ -27,7 +27,7 @@ pub struct Ctx<'a> {
 pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Palette) {
     let mut clipped = c.clipped(&area);
     match spec {
-        TileSpec::Clock => clock(&mut clipped, area, ctx, p),
+        TileSpec::Clock { seconds } => clock(&mut clipped, area, ctx, p, *seconds),
         TileSpec::Date => date(&mut clipped, area, ctx, p),
         TileSpec::Weather => weather(&mut clipped, area, ctx, p),
         TileSpec::Sensor { entity, label, unit, decimals } => {
@@ -51,26 +51,45 @@ fn fill<D: DrawTarget<Color = Rgba>>(t: &mut D, r: Rectangle, colour: Rgba) {
     let _ = r.into_styled(PrimitiveStyle::with_fill(colour)).draw(t);
 }
 
-fn clock<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ctx, p: &Palette) {
+fn clock<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ctx, p: &Palette, seconds: Seconds) {
     let o = area.top_left;
     let cx = o.x + 12;
     centred(t, &format!("{:02}", ctx.now.hour()), cx, o.y + 2, MonoTextStyle::new(&FONT_6X10, p.text));
     centred(t, &format!("{:02}", ctx.now.minute()), cx, o.y + 12, MonoTextStyle::new(&FONT_6X10, p.secondary));
-    // Seconds as a ring around the tile, filling clockwise from twelve
-    // o'clock, one step per second. The ring's pixels come from the circle
-    // itself, so the track and the fill agree.
+    // Seconds on a ring around the tile, clockwise from twelve o'clock, one
+    // step per second: either the ring fills up to the second, or a single
+    // dot sits at it. The ring's pixels come from the circle itself, so the
+    // track and the accent agree.
     let ring = Circle::new(o, 24).into_styled(PrimitiveStyle::with_stroke(p.track, 1));
-    let filled = ctx.now.second() as f32 / 60.0 * std::f32::consts::TAU;
+    let target = ctx.now.second() as f32 / 60.0 * std::f32::consts::TAU;
     let centre = 11.5;
-    let _ = t.draw_iter(ring.pixels().map(|Pixel(q, _)| {
+    let angle_of = |q: Point| {
         let dx = (q.x - o.x) as f32 - centre;
         let dy = (q.y - o.y) as f32 - centre;
-        let mut angle = dx.atan2(-dy); // 0 at twelve, clockwise
-        if angle < 0.0 {
-            angle += std::f32::consts::TAU;
+        let a = dx.atan2(-dy); // 0 at twelve, clockwise
+        if a < 0.0 { a + std::f32::consts::TAU } else { a }
+    };
+    match seconds {
+        Seconds::Ring => {
+            let _ = t.draw_iter(ring.pixels().map(|Pixel(q, _)| {
+                Pixel(q, if angle_of(q) < target { p.accent } else { p.track })
+            }));
         }
-        Pixel(q, if angle < filled { p.accent } else { p.track })
-    }));
+        Seconds::Dot => {
+            let _ = ring.draw(t);
+            // The ring pixel nearest the second, going the short way round.
+            let nearest = ring.pixels().map(|Pixel(q, _)| q).min_by(|a, b| {
+                let d = |q: Point| {
+                    let d = (angle_of(q) - target).abs();
+                    d.min(std::f32::consts::TAU - d)
+                };
+                d(*a).total_cmp(&d(*b))
+            });
+            if let Some(q) = nearest {
+                let _ = Pixel(q, p.accent).draw(t);
+            }
+        }
+    }
 }
 
 const WEEKDAYS: [&str; 7] = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
