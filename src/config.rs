@@ -43,6 +43,44 @@ pub struct Config {
     /// Timings for `panel-ddp demo`.
     #[serde(default)]
     pub demo: DemoConfig,
+    /// The folder and pacing for `panel-ddp frame`.
+    #[serde(default)]
+    pub frame: FrameConfig,
+}
+
+/// Picture frame mode: a folder of pictures shown in turn.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FrameConfig {
+    /// Relative to the config file.
+    #[serde(default = "default_frame_dir")]
+    pub dir: PathBuf,
+    /// Each picture, in seconds.
+    #[serde(default = "default_frame_seconds")]
+    pub seconds: f32,
+    /// Random order, reshuffled at each start; else by file name.
+    #[serde(default)]
+    pub shuffle: bool,
+    #[serde(default = "default_frame_alpha")]
+    pub alpha: f32,
+}
+
+fn default_frame_dir() -> PathBuf {
+    "frame".into()
+}
+
+fn default_frame_seconds() -> f32 {
+    10.0
+}
+
+fn default_frame_alpha() -> f32 {
+    1.0
+}
+
+impl Default for FrameConfig {
+    fn default() -> Self {
+        Self { dir: default_frame_dir(), seconds: default_frame_seconds(), shuffle: false, alpha: default_frame_alpha() }
+    }
 }
 
 /// How long each step of the demo lasts, in seconds.
@@ -604,6 +642,9 @@ impl Config {
         if needs_ha && cfg.home_assistant.is_none() {
             anyhow::bail!("sensor and progress tiles, and alerts, need the [home_assistant] table");
         }
+        if cfg.frame.seconds.is_nan() || cfg.frame.seconds <= 0.0 || !(0.0..=1.0).contains(&cfg.frame.alpha) {
+            anyhow::bail!("[frame] seconds must be positive and alpha between 0 and 1");
+        }
         {
             let d = &cfg.demo;
             let times = [
@@ -654,6 +695,9 @@ impl Config {
                 if f.is_relative() {
                     *f = dir.join(&*f);
                 }
+            }
+            if cfg.frame.dir.is_relative() {
+                cfg.frame.dir = dir.join(&cfg.frame.dir);
             }
         }
         // Last, after the tiles borrow ends: where the art goes.

@@ -130,3 +130,11 @@ keep_originals = false
 # background_alpha = 0.12   # the covers behind the tiles
 # art_file = "demo-art.jpg" # a JPEG rewritten with the current cover (black when none)
 # art_open = false          # `open` it after each change, so Preview shows and re-reads it
+
+# Picture frame mode, `panel-ddp frame`: the pictures in dir, each for
+# seconds, filling the panel. These are the defaults.
+# [frame]
+# dir = "frame"
+# seconds = 10.0
+# shuffle = false
+# alpha = 1.0

@@ -181,6 +181,26 @@ The hub's `media` kind has two alphas of its own, `paused_alpha` (default
 0.4) for the art while paused and `corner_alpha` (default 0.3) for the
 corners of the faded shape; the background has its `alpha`.
 
+## Picture frame
+
+`panel-ddp frame` shows the pictures in a folder one after another, filling
+the panel with nothing drawn over them, each cropped to
+square, scaled to the panel and gamma-corrected like album art. It loops
+until Ctrl-C, or `--once` plays the folder through once. The folder and
+pacing are in `[frame]`, with these defaults:
+
+```toml
+[frame]
+dir = "frame"        # relative to the config; .jpg, .jpeg and .png files
+seconds = 10.0       # each picture
+shuffle = false      # random order, reshuffled at each start; else by file name
+alpha = 1.0
+```
+
+Pictures with a bright subject on black suit the panel best. `frame/` is
+git-ignored; keep a note of where each picture came from and its licence
+beside them, as the `SOURCES.md` written there does.
+
 ## The demo
 
 `panel-ddp demo` streams a scripted crescendo on made-up data, for showing
@@ -259,6 +279,7 @@ target/release/panel-ddp run                        # dashboard.toml, until Ctrl
 target/release/panel-ddp run --config other.toml --frames 100
 target/release/panel-ddp run --sample                 # made-up data, sensors sweep 0..100: a demo of the layout
 target/release/panel-ddp demo                         # the scripted crescendo, looping; --once for a single pass
+target/release/panel-ddp frame                        # the pictures in [frame].dir, looping; --once for one pass
 target/release/panel-ddp preview --out preview.png  # one frame from sample data, mask applied
 target/release/panel-ddp preview --weather-code 95  # check an icon (add 1000 for night)
 target/release/panel-ddp preview --alert            # the alert view

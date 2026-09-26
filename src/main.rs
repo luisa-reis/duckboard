@@ -2,6 +2,7 @@
 //!
 //!     panel-ddp run [--config FILE] [--frames N] [--sample]
 //!     panel-ddp demo [--config FILE] [--once]
+//!     panel-ddp frame [--config FILE] [--once]
 //!     panel-ddp preview [--config FILE] [--out FILE] [--test | --alert]
 //!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
 //!     panel-ddp spotify-login [--config FILE] [--port N]
@@ -18,6 +19,7 @@ mod dashboard;
 mod data;
 mod ddp;
 mod demo;
+mod frame;
 mod ha;
 mod hub;
 mod icons;
@@ -50,6 +52,7 @@ fn stop_flag() -> Arc<AtomicBool> {
 const USAGE: &str = "usage:
   panel-ddp run [--config FILE] [--frames N] [--sample]
   panel-ddp demo [--config FILE] [--once]
+  panel-ddp frame [--config FILE] [--once]
   panel-ddp preview [--config FILE] [--out FILE] [--test | --weather-code N | --alert]
   panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
   panel-ddp spotify-login [--config FILE] [--port N]";
@@ -206,6 +209,27 @@ fn cmd_demo(args: &[String]) -> Result<()> {
     result
 }
 
+fn cmd_frame(args: &[String]) -> Result<()> {
+    let mut config = PathBuf::from(DEFAULT_CONFIG);
+    let mut once = false;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--config" => config = it.next().context("--config needs a file")?.into(),
+            "--once" => once = true,
+            o => bail!("unknown option {o}"),
+        }
+    }
+    let cfg = Config::load(&config)?;
+    let frame = frame::Frame::new(&cfg)?;
+    let s = Stream {
+        target: ddp::target_with_default_port(&cfg.target),
+        fps: cfg.fps,
+        frames: once.then_some(frame.total_frames()),
+    };
+    stream(&s, |c, f| frame.draw(c, f))
+}
+
 fn cmd_preview(args: &[String]) -> Result<()> {
     let mut config = PathBuf::from(DEFAULT_CONFIG);
     let mut out = PathBuf::from("preview.png");
@@ -266,6 +290,7 @@ fn main() {
     let result = match cmd {
         "run" => cmd_run(rest),
         "demo" => cmd_demo(rest),
+        "frame" => cmd_frame(rest),
         "preview" => cmd_preview(rest),
         "test" => cmd_test(rest),
         "spotify-login" => cmd_spotify_login(rest),
