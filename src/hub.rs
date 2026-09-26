@@ -1,9 +1,10 @@
-//! The 22x22 hub in the middle of the screen: album art as a spinning disc
-//! while something plays, dimmed and still when paused, and a slow ripple
-//! when nothing is on.
+//! The 22x22 hub in the middle of the screen: album art while something
+//! plays, as a record, the whole cover, or the cover with faded corners,
+//! turning if asked; dimmed and still when paused; a slow ripple when
+//! nothing is on.
 
 use crate::canvas::Canvas;
-use crate::config::HubSpec;
+use crate::config::{ArtShape, HubSpec};
 use crate::data::Snapshot;
 use crate::mask::{hub, HUB};
 use crate::palette::*;
@@ -19,28 +20,45 @@ pub fn draw(spec: &HubSpec, c: &mut Canvas, data: &Snapshot, frame: u32) {
     let mut t = c.clipped(&area);
     match spec {
         HubSpec::Blank => {}
-        HubSpec::Media => match &data.media {
-            Some(m) if m.art.is_some() => disc(&mut t, area.top_left, &m.art.as_ref().unwrap().rgb, m.playing, frame),
+        HubSpec::Media { spin, shape } => match &data.media {
+            Some(m) if m.art.is_some() => {
+                art(&mut t, area.top_left, &m.art.as_ref().unwrap().rgb, m.playing, *spin, *shape, frame)
+            }
             _ => ripple(&mut t, area.top_left, frame),
         },
     }
 }
 
-fn disc<D: DrawTarget<Color = Rgb888>>(t: &mut D, o: Point, rgb: &[u8], playing: bool, frame: u32) {
+/// Brightness of the corners outside the circle in the faded shape.
+const CORNER_DIM: f32 = 0.3;
+
+fn art<D: DrawTarget<Color = Rgb888>>(
+    t: &mut D,
+    o: Point,
+    rgb: &[u8],
+    playing: bool,
+    spin: bool,
+    shape: ArtShape,
+    frame: u32,
+) {
     let w = HUB.width as f32;
     let mid = (w - 1.0) / 2.0;
     let r_max2 = (w / 2.0) * (w / 2.0);
-    let angle = if playing { frame % TURN_FRAMES } else { 0 } as f32 * std::f32::consts::TAU / TURN_FRAMES as f32;
+    let turning = spin && playing;
+    let angle = if turning { frame % TURN_FRAMES } else { 0 } as f32 * std::f32::consts::TAU / TURN_FRAMES as f32;
     let (sin, cos) = angle.sin_cos();
-    let dim = if playing { 1.0 } else { 0.4 };
+    let paused = if playing { 1.0 } else { 0.4 };
     for y in 0..HUB.height {
         for x in 0..HUB.width {
             let dx = x as f32 - mid;
             let dy = y as f32 - mid;
             let r2 = dx * dx + dy * dy;
-            if r2 > r_max2 || r2 < HOLE_R2 {
-                continue;
-            }
+            let outside = r2 > r_max2;
+            let dim = match shape {
+                ArtShape::Disc if outside || r2 < HOLE_R2 => continue,
+                ArtShape::Faded if outside => paused * CORNER_DIM,
+                _ => paused,
+            };
             // Rotate the sample point the other way round the centre.
             let sx = (mid + dx * cos + dy * sin).round().clamp(0.0, w - 1.0) as usize;
             let sy = (mid - dx * sin + dy * cos).round().clamp(0.0, w - 1.0) as usize;

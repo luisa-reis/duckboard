@@ -18,12 +18,15 @@ fps = 10
 #   sensor, progress       need [home_assistant]; progress adds a bar, full at max (default 100)
 #   blank
 # Hub kinds: media (album art, needs the same as now_playing), blank.
+# media takes spin (true turns the art while playing; default false) and
+# shape: disc (a record, the default), square (the whole cover) or faded
+# (the whole cover with the corners outside the circle dimmed).
 [tiles]
 top_left = { kind = "clock" }
 top_right = { kind = "date" }
 bottom_left = { kind = "weather" }
 bottom_right = { kind = "now_playing" }
-hub = { kind = "media" }
+hub = { kind = "media", spin = false, shape = "disc" }
 
 # Current conditions from Open-Meteo, no key needed. units: celsius or
 # fahrenheit.

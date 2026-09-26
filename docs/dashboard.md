@@ -37,8 +37,10 @@ With `[spotify]`, or a Home Assistant media player:
 
 - `now_playing` — artist and title, scrolling when wider than the tile, blank
   while nothing plays.
-- hub `media` — the album art as a disc, spinning while playing, dimmed and
-  still while paused, a faint ripple when idle.
+- hub `media` — the album art, dimmed while paused, a faint ripple when
+  nothing plays. `shape` is `disc` (a record with a spindle hole, the
+  default), `square` (the whole cover) or `faded` (the whole cover with the
+  corners outside the circle dimmed); `spin = true` turns it while playing.
 
 With `[home_assistant]`:
 

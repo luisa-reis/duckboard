@@ -189,8 +189,26 @@ pub enum TileSpec {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HubSpec {
     Blank,
-    /// Album art as a spinning disc; needs [home_assistant].media_player.
-    Media,
+    /// Album art; needs [spotify] or [home_assistant].media_player.
+    Media {
+        /// Turn the art while playing.
+        #[serde(default)]
+        spin: bool,
+        #[serde(default)]
+        shape: ArtShape,
+    },
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtShape {
+    /// A record: circular, with a spindle hole.
+    #[default]
+    Disc,
+    /// The whole cover.
+    Square,
+    /// The whole cover, the corners outside the circle dimmed.
+    Faded,
 }
 
 impl Config {
@@ -240,7 +258,7 @@ impl Config {
             anyhow::bail!("sensor and progress tiles need the [home_assistant] table");
         }
         let needs_player = tiles.iter().any(|t| matches!(t, TileSpec::NowPlaying))
-            || matches!(cfg.tiles.hub, HubSpec::Media);
+            || matches!(cfg.tiles.hub, HubSpec::Media { .. });
         if needs_player && !cfg.has_media_source() {
             anyhow::bail!("now_playing and media tiles need a [spotify] table or [home_assistant].media_player");
         }
