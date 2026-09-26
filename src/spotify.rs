@@ -76,16 +76,18 @@ pub struct Client {
     token_file: std::path::PathBuf,
     tokens: Tokens,
     cache: ArtCache,
+    gamma: f32,
 }
 
 impl Client {
-    pub fn load(cfg: &SpotifyConfig, cache: ArtCache) -> Result<Self> {
+    pub fn load(cfg: &SpotifyConfig, cache: ArtCache, gamma: f32) -> Result<Self> {
         Ok(Self {
             agent: ureq::AgentBuilder::new().timeout(TIMEOUT).build(),
             client_id: cfg.client_id.clone(),
             token_file: cfg.token_file.clone(),
             tokens: read_tokens(&cfg.token_file)?,
             cache,
+            gamma,
         })
     }
 
@@ -163,7 +165,7 @@ impl Client {
         let resp = self.agent.get(url).call().context("GET album art")?;
         let mut bytes = Vec::new();
         Read::take(resp.into_reader(), 8 << 20).read_to_end(&mut bytes).context("reading album art")?;
-        let art = decode_art(&bytes).context("album art")?;
+        let art = decode_art(&bytes, self.gamma).context("album art")?;
         if let Err(e) = self.cache.put(url, &art.0, &art.1) {
             eprintln!("panel-ddp: art cache: {e:#}");
         }

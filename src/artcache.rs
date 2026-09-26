@@ -1,4 +1,5 @@
-//! A disk cache of decoded album art, keyed by the picture's URL. Each entry
+//! A disk cache of decoded album art, keyed by the picture's URL and the
+//! gamma it was decoded with, so a changed gamma misses. Each entry
 //! is the hub-sized and panel-sized RGB bytes back to back, about 14 KB, so
 //! the default cap holds a few hundred covers. Oldest entries go first when
 //! the cap is reached; a hit refreshes the entry's time.
@@ -18,16 +19,18 @@ const FULL_BYTES: usize = (WIDTH * HEIGHT * 3) as usize;
 pub struct ArtCache {
     dir: PathBuf,
     max_bytes: u64,
+    /// Goes into every key; the gamma, so entries decoded differently miss.
+    salt: String,
 }
 
 impl ArtCache {
     /// A cap of zero disables the cache; nothing is read or written.
-    pub fn new(dir: PathBuf, max_bytes: u64) -> Self {
-        Self { dir, max_bytes }
+    pub fn new(dir: PathBuf, max_bytes: u64, salt: String) -> Self {
+        Self { dir, max_bytes, salt }
     }
 
     fn path_for(&self, url: &str) -> PathBuf {
-        let hash = Sha256::digest(url.as_bytes());
+        let hash = Sha256::digest(format!("{}\n{url}", self.salt).as_bytes());
         self.dir.join(format!("{:x}.rgb", hash))
     }
 
@@ -106,7 +109,7 @@ mod tests {
 
     #[test]
     fn round_trip_and_miss() {
-        let c = ArtCache::new(tempdir("rt"), 1 << 20);
+        let c = ArtCache::new(tempdir("rt"), 1 << 20, "g".into());
         assert!(c.get("a").is_none());
         let (h, f) = entry(7);
         c.put("a", &h, &f).unwrap();
@@ -117,7 +120,7 @@ mod tests {
     #[test]
     fn oldest_goes_first_and_a_hit_refreshes() {
         // Room for two entries, not three.
-        let c = ArtCache::new(tempdir("ev"), (HUB_BYTES + FULL_BYTES) as u64 * 2);
+        let c = ArtCache::new(tempdir("ev"), (HUB_BYTES + FULL_BYTES) as u64 * 2, "g".into());
         for (i, url) in ["a", "b"].iter().enumerate() {
             let (h, f) = entry(i as u8);
             c.put(url, &h, &f).unwrap();
@@ -134,8 +137,19 @@ mod tests {
     }
 
     #[test]
+    fn salt_separates_entries() {
+        let dir = tempdir("salt");
+        let a = ArtCache::new(dir.clone(), 1 << 20, "2.2".into());
+        let b = ArtCache::new(dir, 1 << 20, "1.0".into());
+        let (h, f) = entry(3);
+        a.put("a", &h, &f).unwrap();
+        assert!(a.get("a").is_some());
+        assert!(b.get("a").is_none());
+    }
+
+    #[test]
     fn zero_cap_disables() {
-        let c = ArtCache::new(tempdir("off"), 0);
+        let c = ArtCache::new(tempdir("off"), 0, "g".into());
         let (h, f) = entry(1);
         c.put("a", &h, &f).unwrap();
         assert!(c.get("a").is_none());
@@ -144,7 +158,7 @@ mod tests {
 
     #[test]
     fn wrong_size_is_dropped() {
-        let c = ArtCache::new(tempdir("bad"), 1 << 20);
+        let c = ArtCache::new(tempdir("bad"), 1 << 20, "g".into());
         fs::create_dir_all(&c.dir).unwrap();
         fs::write(c.path_for("a"), b"short").unwrap();
         assert!(c.get("a").is_none());

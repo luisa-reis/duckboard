@@ -67,7 +67,8 @@ pub type Shared = Arc<Mutex<Snapshot>>;
 /// and logs a failure only when its message changes, so a service that is
 /// down does not fill the log at every retry.
 pub fn spawn_sources(cfg: &Config, shared: &Shared) {
-    let cache = ArtCache::new(cfg.art_cache.dir.clone(), cfg.art_cache.max_bytes());
+    let cache = ArtCache::new(cfg.art_cache.dir.clone(), cfg.art_cache.max_bytes(), format!("gamma {}", cfg.gamma));
+    let gamma = cfg.gamma;
     if let Some(w) = cfg.weather.clone() {
         let shared = Arc::clone(shared);
         thread::spawn(move || {
@@ -94,7 +95,7 @@ pub fn spawn_sources(cfg: &Config, shared: &Shared) {
             let mut client = None;
             loop {
                 if client.is_none() {
-                    match spotify::Client::load(&sp, cache.clone()) {
+                    match spotify::Client::load(&sp, cache.clone(), gamma) {
                         Ok(c) => client = Some(c),
                         Err(e) => log_changed(&mut last_err, "spotify", e),
                     }
@@ -121,7 +122,7 @@ pub fn spawn_sources(cfg: &Config, shared: &Shared) {
         let player = if cfg.spotify.is_some() { None } else { h.media_player.clone() };
         let cache = cache.clone();
         thread::spawn(move || {
-            let client = ha::Client::new(&h, cache);
+            let client = ha::Client::new(&h, cache, gamma);
             // One error slot per request, so a missing entity is reported
             // once and a working one next to it does not reset that.
             let mut errors = vec![None; entities.len() + 1];

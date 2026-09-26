@@ -11,6 +11,12 @@ pub struct Config {
     pub target: String,
     #[serde(default = "default_fps")]
     pub fps: u32,
+    /// Gamma applied to pictures before they are sent. WLED gamma-corrects
+    /// its own effects but not streamed frames, and the HUB75 driver is
+    /// linear, so sRGB pictures need 2.2 to look as they should. Set 1.0
+    /// if the board's realtime gamma correction is switched on.
+    #[serde(default = "default_gamma")]
+    pub gamma: f32,
     /// Gap file for previews, relative to the config file. Optional: without
     /// it the preview shows the whole panel.
     #[serde(default = "default_gaps")]
@@ -132,6 +138,10 @@ impl Units {
 
 fn default_fps() -> u32 {
     10
+}
+
+fn default_gamma() -> f32 {
+    2.2
 }
 
 fn default_gaps() -> PathBuf {
@@ -298,6 +308,9 @@ impl Config {
             toml::from_str(&text).with_context(|| format!("parsing config {}", path.display()))?;
         if cfg.fps == 0 {
             anyhow::bail!("fps must be positive");
+        }
+        if !(0.5..=5.0).contains(&cfg.gamma) {
+            anyhow::bail!("gamma must be between 0.5 and 5");
         }
         if cfg.art_cache.max_megabytes.is_nan() || cfg.art_cache.max_megabytes < 0.0 {
             anyhow::bail!("art_cache.max_megabytes must be 0 or more");

@@ -107,6 +107,12 @@ Copy `dashboard.example.toml` to `dashboard.toml` (git-ignored; it
 holds the Home Assistant token) and edit. `target` is the board, the rest is
 optional:
 
+- `gamma` (default 2.2) — applied to pictures before they are sent. WLED
+  gamma-corrects its own effects and GIFs but not streamed frames, and the
+  HUB75 build defines `NO_CIE1931` so the driver is linear too, so an sRGB
+  cover sent raw comes out washed out. Set 1.0 if the board's realtime gamma
+  correction is switched on instead. The tiles' own colours are sent as they
+  are; they were chosen on the panel.
 - `gaps` (default `2d-gaps.json`) — a copy of the board's WLED gap file (one
   value per pixel, 1 for shown), used only by `preview` to grey out the
   pixels the panel hides. Without it the preview shows the whole 64×64.
@@ -164,7 +170,7 @@ logged once, when its message changes. Album art is fetched only when the
 picture URL changes.
 
 Decoded album art is cached on disk under `[art_cache].dir`, one file per
-picture URL holding the hub-sized and panel-sized pixels, about 14 KB each,
+picture URL and gamma holding the hub-sized and panel-sized pixels, about 14 KB each,
 so the default 4 MB cap holds a few hundred covers. A hit costs no download
 and no decoding and makes the entry the newest; past the cap the oldest
 entries are deleted first. The directory is git-ignored under the crate.

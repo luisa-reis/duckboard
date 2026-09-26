@@ -39,13 +39,22 @@ pub struct Art {
     pub full: Vec<u8>,
 }
 
-/// Decodes a picture and scales it to fill the hub and the panel, cropping
-/// to square.
-pub fn decode_art(bytes: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+/// Decodes a picture, scales it to fill the hub and the panel (cropping to
+/// square) and applies `gamma`, so the bytes are what the LEDs should show.
+pub fn decode_art(bytes: &[u8], gamma: f32) -> Result<(Vec<u8>, Vec<u8>)> {
     let img = image::load_from_memory(bytes).map_err(|e| anyhow!("decoding picture: {e}"))?;
-    let hub = img.resize_to_fill(HUB.width, HUB.height, FilterType::Lanczos3).to_rgb8().into_raw();
-    let full = img.resize_to_fill(WIDTH, HEIGHT, FilterType::Lanczos3).to_rgb8().into_raw();
-    Ok((hub, full))
+    let lut: Vec<u8> = (0..=255u32)
+        .map(|v| ((v as f32 / 255.0).powf(gamma) * 255.0).round() as u8)
+        .collect();
+    let convert = |w: u32, h: u32| -> Vec<u8> {
+        img.resize_to_fill(w, h, FilterType::Lanczos3)
+            .to_rgb8()
+            .into_raw()
+            .into_iter()
+            .map(|v| lut[v as usize])
+            .collect()
+    };
+    Ok((convert(HUB.width, HUB.height), convert(WIDTH, HEIGHT)))
 }
 
 #[derive(Deserialize)]
@@ -60,15 +69,17 @@ pub struct Client {
     base: String,
     token: String,
     cache: ArtCache,
+    gamma: f32,
 }
 
 impl Client {
-    pub fn new(cfg: &HomeAssistantConfig, cache: ArtCache) -> Self {
+    pub fn new(cfg: &HomeAssistantConfig, cache: ArtCache, gamma: f32) -> Self {
         Self {
             agent: ureq::AgentBuilder::new().timeout(TIMEOUT).build(),
             base: cfg.url.trim_end_matches('/').to_string(),
             token: cfg.token.clone(),
             cache,
+            gamma,
         }
     }
 
@@ -128,7 +139,7 @@ impl Client {
         std::io::Read::take(resp.into_reader(), 8 << 20)
             .read_to_end(&mut bytes)
             .context("reading entity_picture")?;
-        let art = decode_art(&bytes).context("entity_picture")?;
+        let art = decode_art(&bytes, self.gamma).context("entity_picture")?;
         if let Err(e) = self.cache.put(url, &art.0, &art.1) {
             eprintln!("panel-ddp: art cache: {e:#}");
         }
