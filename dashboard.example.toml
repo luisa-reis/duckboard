@@ -33,6 +33,8 @@ bottom_right = { kind = "now_playing" }
 hub = { kind = "blank" }
 background = { kind = "media", brightness = 0.12 }
 # hub = { kind = "media", spin = false, shape = "disc" }
+# For a panel that shows only the cover: every tile and the hub blank, and
+# background = { kind = "media", brightness = 1.0 }
 
 # Current conditions from Open-Meteo, no key needed. units: celsius or
 # fahrenheit.

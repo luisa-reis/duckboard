@@ -61,6 +61,35 @@ refused; `background = { kind = "none" }` shows no art at all.
 
 ![sample dashboard behind the mask](dashboard-preview.png)
 
+### Just the art
+
+Every tile and the hub `blank`, and the background at full brightness, turn
+the panel into a cover display: the current album fills the center of the
+display and nothing is drawn over it. Paused playback still dims it. As a second config
+next to the dashboard, sharing the same Spotify app and token file:
+
+```toml
+target = "wled.local"
+
+[spotify]
+client_id = "..."
+
+[tiles]
+top_left = { kind = "blank" }
+top_right = { kind = "blank" }
+bottom_left = { kind = "blank" }
+bottom_right = { kind = "blank" }
+hub = { kind = "blank" }
+background = { kind = "media", brightness = 1.0 }
+```
+
+```sh
+target/release/panel-ddp run --config dashboard-art.toml
+```
+
+The same shape with a Home Assistant media player instead of Spotify: the
+`[home_assistant]` table with `media_player` in place of `[spotify]`.
+
 ## Building
 
 The crate pins its toolchain in `rust-toolchain.toml`; rustup installs
