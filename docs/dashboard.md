@@ -27,6 +27,9 @@ Each corner shows one tile, the hub one of its own kinds:
 - `weather` — sky icon and temperature from Open-Meteo, no key needed.
 - `sensor` — one Home Assistant entity: label, value, unit. A numeric value
   loses decimals, then switches to the small font, to fit four characters.
+- `progress` — one Home Assistant entity as a label, the value with its unit
+  beside it, and a bar along the bottom edge that is full at `max` (default
+  100), amber on the way and green when full.
 - `now_playing` — artist and title of the media player, scrolling when wider
   than the tile, blank while nothing plays.
 - `blank`
@@ -64,7 +67,8 @@ optional:
   bottom), the `media_player` entity for `now_playing` and the `media` hub,
   `refresh_seconds`.
 - `[tiles]` — a tile per corner and one for the hub. A `sensor` tile names its
-  `entity` and `label`, and may set `unit` (`""` hides it) and `decimals`.
+  `entity` and `label`, and may set `unit` (`""` hides it) and `decimals`. A
+  `progress` tile names `entity` and `label`, and may set `max` and `decimals`.
 
 Loading refuses a config whose tiles need a table it lacks.
 
@@ -73,6 +77,7 @@ Loading refuses a config whose tiles need a table it lacks.
 ```sh
 target/release/panel-ddp run                        # dashboard.toml, until Ctrl-C
 target/release/panel-ddp run --config other.toml --frames 100
+target/release/panel-ddp run --sample                 # made-up data, sensors sweep 0..100: a demo of the layout
 target/release/panel-ddp preview --out preview.png  # one frame from sample data, mask applied
 target/release/panel-ddp preview --weather-code 95  # check an icon (add 1000 for night)
 target/release/panel-ddp test <board-ip>            # colour bars, ramp, counter, bouncing dot
