@@ -177,10 +177,10 @@ impl Demo {
             tiles[0] = entry(TileSpec::Clock { seconds: Seconds::Dot, dot_size: 2 });
         }
         if weather {
-            tiles[2] = entry(TileSpec::Weather);
+            tiles[3] = entry(TileSpec::Weather);
         }
         if progress {
-            tiles[3] = entry(TileSpec::Progress {
+            tiles[2] = entry(TileSpec::Progress {
                 entity: PROGRESS_ENTITY.into(),
                 label: "PRINT".into(),
                 max: 100.0,
