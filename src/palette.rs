@@ -1,12 +1,126 @@
-//! The few colours the dashboard uses. Kept apart so the whole panel can be
-//! retuned in one place; LEDs render saturated colours far stronger than a
-//! monitor does.
+//! Colours with alpha, and the palette of roles the tiles draw with.
+//!
+//! Everything is drawn in `Rgba`; the canvas blends a pixel over what is
+//! already there by its alpha, so a translucent colour shows the background
+//! art through it. The palette names colours by role, with the values the
+//! tiles were tuned with on the panel as defaults; `[colors]` in the config
+//! overrides any of them for every tile, and a tile's own `colors` for that
+//! tile alone.
 
-use embedded_graphics::pixelcolor::Rgb888;
+use embedded_graphics::{pixelcolor::raw::RawU32, prelude::PixelColor};
+use serde::{de, Deserialize, Deserializer};
 
-pub const WHITE: Rgb888 = Rgb888::new(255, 255, 255);
-pub const GREY: Rgb888 = Rgb888::new(110, 110, 110);
-pub const DIM: Rgb888 = Rgb888::new(45, 45, 45);
-pub const AMBER: Rgb888 = Rgb888::new(255, 170, 0);
-pub const SKY: Rgb888 = Rgb888::new(80, 170, 255);
-pub const BLACK: Rgb888 = Rgb888::new(0, 0, 0);
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct Rgba {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
+}
+
+impl PixelColor for Rgba {
+    type Raw = RawU32;
+}
+
+impl Rgba {
+    pub const fn rgb(r: u8, g: u8, b: u8) -> Self {
+        Self { r, g, b, a: 255 }
+    }
+
+    /// The same colour at `alpha` times its own alpha.
+    pub fn scaled(self, alpha: f32) -> Self {
+        Self { a: (self.a as f32 * alpha.clamp(0.0, 1.0)).round() as u8, ..self }
+    }
+
+    /// Parses "#rrggbb" or "#rrggbbaa".
+    pub fn parse(s: &str) -> Result<Self, String> {
+        let hex = s.strip_prefix('#').ok_or_else(|| format!("{s:?}: a colour is #rrggbb or #rrggbbaa"))?;
+        if hex.len() != 6 && hex.len() != 8 {
+            return Err(format!("{s:?}: a colour is #rrggbb or #rrggbbaa"));
+        }
+        let byte = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).map_err(|_| format!("{s:?}: bad hex digits"));
+        Ok(Self { r: byte(0)?, g: byte(2)?, b: byte(4)?, a: if hex.len() == 8 { byte(6)? } else { 255 } })
+    }
+}
+
+impl<'de> Deserialize<'de> for Rgba {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?;
+        Rgba::parse(&s).map_err(de::Error::custom)
+    }
+}
+
+pub const BLACK: Rgba = Rgba::rgb(0, 0, 0);
+
+/// The roles. Every field is what the tiles were tuned with.
+#[derive(Clone, Copy, Debug)]
+pub struct Palette {
+    /// Primary values: hours, the day, sensor readings, the title.
+    pub text: Rgba,
+    /// Labels, units, the month, the artist.
+    pub label: Rgba,
+    /// Tracks and placeholders: the unfilled seconds ring, an empty bar, "--".
+    pub track: Rgba,
+    /// Highlights: the weekday, the seconds fill, a bar on its way.
+    pub accent: Rgba,
+    /// The minutes.
+    pub secondary: Rgba,
+    /// A bar that has reached its maximum.
+    pub full: Rgba,
+    pub sun: Rgba,
+    pub moon: Rgba,
+    pub cloud: Rgba,
+    pub storm_cloud: Rgba,
+    pub rain: Rgba,
+    pub snow: Rgba,
+    pub fog: Rgba,
+}
+
+impl Default for Palette {
+    fn default() -> Self {
+        Self {
+            text: Rgba::rgb(255, 255, 255),
+            label: Rgba::rgb(110, 110, 110),
+            track: Rgba::rgb(45, 45, 45),
+            accent: Rgba::rgb(255, 170, 0),
+            secondary: Rgba::rgb(80, 170, 255),
+            full: Rgba::rgb(60, 220, 90),
+            sun: Rgba::rgb(255, 170, 0),
+            moon: Rgba::rgb(220, 220, 180),
+            cloud: Rgba::rgb(200, 200, 210),
+            storm_cloud: Rgba::rgb(120, 120, 140),
+            rain: Rgba::rgb(60, 140, 255),
+            snow: Rgba::rgb(255, 255, 255),
+            fog: Rgba::rgb(110, 110, 110),
+        }
+    }
+}
+
+/// The same roles, each optional: what a config table sets.
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Overrides {
+    pub text: Option<Rgba>,
+    pub label: Option<Rgba>,
+    pub track: Option<Rgba>,
+    pub accent: Option<Rgba>,
+    pub secondary: Option<Rgba>,
+    pub full: Option<Rgba>,
+    pub sun: Option<Rgba>,
+    pub moon: Option<Rgba>,
+    pub cloud: Option<Rgba>,
+    pub storm_cloud: Option<Rgba>,
+    pub rain: Option<Rgba>,
+    pub snow: Option<Rgba>,
+    pub fog: Option<Rgba>,
+}
+
+impl Palette {
+    pub fn with(mut self, o: &Overrides) -> Self {
+        macro_rules! apply {
+            ($($f:ident),*) => { $( if let Some(c) = o.$f { self.$f = c; } )* };
+        }
+        apply!(text, label, track, accent, secondary, full, sun, moon, cloud, storm_cloud, rain, snow, fog);
+        self
+    }
+}

@@ -1,4 +1,5 @@
-//! Puts the tiles in the corners and the hub in the middle.
+//! Puts the tiles in the corners and the hub in the middle, over the
+//! background.
 
 use crate::canvas::{Canvas, HEIGHT, WIDTH};
 use crate::config::{Background, Tiles};
@@ -21,14 +22,16 @@ pub fn draw(tiles: &Tiles, c: &mut Canvas, ctx: &Ctx) {
             }
         }
     }
-    let specs = [
+    let entries = [
         (Tile::TopLeft, &tiles.top_left),
         (Tile::TopRight, &tiles.top_right),
         (Tile::BottomLeft, &tiles.bottom_left),
         (Tile::BottomRight, &tiles.bottom_right),
     ];
-    for (tile, spec) in specs {
-        tiles::draw(spec, c, tile.rect(), ctx);
+    for (tile, entry) in entries {
+        let palette = ctx.palette.with(&entry.colors);
+        tiles::draw(&entry.spec, c, tile.rect(), ctx, &palette);
     }
-    hub::draw(&tiles.hub, c, ctx.data, ctx.frame);
+    let palette = ctx.palette.with(&tiles.hub.colors);
+    hub::draw(&tiles.hub.spec, c, ctx.data, ctx.frame, &palette);
 }

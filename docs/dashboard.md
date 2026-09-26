@@ -135,6 +135,46 @@ optional:
 Loading refuses a config whose tiles need a table it lacks. When both
 `[spotify]` and a Home Assistant media player are set, Spotify feeds the hub.
 
+## Colours
+
+Every colour the tiles draw with has a role, and every role can be set in
+the config as `#rrggbb` or `#rrggbbaa`. An alpha below `ff` blends the
+colour over whatever is already on the panel at that spot, the background
+art or black, so a translucent track lets the cover show through it. The
+roles and their defaults, which are the values the tiles were tuned with:
+
+| role          | default   | used for                                           |
+|---------------|-----------|----------------------------------------------------|
+| `text`        | `#ffffff` | hours, the day, sensor readings, the title         |
+| `label`       | `#6e6e6e` | labels, units, the month, the artist, a bar's frame |
+| `track`       | `#2d2d2d` | the unfilled seconds ring, an empty bar, `--`      |
+| `accent`      | `#ffaa00` | the weekday, the seconds fill, a bar on its way    |
+| `secondary`   | `#50aaff` | the minutes                                        |
+| `full`        | `#3cdc5a` | a bar at its maximum                               |
+| `sun`         | `#ffaa00` | the sun, and lightning                             |
+| `moon`        | `#dcdcb4` | the moon                                           |
+| `cloud`       | `#c8c8d2` | clouds                                             |
+| `storm_cloud` | `#78788c` | the storm cloud                                    |
+| `rain`        | `#3c8cff` | rain                                               |
+| `snow`        | `#ffffff` | snow                                               |
+| `fog`         | `#6e6e6e` | fog                                                |
+
+`[colors]` sets a role for every tile; a tile's own `colors` sets it for
+that tile alone and wins. The seconds ring's track at a quarter alpha, and
+green minutes, on the clock only:
+
+```toml
+[colors]
+accent = "#ff4060"
+
+[tiles]
+top_left = { kind = "clock", colors = { track = "#ffffff40", secondary = "#80ff80" } }
+```
+
+The hub's `media` kind has two alphas of its own, `paused_alpha` (default
+0.4) for the art while paused and `corner_alpha` (default 0.3) for the
+corners of the faded shape; the background has its `alpha`.
+
 ## Spotify
 
 Spotify's API needs an app of your own, which takes a minute: at

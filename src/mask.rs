@@ -7,7 +7,8 @@
 
 use crate::canvas::{Canvas, HEIGHT, WIDTH};
 use anyhow::{bail, Context, Result};
-use embedded_graphics::{pixelcolor::Rgb888, prelude::*, primitives::Rectangle};
+use crate::palette::Rgba;
+use embedded_graphics::{prelude::*, primitives::Rectangle};
 use std::path::Path;
 
 pub const TILE: Size = Size::new(24, 24);
@@ -92,7 +93,7 @@ impl Mask {
 }
 
 /// Paints the mask's own shape onto a canvas, for checking the layout.
-pub fn draw_outline(canvas: &mut Canvas, mask: &Mask, colour: Rgb888) {
+pub fn draw_outline(canvas: &mut Canvas, mask: &Mask, colour: Rgba) {
     for y in 0..HEIGHT {
         for x in 0..WIDTH {
             if mask.is_lit(x, y) {

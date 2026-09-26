@@ -1,5 +1,6 @@
 //! The dashboard configuration, a TOML file. See dashboard.example.toml.
 
+use crate::palette::Overrides;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -23,6 +24,9 @@ pub struct Config {
     pub gaps: PathBuf,
     #[serde(default)]
     pub tiles: Tiles,
+    /// Colour roles for every tile; a tile's own `colors` wins over these.
+    #[serde(default)]
+    pub colors: Overrides,
     pub weather: Option<WeatherConfig>,
     pub spotify: Option<SpotifyConfig>,
     pub home_assistant: Option<HomeAssistantConfig>,
@@ -153,15 +157,15 @@ fn default_gaps() -> PathBuf {
 #[serde(deny_unknown_fields)]
 pub struct Tiles {
     #[serde(default = "Tiles::default_top_left")]
-    pub top_left: TileSpec,
+    pub top_left: TileEntry,
     #[serde(default = "Tiles::default_top_right")]
-    pub top_right: TileSpec,
+    pub top_right: TileEntry,
     #[serde(default = "Tiles::default_bottom_left")]
-    pub bottom_left: TileSpec,
+    pub bottom_left: TileEntry,
     #[serde(default = "Tiles::default_bottom_right")]
-    pub bottom_right: TileSpec,
+    pub bottom_right: TileEntry,
     #[serde(default = "Tiles::default_hub")]
-    pub hub: HubSpec,
+    pub hub: HubEntry,
     /// Painted over the whole panel before the tiles. The art shows in one
     /// place: here unless the hub is `media`, or switched off. Left unset in
     /// the file, `Config::load` resolves it.
@@ -186,21 +190,80 @@ fn default_background_alpha() -> f32 {
     0.12
 }
 
+/// A tile with its own colour overrides. Deserialised by hand:
+/// `colors` is lifted out and the rest goes to the tile kind, which then
+/// still rejects keys it does not know (serde's `flatten` would not).
+#[derive(Debug, Clone)]
+pub struct TileEntry {
+    pub spec: TileSpec,
+    pub colors: Overrides,
+}
+
+/// Splits a tile table into its `colors` and the rest. A kind without
+/// fields of its own is checked here, because serde lets a unit variant
+/// ignore stray keys.
+fn split_colors<'de, D: serde::Deserializer<'de>>(
+    d: D,
+    unit_kinds: &[&str],
+) -> Result<(toml::Table, Overrides), D::Error> {
+    let mut table = toml::Table::deserialize(d)?;
+    let colors = match table.remove("colors") {
+        Some(v) => v.try_into().map_err(serde::de::Error::custom)?,
+        None => Overrides::default(),
+    };
+    if let Some(kind) = table.get("kind").and_then(|k| k.as_str()) {
+        if unit_kinds.contains(&kind) {
+            if let Some(stray) = table.keys().find(|k| *k != "kind") {
+                return Err(serde::de::Error::custom(format!("unknown field `{stray}` for kind {kind}")));
+            }
+        }
+    }
+    Ok((table, colors))
+}
+
+impl<'de> Deserialize<'de> for TileEntry {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let (rest, colors) = split_colors(d, &["clock", "date", "weather", "now_playing", "blank"])?;
+        let spec = rest.try_into().map_err(serde::de::Error::custom)?;
+        Ok(Self { spec, colors })
+    }
+}
+
+impl From<TileSpec> for TileEntry {
+    fn from(spec: TileSpec) -> Self {
+        Self { spec, colors: Overrides::default() }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct HubEntry {
+    pub spec: HubSpec,
+    pub colors: Overrides,
+}
+
+impl<'de> Deserialize<'de> for HubEntry {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let (rest, colors) = split_colors(d, &["blank"])?;
+        let spec = rest.try_into().map_err(serde::de::Error::custom)?;
+        Ok(Self { spec, colors })
+    }
+}
+
 impl Tiles {
-    fn default_top_left() -> TileSpec {
-        TileSpec::Clock
+    fn default_top_left() -> TileEntry {
+        TileSpec::Clock.into()
     }
-    fn default_top_right() -> TileSpec {
-        TileSpec::Date
+    fn default_top_right() -> TileEntry {
+        TileSpec::Date.into()
     }
-    fn default_bottom_left() -> TileSpec {
-        TileSpec::Blank
+    fn default_bottom_left() -> TileEntry {
+        TileSpec::Blank.into()
     }
-    fn default_bottom_right() -> TileSpec {
-        TileSpec::Blank
+    fn default_bottom_right() -> TileEntry {
+        TileSpec::Blank.into()
     }
-    fn default_hub() -> HubSpec {
-        HubSpec::Blank
+    fn default_hub() -> HubEntry {
+        HubEntry { spec: HubSpec::Blank, colors: Overrides::default() }
     }
 }
 
@@ -263,7 +326,21 @@ pub enum HubSpec {
         spin: bool,
         #[serde(default)]
         shape: ArtShape,
+        /// The art's alpha while paused.
+        #[serde(default = "default_paused_alpha")]
+        paused_alpha: f32,
+        /// The alpha of the corners outside the circle in the faded shape.
+        #[serde(default = "default_corner_alpha")]
+        corner_alpha: f32,
     },
+}
+
+fn default_paused_alpha() -> f32 {
+    0.4
+}
+
+fn default_corner_alpha() -> f32 {
+    0.3
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
@@ -281,7 +358,7 @@ pub enum ArtShape {
 impl Config {
     /// The four corner tiles, in reading order.
     pub fn corner_tiles(&self) -> [&TileSpec; 4] {
-        [&self.tiles.top_left, &self.tiles.top_right, &self.tiles.bottom_left, &self.tiles.bottom_right]
+        [&self.tiles.top_left.spec, &self.tiles.top_right.spec, &self.tiles.bottom_left.spec, &self.tiles.bottom_right.spec]
     }
 
     /// Whether something can feed the now_playing tile and the media hub.
@@ -331,7 +408,7 @@ impl Config {
             anyhow::bail!("sensor and progress tiles need the [home_assistant] table");
         }
         let needs_player = tiles.iter().any(|t| matches!(t, TileSpec::NowPlaying))
-            || matches!(cfg.tiles.hub, HubSpec::Media { .. });
+            || matches!(cfg.tiles.hub.spec, HubSpec::Media { .. });
         if needs_player && !cfg.has_media_source() {
             anyhow::bail!("now_playing and media tiles need a [spotify] table or [home_assistant].media_player");
         }
@@ -349,7 +426,12 @@ impl Config {
             }
         }
         // Last, after the tiles borrow ends: where the art goes.
-        let hub_has_art = matches!(cfg.tiles.hub, HubSpec::Media { .. });
+        let hub_has_art = matches!(cfg.tiles.hub.spec, HubSpec::Media { .. });
+        if let HubSpec::Media { paused_alpha, corner_alpha, .. } = cfg.tiles.hub.spec {
+            if !(0.0..=1.0).contains(&paused_alpha) || !(0.0..=1.0).contains(&corner_alpha) {
+                anyhow::bail!("hub paused_alpha and corner_alpha must be between 0 and 1");
+            }
+        }
         match cfg.tiles.background {
             Some(Background::Media { alpha }) => {
                 if !(0.0..=1.0).contains(&alpha) {

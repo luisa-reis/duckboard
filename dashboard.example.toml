@@ -36,9 +36,28 @@ bottom_left = { kind = "weather" }
 bottom_right = { kind = "now_playing" }
 hub = { kind = "blank" }
 background = { kind = "media", alpha = 0.12 }
-# hub = { kind = "media", spin = false, shape = "disc" }
+# hub = { kind = "media", spin = false, shape = "disc", paused_alpha = 0.4, corner_alpha = 0.3 }
 # For a panel that shows only the cover: every tile and the hub blank, and
 # background = { kind = "media", alpha = 1.0 }
+
+# Colours by role, "#rrggbb" or "#rrggbbaa"; an alpha blends the colour over
+# the background art. These are the defaults. A tile takes the same table as
+# colors = { ... } to override them for itself, e.g.
+#   top_left = { kind = "clock", colors = { track = "#ffffff40" } }
+# [colors]
+# text = "#ffffff"          # hours, the day, readings, the title
+# label = "#6e6e6e"         # labels, units, the month, the artist
+# track = "#2d2d2d"         # the unfilled seconds ring, an empty bar, "--"
+# accent = "#ffaa00"        # the weekday, the seconds fill, a bar on its way
+# secondary = "#50aaff"     # the minutes
+# full = "#3cdc5a"          # a bar at its maximum
+# sun = "#ffaa00"
+# moon = "#dcdcb4"
+# cloud = "#c8c8d2"
+# storm_cloud = "#78788c"
+# rain = "#3c8cff"
+# snow = "#ffffff"
+# fog = "#6e6e6e"
 
 # Current conditions from Open-Meteo, no key needed. units: celsius or
 # fahrenheit.

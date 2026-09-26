@@ -30,8 +30,8 @@ use anyhow::{bail, Context, Result};
 use canvas::Canvas;
 use config::Config;
 use ddp::DdpSender;
-use embedded_graphics::pixelcolor::Rgb888;
 use mask::Mask;
+use palette::{Palette, Rgba};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
@@ -152,9 +152,10 @@ fn cmd_run(args: &[String]) -> Result<()> {
     } else {
         data::spawn_sources(&cfg, &shared);
     }
+    let palette = Palette::default().with(&cfg.colors);
     stream(&s, |c, frame| {
         let data = if sample { data::Snapshot::sample(&cfg, frame) } else { shared.lock().unwrap().clone() };
-        let ctx = tiles::Ctx { now: chrono::Local::now(), frame, data: &data };
+        let ctx = tiles::Ctx { now: chrono::Local::now(), frame, data: &data, palette: &palette };
         dashboard::draw(&cfg.tiles, c, &ctx);
     })
 }
@@ -186,7 +187,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
         Mask::none()
     };
     let mut canvas = Canvas::new();
-    mask::draw_outline(&mut canvas, &mask, Rgb888::new(20, 20, 20));
+    mask::draw_outline(&mut canvas, &mask, Rgba::rgb(20, 20, 20));
     if test {
         testframe::draw(&mut canvas, 0);
     } else {
@@ -196,7 +197,8 @@ fn cmd_preview(args: &[String]) -> Result<()> {
             w.is_day = code < 1000;
             w.code %= 1000;
         }
-        let ctx = tiles::Ctx { now: chrono::Local::now(), frame: 0, data: &data };
+        let palette = Palette::default().with(&cfg.colors);
+        let ctx = tiles::Ctx { now: chrono::Local::now(), frame: 0, data: &data, palette: &palette };
         dashboard::draw(&cfg.tiles, &mut canvas, &ctx);
     }
     mask.preview_png(&canvas, 4, &out)?;

@@ -7,38 +7,46 @@ use crate::canvas::Canvas;
 use crate::config::{ArtShape, HubSpec};
 use crate::data::Snapshot;
 use crate::mask::{hub, HUB};
-use crate::palette::*;
-use embedded_graphics::{pixelcolor::Rgb888, prelude::*, primitives::{Circle, PrimitiveStyle}};
+use crate::palette::{Palette, Rgba};
+use embedded_graphics::{prelude::*, primitives::{Circle, PrimitiveStyle}};
 
 /// Frames per full turn of the disc.
 const TURN_FRAMES: u32 = 80;
 /// Radius of the spindle hole, squared.
 const HOLE_R2: f32 = 2.0 * 2.0;
 
-pub fn draw(spec: &HubSpec, c: &mut Canvas, data: &Snapshot, frame: u32) {
+pub fn draw(spec: &HubSpec, c: &mut Canvas, data: &Snapshot, frame: u32, p: &Palette) {
     let area = hub();
     let mut t = c.clipped(&area);
     match spec {
         HubSpec::Blank => {}
-        HubSpec::Media { spin, shape } => match &data.media {
-            Some(m) if m.art.is_some() => {
-                art(&mut t, area.top_left, &m.art.as_ref().unwrap().rgb, m.playing, *spin, *shape, frame)
-            }
-            _ => ripple(&mut t, area.top_left, frame),
+        HubSpec::Media { spin, shape, paused_alpha, corner_alpha } => match &data.media {
+            Some(m) if m.art.is_some() => art(
+                &mut t,
+                area.top_left,
+                &m.art.as_ref().unwrap().rgb,
+                m.playing,
+                *spin,
+                *shape,
+                *paused_alpha,
+                *corner_alpha,
+                frame,
+            ),
+            _ => ripple(&mut t, area.top_left, frame, p),
         },
     }
 }
 
-/// Brightness of the corners outside the circle in the faded shape.
-const CORNER_DIM: f32 = 0.3;
-
-fn art<D: DrawTarget<Color = Rgb888>>(
+#[allow(clippy::too_many_arguments)]
+fn art<D: DrawTarget<Color = Rgba>>(
     t: &mut D,
     o: Point,
     rgb: &[u8],
     playing: bool,
     spin: bool,
     shape: ArtShape,
+    paused_alpha: f32,
+    corner_alpha: f32,
     frame: u32,
 ) {
     let w = HUB.width as f32;
@@ -47,43 +55,38 @@ fn art<D: DrawTarget<Color = Rgb888>>(
     let turning = spin && playing;
     let angle = if turning { frame % TURN_FRAMES } else { 0 } as f32 * std::f32::consts::TAU / TURN_FRAMES as f32;
     let (sin, cos) = angle.sin_cos();
-    let paused = if playing { 1.0 } else { 0.4 };
+    let paused = if playing { 1.0 } else { paused_alpha };
     for y in 0..HUB.height {
         for x in 0..HUB.width {
             let dx = x as f32 - mid;
             let dy = y as f32 - mid;
             let r2 = dx * dx + dy * dy;
             let outside = r2 > r_max2;
-            let dim = match shape {
+            let alpha = match shape {
                 ArtShape::Disc if outside || r2 < HOLE_R2 => continue,
-                ArtShape::Faded if outside => paused * CORNER_DIM,
+                ArtShape::Faded if outside => paused * corner_alpha,
                 _ => paused,
             };
             // Rotate the sample point the other way round the centre.
             let sx = (mid + dx * cos + dy * sin).round().clamp(0.0, w - 1.0) as usize;
             let sy = (mid - dx * sin + dy * cos).round().clamp(0.0, w - 1.0) as usize;
             let i = (sy * HUB.width as usize + sx) * 3;
-            let px = Rgb888::new(
-                (rgb[i] as f32 * dim) as u8,
-                (rgb[i + 1] as f32 * dim) as u8,
-                (rgb[i + 2] as f32 * dim) as u8,
-            );
+            let px = Rgba::rgb(rgb[i], rgb[i + 1], rgb[i + 2]).scaled(alpha);
             let _ = Pixel(o + Point::new(x as i32, y as i32), px).draw(t);
         }
     }
 }
 
-/// A ring growing from the centre every few seconds, faint enough to ignore.
-fn ripple<D: DrawTarget<Color = Rgb888>>(t: &mut D, o: Point, frame: u32) {
+/// A ring growing from the centre every few seconds and fading as it goes,
+/// in the track colour, faint enough to ignore.
+fn ripple<D: DrawTarget<Color = Rgba>>(t: &mut D, o: Point, frame: u32, p: &Palette) {
     let step = (frame / 4) % 12;
     let d = step * 2 + 1;
     let off = (HUB.width as i32 - d as i32) / 2;
-    let fade = 45 - step as u8 * 3;
     let _ = Circle::new(o + Point::new(off, off), d)
-        .into_styled(PrimitiveStyle::with_stroke(Rgb888::new(fade, fade, fade), 1))
+        .into_styled(PrimitiveStyle::with_stroke(p.track.scaled(1.0 - step as f32 / 12.0), 1))
         .draw(t);
-    let _ = Pixel(o + Point::new(10, 10), DIM).draw(t);
-    let _ = Pixel(o + Point::new(11, 11), DIM).draw(t);
-    let _ = Pixel(o + Point::new(10, 11), DIM).draw(t);
-    let _ = Pixel(o + Point::new(11, 10), DIM).draw(t);
+    for (x, y) in [(10, 10), (11, 11), (10, 11), (11, 10)] {
+        let _ = Pixel(o + Point::new(x, y), p.track).draw(t);
+    }
 }
