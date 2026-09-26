@@ -203,40 +203,46 @@ Pictures with a bright subject on black suit the panel best. `frame/` is
 git-ignored; keep a note of where each picture came from and its licence
 beside them, as the `SOURCES.md` written there does.
 
-## The demo
+## Pages and the demo
 
-`panel-ddp demo` streams a scripted crescendo on made-up data, for showing
-the panel off: the date alone, visiting each tile in turn; the clock joining
-it; the weather tile showing every kind of sky, day and night; the print
-progress filling from 0 to 100; the laundry temperature in its place; the
-water leak alert; the whole dashboard plain for a moment; the same with a cover as a disc in the hub; the same
-over each album cover from the art cache, newest first; the covers alone,
-nothing else drawn; a few of the `[frame]` pictures full screen; and finally
-the dashboard with those pictures behind it. It loops until
-Ctrl-C, or `--once` plays a single pass. It needs no source: only `target`,
-and a populated art cache for the last step, which is skipped when empty.
-The alert takes its look from the config's first `[[alerts]]` entry.
+A config can hold `pages`: layouts shown one after another, each for its
+own `seconds`, looping. With any pages, `run` shows them instead of
+`[tiles]`, and `--once` plays them through a single time. A page takes the
+same `top_left` … `bottom_right`, `hub` and `background` as `[tiles]`, except
+that unnamed tiles are blank and the background is none unless given.
 
-Every timing is in `[demo]`, in seconds, so the pacing is tuned without a
-rebuild. The defaults:
+A page's `data` lays made-up values over whatever the sources report, for
+demos and for pinning a page to something no source provides:
 
-```toml
-[demo]
-tile_seconds = 3.0        # the date in each tile
-clock_seconds = 5.0       # after the clock joins
-weather_seconds = 2.5     # each sky, nine of them
-progress_seconds = 10.0   # the bar filling
-sensor_seconds = 4.0      # the laundry temperature in its place
-alert_seconds = 5.0       # the alert
-dashboard_seconds = 5.0   # the dashboard after it, plain
-hub_seconds = 5.0         # a cover as a disc in the hub
-cover_seconds = 4.0       # each cover behind the tiles
-art_only_seconds = 4.0    # each cover alone
-frame_seconds = 4.0       # each frame picture, full screen and then behind the tiles
-frame_pictures = 4        # how many frame pictures those two steps use
-covers = 8                # how many covers, newest first
-background_alpha = 0.12   # the covers behind the tiles
+- `weather = { code, is_day, temperature }` — a WMO code, in the configured
+  temperature unit.
+- `sensors = { "sensor.x" = { state = "29", unit = "°C" } }`, or
+  `{ sweep = [0, 100] }` to move the value linearly across the page. An
+  alert's entity set to its state raises the alert.
+- `cover = N` — the Nth newest cover in the art cache, playing. With
+  `keep_originals`, only covers with an original count.
+- `picture = N` — the Nth `[frame]` picture, for a `frame` background.
+
+A page naming a cover or picture that is not there is left out, with a note.
+
+`demo.json` is the demo built this way, in JSON, which loads like TOML:
+the date alone touring the tiles, the clock joining, every kind of sky, the
+print progress filling, the laundry temperature in its place, the water leak
+alert, the whole dashboard plain, a cover in the hub, the dashboard over
+each cover, the covers alone, frame pictures full screen, and the dashboard
+over them. Its timings, labels and order are all in the file. Its `target`
+is the WLED-AP address; point it at a board with `--target`:
+
+```sh
+target/release/panel-ddp run --config demo.json --target wled.local          # loops
+target/release/panel-ddp run --config demo.json --target wled.local --once   # one pass
 ```
+
+`art_file`, a top-level setting, keeps a JPEG at the album cover on show,
+the original as downloaded, black when no cover is on, and removes it when
+the run ends; `demo.json` sets it to `demo-art.jpg`. `art_open = true` runs
+`open` on it after each change for macOS Preview. `tools/DemoArtViewer` is
+a Processing sketch that follows the file without that.
 
 ## Alerts
 
@@ -283,7 +289,7 @@ default name). If it is lost, log in again.
 target/release/panel-ddp run                        # dashboard.toml, until Ctrl-C
 target/release/panel-ddp run --config other.toml --frames 100
 target/release/panel-ddp run --sample                 # made-up data, sensors sweep 0..100: a demo of the layout
-target/release/panel-ddp demo                         # the scripted crescendo, looping; --once for a single pass
+target/release/panel-ddp run --config demo.json --target <board>   # the demo; --once for a single pass
 target/release/panel-ddp frame                        # the pictures in [frame].dir, looping; --once for one pass
 target/release/panel-ddp preview --out preview.png  # one frame from sample data, mask applied
 target/release/panel-ddp preview --weather-code 95  # check an icon (add 1000 for night)
@@ -304,7 +310,7 @@ files are deleted first. The directory is git-ignored under the crate.
 With `keep_originals`, each picture is also kept as downloaded, as a `.jpg`
 or `.png` file named `Artist - Album` when the source says what it is and by
 the URL's hash otherwise, and Spotify is asked for its largest
-size; the demo's `art_file` is then written from
+size; the `art_file` is then written from
 that at full size instead of the panel's pixels scaled up. Originals count
 against the cap, a few tens of kilobytes each.
 

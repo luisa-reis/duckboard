@@ -89,7 +89,7 @@ client_id = "PASTE-CLIENT-ID"
 [art_cache]
 dir = "art-cache"
 max_megabytes = 4
-# Also keep each picture as downloaded, Spotify's largest; the demo's
+# Also keep each picture as downloaded, Spotify's largest; the
 # art_file is then written from it. A few tens of kilobytes per cover.
 keep_originals = false
 
@@ -115,25 +115,28 @@ keep_originals = false
 # color = "#ff1e1e"
 # pulse_seconds = 1.5
 
-# Timings for `panel-ddp demo`, the scripted crescendo, in seconds. These
-# are the defaults.
-# [demo]
-# tile_seconds = 3.0        # the date in each tile
-# clock_seconds = 5.0       # after the clock joins
-# weather_seconds = 2.5     # each sky, nine of them
-# progress_seconds = 10.0   # the bar filling
-# sensor_seconds = 4.0      # the laundry temperature in its place
-# alert_seconds = 5.0       # the alert
-# dashboard_seconds = 5.0   # the dashboard after it, plain
-# hub_seconds = 5.0         # a cover as a disc in the hub
-# cover_seconds = 4.0       # each cover behind the tiles
-# art_only_seconds = 4.0    # each cover alone
-# frame_seconds = 4.0       # each frame picture, full screen and then behind the tiles
-# frame_pictures = 4        # how many frame pictures those two steps use
-# covers = 8                # how many covers, newest first
-# background_alpha = 0.12   # the covers behind the tiles
-# art_file = "demo-art.jpg" # a JPEG rewritten with the current cover (black when none)
+# A JPEG kept at the album cover on show, black when none, removed when the
+# run ends: a companion view (tools/DemoArtViewer follows it).
+# art_file = "demo-art.jpg"
 # art_open = false          # `open` it after each change, so Preview shows and re-reads it
+
+# Pages: layouts shown in turn, each for its seconds. With any pages, run
+# loops through them instead of [tiles]; --once plays them through once.
+# A page's tiles default to blank and its background to none. Its data lays
+# made-up values over the live ones; demo.json is a whole demo built this way.
+# [[pages]]
+# seconds = 20
+# top_left = { kind = "clock" }
+# top_right = { kind = "date" }
+# bottom_right = { kind = "weather" }
+# background = { kind = "media", alpha = 0.12 }
+#
+# [[pages]]
+# seconds = 10
+# background = { kind = "frame", alpha = 1.0 }
+# data = { picture = 0 }    # also: weather = { code, is_day, temperature },
+#                           # sensors = { "sensor.x" = { state = "29", unit = "°C" } }
+#                           # or { sweep = [0, 100] }, cover = 0 (newest cached)
 
 # Picture frame mode, `panel-ddp frame`: the pictures in dir, each for
 # seconds, filling the panel. These are the defaults.

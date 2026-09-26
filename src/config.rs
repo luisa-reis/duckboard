@@ -41,9 +41,6 @@ pub struct Config {
     /// tiles, pulses in the alert's colour and shows its label.
     #[serde(default)]
     pub alerts: Vec<Alert>,
-    /// Timings for `panel-ddp demo`.
-    #[serde(default)]
-    pub demo: DemoConfig,
     /// The folder and pacing for `panel-ddp frame`.
     #[serde(default)]
     pub frame: FrameConfig,
@@ -179,127 +176,6 @@ impl Default for FrameConfig {
     }
 }
 
-/// How long each step of the demo lasts, in seconds.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DemoConfig {
-    /// The date alone, in each tile in turn.
-    #[serde(default = "d_tile")]
-    pub tile_seconds: f32,
-    /// After the clock joins it.
-    #[serde(default = "d_clock")]
-    pub clock_seconds: f32,
-    /// Each kind of sky on the weather tile.
-    #[serde(default = "d_weather")]
-    pub weather_seconds: f32,
-    /// The print progress filling from 0 to 100.
-    #[serde(default = "d_progress")]
-    pub progress_seconds: f32,
-    /// The laundry temperature in place of the progress, before the alert.
-    #[serde(default = "d_sensor")]
-    pub sensor_seconds: f32,
-    /// The water leak alert.
-    #[serde(default = "d_alert")]
-    pub alert_seconds: f32,
-    /// The whole dashboard after the alert, before any cover.
-    #[serde(default = "d_dashboard")]
-    pub dashboard_seconds: f32,
-    /// The dashboard with a cover as a disc in the hub.
-    #[serde(default = "d_hub")]
-    pub hub_seconds: f32,
-    /// Each cover as the background, from the art cache.
-    #[serde(default = "d_cover")]
-    pub cover_seconds: f32,
-    /// Each cover on its own, nothing else drawn, at the end.
-    #[serde(default = "d_art_only")]
-    pub art_only_seconds: f32,
-    /// How many cached covers to show, newest first.
-    #[serde(default = "d_covers")]
-    pub covers: usize,
-    /// Each `[frame]` picture, full screen and then behind the tiles.
-    #[serde(default = "d_frame")]
-    pub frame_seconds: f32,
-    /// How many `[frame]` pictures those two steps use.
-    #[serde(default = "d_frame_pictures")]
-    pub frame_pictures: usize,
-    /// Alpha of the cover behind the tiles.
-    #[serde(default = "d_alpha")]
-    pub background_alpha: f32,
-    /// A JPEG rewritten with the current cover as the demo proceeds, black
-    /// when there is none; relative to the config file. Open it in Preview
-    /// for a companion view.
-    pub art_file: Option<PathBuf>,
-    /// Run `open` on the art file after each change, so macOS Preview shows
-    /// and re-reads it.
-    #[serde(default)]
-    pub art_open: bool,
-}
-
-fn d_tile() -> f32 {
-    3.0
-}
-fn d_clock() -> f32 {
-    5.0
-}
-fn d_weather() -> f32 {
-    2.5
-}
-fn d_progress() -> f32 {
-    10.0
-}
-fn d_sensor() -> f32 {
-    4.0
-}
-fn d_alert() -> f32 {
-    5.0
-}
-fn d_dashboard() -> f32 {
-    5.0
-}
-fn d_hub() -> f32 {
-    5.0
-}
-fn d_art_only() -> f32 {
-    4.0
-}
-fn d_cover() -> f32 {
-    4.0
-}
-fn d_covers() -> usize {
-    8
-}
-fn d_frame() -> f32 {
-    4.0
-}
-fn d_frame_pictures() -> usize {
-    4
-}
-fn d_alpha() -> f32 {
-    0.12
-}
-
-impl Default for DemoConfig {
-    fn default() -> Self {
-        Self {
-            tile_seconds: d_tile(),
-            clock_seconds: d_clock(),
-            weather_seconds: d_weather(),
-            progress_seconds: d_progress(),
-            sensor_seconds: d_sensor(),
-            alert_seconds: d_alert(),
-            dashboard_seconds: d_dashboard(),
-            hub_seconds: d_hub(),
-            cover_seconds: d_cover(),
-            art_only_seconds: d_art_only(),
-            covers: d_covers(),
-            frame_seconds: d_frame(),
-            frame_pictures: d_frame_pictures(),
-            background_alpha: d_alpha(),
-            art_file: None,
-            art_open: false,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -341,7 +217,7 @@ pub struct ArtCacheConfig {
     #[serde(default = "default_cache_megabytes")]
     pub max_megabytes: f64,
     /// Also keep each picture as downloaded, at its original size, and ask
-    /// Spotify for its largest. The demo's `art_file` is then written from
+    /// Spotify for its largest. The `art_file` is then written from
     /// it. Costs a few tens of kilobytes per cover against the cap.
     #[serde(default)]
     pub keep_originals: bool,
@@ -779,28 +655,6 @@ impl Config {
         if cfg.frame.seconds.is_nan() || cfg.frame.seconds <= 0.0 || !(0.0..=1.0).contains(&cfg.frame.alpha) {
             anyhow::bail!("[frame] seconds must be positive and alpha between 0 and 1");
         }
-        {
-            let d = &cfg.demo;
-            let times = [
-                d.tile_seconds,
-                d.clock_seconds,
-                d.weather_seconds,
-                d.progress_seconds,
-                d.sensor_seconds,
-                d.alert_seconds,
-                d.dashboard_seconds,
-                d.hub_seconds,
-                d.cover_seconds,
-                d.art_only_seconds,
-                d.frame_seconds,
-            ];
-            if times.iter().any(|t| t.is_nan() || *t <= 0.0) {
-                anyhow::bail!("[demo] timings must be positive seconds");
-            }
-            if !(0.0..=1.0).contains(&d.background_alpha) {
-                anyhow::bail!("[demo] background_alpha must be between 0 and 1");
-            }
-        }
         for a in &cfg.alerts {
             if a.label.chars().count() > 11 || a.label.is_empty() {
                 anyhow::bail!("alert {}: the label is one to eleven characters", a.entity);
@@ -825,11 +679,6 @@ impl Config {
             }
             if cfg.art_cache.dir.is_relative() {
                 cfg.art_cache.dir = dir.join(&cfg.art_cache.dir);
-            }
-            if let Some(f) = cfg.demo.art_file.as_mut() {
-                if f.is_relative() {
-                    *f = dir.join(&*f);
-                }
             }
             if cfg.frame.dir.is_relative() {
                 cfg.frame.dir = dir.join(&cfg.frame.dir);

@@ -1,13 +1,15 @@
 //! panel-ddp: draws dashboard frames and streams them to a WLED matrix.
 //!
 //!     panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
-//!     panel-ddp demo [--config FILE] [--once]
 //!     panel-ddp frame [--config FILE] [--once]
 //!     panel-ddp preview [--config FILE] [--out FILE] [--test | --alert]
 //!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
 //!     panel-ddp spotify-login [--config FILE] [--port N]
 //!
-//! The config file defaults to dashboard.toml in the current directory.
+//! The config file defaults to dashboard.toml in the current directory; a
+//! `.json` file works the same. A config with `pages` loops through them,
+//! and `--once` plays them through a single time: `run --config demo.json`
+//! is the demo.
 //! `preview` renders one frame from sample data into a PNG with the mask
 //! applied; `--test` renders the test frame instead. HOST defaults to
 //! 4.3.2.1 (WLED-AP), PORT to 4048.
@@ -19,7 +21,6 @@ mod config;
 mod dashboard;
 mod data;
 mod ddp;
-mod demo;
 mod frame;
 mod ha;
 mod hub;
@@ -53,7 +54,6 @@ fn stop_flag() -> Arc<AtomicBool> {
 
 const USAGE: &str = "usage:
   panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
-  panel-ddp demo [--config FILE] [--once]
   panel-ddp frame [--config FILE] [--once]
   panel-ddp preview [--config FILE] [--out FILE] [--test | --weather-code N | --alert]
   panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
@@ -251,38 +251,6 @@ fn cmd_run(args: &[String]) -> Result<()> {
     result
 }
 
-fn cmd_demo(args: &[String]) -> Result<()> {
-    let mut config = PathBuf::from(DEFAULT_CONFIG);
-    let mut once = false;
-    let mut it = args.iter();
-    while let Some(a) = it.next() {
-        match a.as_str() {
-            "--config" => config = it.next().context("--config needs a file")?.into(),
-            "--once" => once = true,
-            o => bail!("unknown option {o}"),
-        }
-    }
-    let cfg = Config::load(&config)?;
-    let demo = demo::Demo::new(&cfg);
-    let total = demo.total_frames();
-    eprintln!("panel-ddp: demo: one pass is {:.0} s", total as f32 / cfg.fps as f32);
-    let s = Stream {
-        target: ddp::target_with_default_port(&cfg.target),
-        fps: cfg.fps,
-        frames: once.then_some(total),
-    };
-    let result = stream(&s, |c, frame| demo.draw(c, frame));
-    // The art file is only meaningful while the demo runs.
-    if let Some(f) = &cfg.demo.art_file {
-        if f.exists() {
-            if let Err(e) = std::fs::remove_file(f) {
-                eprintln!("panel-ddp: demo: removing {}: {e}", f.display());
-            }
-        }
-    }
-    result
-}
-
 fn cmd_frame(args: &[String]) -> Result<()> {
     let mut config = PathBuf::from(DEFAULT_CONFIG);
     let mut once = false;
@@ -372,7 +340,6 @@ fn main() {
     };
     let result = match cmd {
         "run" => cmd_run(rest),
-        "demo" => cmd_demo(rest),
         "frame" => cmd_frame(rest),
         "preview" => cmd_preview(rest),
         "test" => cmd_test(rest),
