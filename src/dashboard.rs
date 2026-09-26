@@ -46,15 +46,21 @@ pub fn draw(tiles: &Tiles, alerts: &[Alert], c: &mut Canvas, ctx: &Ctx) {
         return;
     }
     c.clear(BLACK).unwrap();
-    if let Some(Background::Media { alpha }) = tiles.background {
-        if let Some(art) = ctx.data.media.as_ref().and_then(|m| m.art.as_ref()) {
-            // The art over the black panel at `alpha`, and nothing else.
-            for i in 0..(WIDTH * HEIGHT) as usize {
-                let p = &art.full[i * 3..i * 3 + 3];
-                c.px[i * 3] = (p[0] as f32 * alpha) as u8;
-                c.px[i * 3 + 1] = (p[1] as f32 * alpha) as u8;
-                c.px[i * 3 + 2] = (p[2] as f32 * alpha) as u8;
-            }
+    // The background picture over the black panel at its alpha, and
+    // nothing else done to it.
+    let backdrop: Option<(&[u8], f32)> = match tiles.background {
+        Some(Background::Media { alpha }) => {
+            ctx.data.media.as_ref().and_then(|m| m.art.as_ref()).map(|a| (a.full.as_slice(), alpha))
+        }
+        Some(Background::Frame { alpha }) => ctx.picture.map(|p| (p, alpha)),
+        _ => None,
+    };
+    if let Some((full, alpha)) = backdrop {
+        for i in 0..(WIDTH * HEIGHT) as usize {
+            let p = &full[i * 3..i * 3 + 3];
+            c.px[i * 3] = (p[0] as f32 * alpha) as u8;
+            c.px[i * 3 + 1] = (p[1] as f32 * alpha) as u8;
+            c.px[i * 3 + 2] = (p[2] as f32 * alpha) as u8;
         }
     }
     let entries = [

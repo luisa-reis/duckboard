@@ -47,9 +47,14 @@ impl Frame {
         self.frames_each * self.pictures.len() as u32
     }
 
-    pub fn draw(&self, c: &mut Canvas, frame: u32) {
+    /// The panel-sized pixels of the picture due at `frame`.
+    pub fn picture(&self, frame: u32) -> &[u8] {
         let i = (frame / self.frames_each) as usize % self.pictures.len();
-        let full = &self.pictures[i].1;
+        &self.pictures[i].1
+    }
+
+    pub fn draw(&self, c: &mut Canvas, frame: u32) {
+        let full = self.picture(frame);
         for j in 0..(WIDTH * HEIGHT) as usize {
             let p = &full[j * 3..j * 3 + 3];
             c.px[j * 3] = (p[0] as f32 * self.alpha) as u8;

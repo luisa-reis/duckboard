@@ -60,7 +60,9 @@ The art shows in one place. By default it is the `background`: the cover
 across the whole panel behind the tiles, blended over black at `alpha`
 (default 0.12) so they stay legible, and nothing else done to it. A hub set
 to `media` moves it there and leaves the background black. Setting both is
-refused; `background = { kind = "none" }` shows no art at all.
+refused; `background = { kind = "none" }` shows no art at all, and
+`background = { kind = "frame", alpha = 0.12 }` puts the `[frame]` pictures
+behind the tiles instead, one after another at `[frame].seconds` each.
 
 ![sample dashboard behind the mask](dashboard-preview.png)
 

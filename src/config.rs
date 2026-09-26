@@ -386,6 +386,12 @@ pub enum Background {
         #[serde(default = "default_background_alpha")]
         alpha: f32,
     },
+    /// The `[frame]` pictures in turn, at `[frame].seconds` each, blended
+    /// over black at `alpha`.
+    Frame {
+        #[serde(default = "default_background_alpha")]
+        alpha: f32,
+    },
 }
 
 fn default_background_alpha() -> f32 {
@@ -714,6 +720,11 @@ impl Config {
                 }
                 if hub_has_art {
                     anyhow::bail!("the art shows once: hub = media or background = media, not both");
+                }
+            }
+            Some(Background::Frame { alpha }) => {
+                if !(0.0..=1.0).contains(&alpha) {
+                    anyhow::bail!("background alpha must be between 0 and 1");
                 }
             }
             Some(Background::None) => {}

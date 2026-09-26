@@ -33,7 +33,9 @@ temperature = "fahrenheit"
 # legible. Setting the hub to media moves it there instead, as a
 # shape: disc (a record, the default), square (the whole cover) or faded (the
 # whole cover with the corners outside the circle dimmed), with spin = true
-# turning it while playing. background = { kind = "none" } shows none.
+# turning it while playing. background = { kind = "none" } shows none, and
+# background = { kind = "frame", alpha = 0.12 } cycles the [frame] pictures
+# behind the tiles instead of the art.
 [tiles]
 top_left = { kind = "clock" }
 top_right = { kind = "date" }

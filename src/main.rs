@@ -141,6 +141,14 @@ fn cmd_test(args: &[String]) -> Result<()> {
     stream(&s, testframe::draw)
 }
 
+/// The `[frame]` pictures, loaded only when the background wants them.
+fn frame_pictures(cfg: &Config) -> Result<Option<frame::Frame>> {
+    match cfg.tiles.background {
+        Some(config::Background::Frame { .. }) => Ok(Some(frame::Frame::new(cfg)?)),
+        _ => Ok(None),
+    }
+}
+
 fn cmd_run(args: &[String]) -> Result<()> {
     let mut config = PathBuf::from(DEFAULT_CONFIG);
     let mut frames = None;
@@ -170,9 +178,18 @@ fn cmd_run(args: &[String]) -> Result<()> {
         data::spawn_sources(&cfg, &shared);
     }
     let palette = Palette::default().with(&cfg.colors);
+    let pictures = frame_pictures(&cfg)?;
     stream(&s, |c, frame| {
         let data = if sample { data::Snapshot::sample(&cfg, frame) } else { shared.lock().unwrap().clone() };
-        let ctx = tiles::Ctx { now: chrono::Local::now(), frame, data: &data, palette: &palette, temperature: cfg.temperature, fps: cfg.fps };
+        let ctx = tiles::Ctx {
+            now: chrono::Local::now(),
+            frame,
+            data: &data,
+            palette: &palette,
+            temperature: cfg.temperature,
+            fps: cfg.fps,
+            picture: pictures.as_ref().map(|p| p.picture(frame)),
+        };
         dashboard::draw(&cfg.tiles, &cfg.alerts, c, &ctx);
     })
 }
@@ -270,7 +287,16 @@ fn cmd_preview(args: &[String]) -> Result<()> {
             w.code %= 1000;
         }
         let palette = Palette::default().with(&cfg.colors);
-        let ctx = tiles::Ctx { now: chrono::Local::now(), frame: 0, data: &data, palette: &palette, temperature: cfg.temperature, fps: cfg.fps };
+        let pictures = frame_pictures(&cfg)?;
+        let ctx = tiles::Ctx {
+            now: chrono::Local::now(),
+            frame: 0,
+            data: &data,
+            palette: &palette,
+            temperature: cfg.temperature,
+            fps: cfg.fps,
+            picture: pictures.as_ref().map(|p| p.picture(0)),
+        };
         dashboard::draw(&cfg.tiles, &cfg.alerts, &mut canvas, &ctx);
     }
     mask.preview_png(&canvas, 4, &out)?;

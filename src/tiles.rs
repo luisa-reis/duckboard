@@ -25,6 +25,8 @@ pub struct Ctx<'a> {
     pub temperature: Units,
     /// Frames per second, for anything timed in seconds.
     pub fps: u32,
+    /// The `[frame]` picture due now, for a `frame` background.
+    pub picture: Option<&'a [u8]>,
 }
 
 pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Palette) {

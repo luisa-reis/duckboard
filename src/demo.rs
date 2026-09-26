@@ -256,6 +256,7 @@ impl Demo {
             palette: &self.palette,
             temperature: self.temperature,
             fps: self.fps,
+            picture: None,
         };
         dashboard::draw(&tiles, std::slice::from_ref(&self.alert_spec), c, &ctx);
     }
