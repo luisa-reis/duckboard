@@ -55,8 +55,6 @@ pub struct Demo {
     temperature: crate::config::Units,
     art_file: Option<PathBuf>,
     art_open: bool,
-    /// Undoes the panel gamma for the companion image.
-    ungamma: Vec<u8>,
     /// Which cover the companion image holds; None is black.
     written: Cell<Option<Option<usize>>>,
 }
@@ -71,9 +69,11 @@ impl Demo {
             format!("gamma {}", cfg.gamma),
             cfg.art_cache.keep_originals,
         );
-        let covers = cache.entries(d.covers);
+        // Only covers with the picture as downloaded, so the art file never
+        // gets a scaled-up panel version.
+        let covers: Vec<Entry> = cache.entries(d.covers * 4).into_iter().filter(|e| e.original.is_some()).take(d.covers).collect();
         if covers.is_empty() {
-            eprintln!("panel-ddp: demo: no covers in the art cache yet, skipping that step");
+            eprintln!("panel-ddp: demo: no covers with originals in the art cache yet (keep_originals), skipping those steps");
         }
         // The alert's look comes from the config's first alert, if any.
         let alert_spec = match cfg.alerts.first() {
@@ -104,7 +104,6 @@ impl Demo {
             temperature: cfg.temperature,
             art_file: d.art_file.clone(),
             art_open: d.art_open,
-            ungamma: (0..=255u32).map(|v| ((v as f32 / 255.0).powf(1.0 / cfg.gamma) * 255.0).round() as u8).collect(),
             written: Cell::new(None),
         }
     }
@@ -115,25 +114,10 @@ impl Demo {
         if self.written.get() == Some(cover) {
             return;
         }
-        // The original picture when it was kept, else the panel's pixels
-        // scaled up with the gamma undone; black when there is no cover.
-        let img = match cover {
-            Some(i) => match self.covers[i].original.as_deref().and_then(|b| image::load_from_memory(b).ok()) {
-                Some(orig) => orig.to_rgb8(),
-                None => {
-                    let full = &self.covers[i].full;
-                    let mut img = image::RgbImage::new(WIDTH * ART_FILE_SCALE, HEIGHT * ART_FILE_SCALE);
-                    for (x, y, px) in img.enumerate_pixels_mut() {
-                        let j = ((y / ART_FILE_SCALE) * WIDTH + x / ART_FILE_SCALE) as usize * 3;
-                        *px = image::Rgb([
-                            self.ungamma[full[j] as usize],
-                            self.ungamma[full[j + 1] as usize],
-                            self.ungamma[full[j + 2] as usize],
-                        ]);
-                    }
-                    img
-                }
-            },
+        // The original picture, re-encoded as JPEG whatever it came as;
+        // black when there is no cover on.
+        let img = match cover.and_then(|i| self.covers[i].original.as_deref()).and_then(|b| image::load_from_memory(b).ok()) {
+            Some(orig) => orig.to_rgb8(),
             None => image::RgbImage::new(WIDTH * ART_FILE_SCALE, HEIGHT * ART_FILE_SCALE),
         };
         // Written whole and renamed into place, so a viewer never reads a
