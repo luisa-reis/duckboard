@@ -18,19 +18,21 @@ fps = 10
 #   sensor, progress       need [home_assistant]; progress adds a bar, full at max (default 100)
 #   blank
 # Hub kinds: media (album art, needs the same as now_playing), blank.
-# media takes spin (true turns the art while playing; default false) and
-# shape: disc (a record, the default), square (the whole cover) or faded
-# (the whole cover with the corners outside the circle dimmed).
+#
+# The album art shows in one place. By default it is the background: the
+# cover across the whole panel behind the tiles, dimmed to brightness (0..1)
+# so they stay legible. Setting the hub to media moves it there instead, as a
+# shape: disc (a record, the default), square (the whole cover) or faded (the
+# whole cover with the corners outside the circle dimmed), with spin = true
+# turning it while playing. background = { kind = "none" } shows none.
 [tiles]
 top_left = { kind = "clock" }
 top_right = { kind = "date" }
 bottom_left = { kind = "weather" }
 bottom_right = { kind = "now_playing" }
-hub = { kind = "media", spin = false, shape = "disc" }
-# The album art across the whole panel behind the tiles, dimmed to
-# brightness (0..1) so they stay legible. This is the default whenever
-# there is art; background = { kind = "none" } switches it off.
-background = { kind = "media", brightness = 0.25 }
+hub = { kind = "blank" }
+background = { kind = "media", brightness = 0.12 }
+# hub = { kind = "media", spin = false, shape = "disc" }
 
 # Current conditions from Open-Meteo, no key needed. units: celsius or
 # fahrenheit.

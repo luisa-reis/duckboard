@@ -118,10 +118,11 @@ pub struct Tiles {
     pub bottom_right: TileSpec,
     #[serde(default = "Tiles::default_hub")]
     pub hub: HubSpec,
-    /// Painted over the whole panel before the tiles. Album art, dimmed,
-    /// unless switched off; with no media source there is simply none.
+    /// Painted over the whole panel before the tiles. The art shows in one
+    /// place: here unless the hub is `media`, or switched off. Left unset in
+    /// the file, `Config::load` resolves it.
     #[serde(default)]
-    pub background: Background,
+    pub background: Option<Background>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -137,13 +138,7 @@ pub enum Background {
 }
 
 fn default_background_brightness() -> f32 {
-    0.25
-}
-
-impl Default for Background {
-    fn default() -> Self {
-        Background::Media { brightness: default_background_brightness() }
-    }
+    0.12
 }
 
 impl Tiles {
@@ -172,7 +167,7 @@ impl Default for Tiles {
             bottom_left: Self::default_bottom_left(),
             bottom_right: Self::default_bottom_right(),
             hub: Self::default_hub(),
-            background: Background::default(),
+            background: None,
         }
     }
 }
@@ -284,11 +279,6 @@ impl Config {
         if needs_ha && cfg.home_assistant.is_none() {
             anyhow::bail!("sensor and progress tiles need the [home_assistant] table");
         }
-        if let Background::Media { brightness } = cfg.tiles.background {
-            if !(0.0..=1.0).contains(&brightness) {
-                anyhow::bail!("background brightness must be between 0 and 1");
-            }
-        }
         let needs_player = tiles.iter().any(|t| matches!(t, TileSpec::NowPlaying))
             || matches!(cfg.tiles.hub, HubSpec::Media { .. });
         if needs_player && !cfg.has_media_source() {
@@ -302,6 +292,26 @@ impl Config {
                 if sp.token_file.is_relative() {
                     sp.token_file = dir.join(&sp.token_file);
                 }
+            }
+        }
+        // Last, after the tiles borrow ends: where the art goes.
+        let hub_has_art = matches!(cfg.tiles.hub, HubSpec::Media { .. });
+        match cfg.tiles.background {
+            Some(Background::Media { brightness }) => {
+                if !(0.0..=1.0).contains(&brightness) {
+                    anyhow::bail!("background brightness must be between 0 and 1");
+                }
+                if hub_has_art {
+                    anyhow::bail!("the art shows once: hub = media or background = media, not both");
+                }
+            }
+            Some(Background::None) => {}
+            None => {
+                cfg.tiles.background = Some(if hub_has_art {
+                    Background::None
+                } else {
+                    Background::Media { brightness: default_background_brightness() }
+                });
             }
         }
         Ok(cfg)

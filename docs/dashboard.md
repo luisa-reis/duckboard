@@ -37,10 +37,11 @@ With `[spotify]`, or a Home Assistant media player:
 
 - `now_playing` — artist and title, scrolling when wider than the tile, blank
   while nothing plays.
-- hub `media` — the album art, dimmed while paused, a faint ripple when
-  nothing plays. `shape` is `disc` (a record with a spindle hole, the
-  default), `square` (the whole cover) or `faded` (the whole cover with the
-  corners outside the circle dimmed); `spin = true` turns it while playing.
+- hub `media` — the album art in the hub instead of the background, dimmed
+  while paused, a faint ripple when nothing plays. `shape` is `disc` (a
+  record with a spindle hole, the default), `square` (the whole cover) or
+  `faded` (the whole cover with the corners outside the circle dimmed);
+  `spin = true` turns it while playing.
 
 With `[home_assistant]`:
 
@@ -52,10 +53,11 @@ With `[home_assistant]`:
 
 The hub also takes `blank`.
 
-Behind everything, `background` paints the album art across the whole
-panel, dimmed to `brightness` (default 0.25) so the tiles stay legible, and
-dimmed further while paused. It is on whenever there is art;
-`background = { kind = "none" }` switches it off.
+The art shows in one place. By default it is the `background`: the cover
+across the whole panel behind the tiles, dimmed to `brightness` (default
+0.12) so they stay legible, and dimmed further while paused. A hub set to
+`media` moves it there and leaves the background black. Setting both is
+refused; `background = { kind = "none" }` shows no art at all.
 
 ![sample dashboard behind the mask](dashboard-preview.png)
 
