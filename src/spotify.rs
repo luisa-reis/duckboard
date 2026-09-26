@@ -4,11 +4,10 @@
 //! client keeps in a token file, rewriting it as Spotify rotates the token.
 
 use crate::config::SpotifyConfig;
-use crate::ha::{Art, Media};
+use crate::ha::{decode_art, Art, Media};
 use crate::mask::HUB;
 use anyhow::{anyhow, bail, Context, Result};
 use base64::Engine;
-use image::imageops::FilterType;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::{Read, Write};
@@ -145,18 +144,20 @@ impl Client {
             None => None,
             Some(url) => match previous.and_then(|m| m.art.as_ref()).filter(|a| a.url == url) {
                 Some(kept) => Some(kept.clone()),
-                None => Some(Art { rgb: self.fetch_art(&url)?, url }),
+                None => {
+                    let (rgb, full) = self.fetch_art(&url)?;
+                    Some(Art { rgb, full, url })
+                }
             },
         };
         Ok(Some(Media { playing: v["is_playing"].as_bool().unwrap_or(false), title, artist, art }))
     }
 
-    fn fetch_art(&self, url: &str) -> Result<Vec<u8>> {
+    fn fetch_art(&self, url: &str) -> Result<(Vec<u8>, Vec<u8>)> {
         let resp = self.agent.get(url).call().context("GET album art")?;
         let mut bytes = Vec::new();
         Read::take(resp.into_reader(), 8 << 20).read_to_end(&mut bytes).context("reading album art")?;
-        let img = image::load_from_memory(&bytes).map_err(|e| anyhow!("decoding album art: {e}"))?;
-        Ok(img.resize_to_fill(HUB.width, HUB.height, FilterType::Lanczos3).to_rgb8().into_raw())
+        decode_art(&bytes).context("album art")
     }
 }
 

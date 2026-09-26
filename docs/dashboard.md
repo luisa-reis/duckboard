@@ -52,6 +52,11 @@ With `[home_assistant]`:
 
 The hub also takes `blank`.
 
+Behind everything, `background` paints the album art across the whole
+panel, dimmed to `brightness` (default 0.25) so the tiles stay legible, and
+dimmed further while paused. It is on whenever there is art;
+`background = { kind = "none" }` switches it off.
+
 ![sample dashboard behind the mask](dashboard-preview.png)
 
 ## Building
@@ -83,7 +88,7 @@ optional:
 - `[home_assistant]` — `url`, a long-lived access `token` (profile page,
   Security tab), the `media_player` entity to use as the media source when
   there is no `[spotify]`, `refresh_seconds`.
-- `[tiles]` — a tile per corner and one for the hub. A `sensor` tile names its
+- `[tiles]` — a tile per corner, one for the hub, and the `background`. A `sensor` tile names its
   `entity` and `label`, and may set `unit` (`""` hides it) and `decimals`. A
   `progress` tile names `entity` and `label`, and may set `max` and `decimals`.
 

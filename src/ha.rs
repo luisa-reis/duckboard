@@ -2,6 +2,7 @@
 //! media player's title, artist and album art for the hub. One long-lived
 //! access token covers all of it.
 
+use crate::canvas::{HEIGHT, WIDTH};
 use crate::config::HomeAssistantConfig;
 use crate::mask::HUB;
 use anyhow::{anyhow, Context, Result};
@@ -31,7 +32,19 @@ pub struct Media {
 #[derive(Clone, Debug)]
 pub struct Art {
     pub url: String,
+    /// Scaled to the hub.
     pub rgb: Vec<u8>,
+    /// Scaled to the whole panel, for the background.
+    pub full: Vec<u8>,
+}
+
+/// Decodes a picture and scales it to fill the hub and the panel, cropping
+/// to square.
+pub fn decode_art(bytes: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+    let img = image::load_from_memory(bytes).map_err(|e| anyhow!("decoding picture: {e}"))?;
+    let hub = img.resize_to_fill(HUB.width, HUB.height, FilterType::Lanczos3).to_rgb8().into_raw();
+    let full = img.resize_to_fill(WIDTH, HEIGHT, FilterType::Lanczos3).to_rgb8().into_raw();
+    Ok((hub, full))
 }
 
 #[derive(Deserialize)]
@@ -86,15 +99,18 @@ impl Client {
                 let url = if p.starts_with("http") { p.to_string() } else { format!("{}{p}", self.base) };
                 match previous.and_then(|m| m.art.as_ref()).filter(|a| a.url == url) {
                     Some(kept) => Some(kept.clone()),
-                    None => Some(Art { rgb: self.fetch_art(&url)?, url }),
+                    None => {
+                        let (rgb, full) = self.fetch_art(&url)?;
+                        Some(Art { rgb, full, url })
+                    }
                 }
             }
         };
         Ok(Media { playing: s.state == "playing", title: text("media_title"), artist: text("media_artist"), art })
     }
 
-    /// Downloads a picture and scales it to fill the hub, cropping to square.
-    fn fetch_art(&self, url: &str) -> Result<Vec<u8>> {
+    /// Downloads a picture and scales it for the hub and the background.
+    fn fetch_art(&self, url: &str) -> Result<(Vec<u8>, Vec<u8>)> {
         let resp = self
             .agent
             .get(url)
@@ -105,7 +121,6 @@ impl Client {
         std::io::Read::take(resp.into_reader(), 8 << 20)
             .read_to_end(&mut bytes)
             .context("reading entity_picture")?;
-        let img = image::load_from_memory(&bytes).map_err(|e| anyhow!("decoding entity_picture: {e}"))?;
-        Ok(img.resize_to_fill(HUB.width, HUB.height, FilterType::Lanczos3).to_rgb8().into_raw())
+        decode_art(&bytes).context("entity_picture")
     }
 }

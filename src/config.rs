@@ -118,6 +118,32 @@ pub struct Tiles {
     pub bottom_right: TileSpec,
     #[serde(default = "Tiles::default_hub")]
     pub hub: HubSpec,
+    /// Painted over the whole panel before the tiles. Album art, dimmed,
+    /// unless switched off; with no media source there is simply none.
+    #[serde(default)]
+    pub background: Background,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Background {
+    None,
+    /// The album art across the panel, dimmed so the tiles stay legible.
+    Media {
+        /// 0..1, how bright the art is drawn.
+        #[serde(default = "default_background_brightness")]
+        brightness: f32,
+    },
+}
+
+fn default_background_brightness() -> f32 {
+    0.25
+}
+
+impl Default for Background {
+    fn default() -> Self {
+        Background::Media { brightness: default_background_brightness() }
+    }
 }
 
 impl Tiles {
@@ -146,6 +172,7 @@ impl Default for Tiles {
             bottom_left: Self::default_bottom_left(),
             bottom_right: Self::default_bottom_right(),
             hub: Self::default_hub(),
+            background: Background::default(),
         }
     }
 }
@@ -256,6 +283,11 @@ impl Config {
         let needs_ha = tiles.iter().any(|t| matches!(t, TileSpec::Sensor { .. } | TileSpec::Progress { .. }));
         if needs_ha && cfg.home_assistant.is_none() {
             anyhow::bail!("sensor and progress tiles need the [home_assistant] table");
+        }
+        if let Background::Media { brightness } = cfg.tiles.background {
+            if !(0.0..=1.0).contains(&brightness) {
+                anyhow::bail!("background brightness must be between 0 and 1");
+            }
         }
         let needs_player = tiles.iter().any(|t| matches!(t, TileSpec::NowPlaying))
             || matches!(cfg.tiles.hub, HubSpec::Media { .. });

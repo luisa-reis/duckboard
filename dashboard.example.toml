@@ -27,6 +27,10 @@ top_right = { kind = "date" }
 bottom_left = { kind = "weather" }
 bottom_right = { kind = "now_playing" }
 hub = { kind = "media", spin = false, shape = "disc" }
+# The album art across the whole panel behind the tiles, dimmed to
+# brightness (0..1) so they stay legible. This is the default whenever
+# there is art; background = { kind = "none" } switches it off.
+background = { kind = "media", brightness = 0.25 }
 
 # Current conditions from Open-Meteo, no key needed. units: celsius or
 # fahrenheit.

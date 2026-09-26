@@ -3,6 +3,7 @@
 //! run on their own threads and each refreshes its part on its own clock,
 //! so a slow or dead service never stalls a frame.
 
+use crate::canvas::{HEIGHT, WIDTH};
 use crate::config::Config;
 use crate::ha::{self, Art, Media, Sensor};
 use crate::mask::HUB;
@@ -35,12 +36,17 @@ impl Snapshot {
             .into_iter()
             .map(|e| (e, Sensor { state: format!("{value}"), unit: Some("%".into()) }))
             .collect();
-        let mut rgb = Vec::with_capacity((HUB.width * HUB.height * 3) as usize);
-        for y in 0..HUB.height {
-            for x in 0..HUB.width {
-                rgb.extend_from_slice(&[(x * 11) as u8, (y * 11) as u8, 180 - (x * 4) as u8]);
+        let gradient = |w: u32, h: u32| {
+            let mut rgb = Vec::with_capacity((w * h * 3) as usize);
+            for y in 0..h {
+                for x in 0..w {
+                    rgb.extend_from_slice(&[(x * 240 / w) as u8, (y * 240 / h) as u8, 180 - (x * 90 / w) as u8]);
+                }
             }
-        }
+            rgb
+        };
+        let rgb = gradient(HUB.width, HUB.height);
+        let full = gradient(WIDTH, HEIGHT);
         Self {
             weather: Some(Weather { temperature: 21.4, code: 61, is_day: true }),
             sensors,
@@ -48,7 +54,7 @@ impl Snapshot {
                 playing: true,
                 title: "Sample Song Title".into(),
                 artist: "Sample Artist".into(),
-                art: Some(Art { url: String::new(), rgb }),
+                art: Some(Art { url: String::new(), rgb, full }),
             }),
         }
     }
