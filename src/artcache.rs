@@ -2,8 +2,9 @@
 //! gamma it was decoded with, so a changed gamma misses. Each entry
 //! is the hub-sized and panel-sized RGB bytes back to back, about 14 KB, so
 //! the default cap holds a few hundred covers. With `keep_originals` the
-//! picture as downloaded sits beside it, keyed by URL alone. Oldest files
-//! go first when the cap is reached; a hit refreshes the entry's time.
+//! picture as downloaded sits beside it, keyed by URL alone and named with
+//! its own format's extension. Oldest files go first when the cap is
+//! reached; a hit refreshes the entry's time.
 
 use crate::canvas::{HEIGHT, WIDTH};
 use crate::mask::HUB;
@@ -45,9 +46,12 @@ impl ArtCache {
         self.dir.join(format!("{:x}.rgb", hash))
     }
 
-    fn original_path_for(&self, url: &str) -> PathBuf {
+    /// Named by the URL's hash with the picture's own extension: jpg, png,
+    /// or whatever the bytes turn out to be.
+    fn original_path_for(&self, url: &str, bytes: &[u8]) -> PathBuf {
         let hash = Sha256::digest(url.as_bytes());
-        self.dir.join(format!("{:x}.orig", hash))
+        let ext = image::guess_format(bytes).ok().and_then(|f| f.extensions_str().first().copied()).unwrap_or("img");
+        self.dir.join(format!("{:x}.{ext}", hash))
     }
 
     /// Stores a picture as downloaded, when originals are kept.
@@ -56,7 +60,7 @@ impl ArtCache {
             return Ok(());
         }
         fs::create_dir_all(&self.dir).with_context(|| format!("creating {}", self.dir.display()))?;
-        let path = self.original_path_for(url);
+        let path = self.original_path_for(url, bytes);
         let tmp = path.with_extension("tmp");
         fs::write(&tmp, bytes).with_context(|| format!("writing {}", tmp.display()))?;
         fs::rename(&tmp, &path).with_context(|| format!("renaming into {}", path.display()))?;
@@ -125,14 +129,14 @@ impl ArtCache {
             .collect()
     }
 
-    /// The `.orig` written closest in time to a decoded entry, within a
+    /// The original written closest in time to a decoded entry, within a
     /// couple of seconds, since both are written by the same fetch.
     fn original_beside(&self, entry: &std::path::Path) -> Option<Vec<u8>> {
         let t = fs::metadata(entry).ok()?.modified().ok()?;
         let mut best: Option<(std::time::Duration, PathBuf)> = None;
         for e in fs::read_dir(&self.dir).ok()?.flatten() {
             let p = e.path();
-            if p.extension().is_none_or(|x| x != "orig") {
+            if p.extension().is_none_or(|x| x == "rgb" || x == "tmp") {
                 continue;
             }
             let m = e.metadata().ok()?.modified().ok()?;
@@ -151,7 +155,7 @@ impl ArtCache {
         for e in fs::read_dir(&self.dir).with_context(|| format!("listing {}", self.dir.display()))? {
             let e = e?;
             let p = e.path();
-            if p.extension().is_none_or(|x| x != "rgb" && x != "orig") {
+            if p.extension().is_none_or(|x| x == "tmp") {
                 continue;
             }
             let m = e.metadata()?;
@@ -232,10 +236,16 @@ mod tests {
         let on = ArtCache::new(tempdir("orig-on"), 1 << 20, "g".into(), true);
         let (h, f) = entry(4);
         on.put("a", &h, &f).unwrap();
-        on.put_original("a", b"jpeg bytes").unwrap();
+        let png = {
+            let mut buf = std::io::Cursor::new(Vec::new());
+            image::RgbImage::new(2, 2).write_to(&mut buf, image::ImageFormat::Png).unwrap();
+            buf.into_inner()
+        };
+        on.put_original("a", &png).unwrap();
+        assert!(on.dir.join(format!("{:x}.png", Sha256::digest(b"a"))).exists(), "named by its format");
         let e = on.entries(1);
         assert_eq!(e.len(), 1);
-        assert_eq!(e[0].original.as_deref(), Some(&b"jpeg bytes"[..]));
+        assert_eq!(e[0].original.as_deref(), Some(&png[..]));
     }
 
     #[test]
