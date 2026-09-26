@@ -32,7 +32,7 @@ pub fn fetch(agent: &ureq::Agent, cfg: &WeatherConfig) -> Result<Weather> {
          &current=temperature_2m,weather_code,is_day&temperature_unit={}",
         cfg.latitude,
         cfg.longitude,
-        cfg.units.api_name()
+        cfg.units.unwrap_or_default().api_name()
     );
     let r: Response = agent
         .get(&url)

@@ -18,6 +18,10 @@ pub struct Config {
     /// if the board's realtime gamma correction is switched on.
     #[serde(default = "default_gamma")]
     pub gamma: f32,
+    /// The unit temperatures are shown in: the weather, and any sensor whose
+    /// reading is in degrees, converted if Home Assistant reports the other.
+    #[serde(default)]
+    pub temperature: Units,
     /// Gap file for previews, relative to the config file. Optional: without
     /// it the preview shows the whole panel.
     #[serde(default = "default_gaps")]
@@ -113,8 +117,9 @@ fn default_max() -> f64 {
 pub struct WeatherConfig {
     pub latitude: f64,
     pub longitude: f64,
-    #[serde(default)]
-    pub units: Units,
+    /// Overrides the top-level `temperature` for the weather tile alone.
+    /// Left out, `Config::load` fills it in.
+    pub units: Option<Units>,
     #[serde(default = "default_refresh_minutes")]
     pub refresh_minutes: u64,
 }
@@ -126,8 +131,8 @@ fn default_refresh_minutes() -> u64 {
 #[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Units {
-    #[default]
     Celsius,
+    #[default]
     Fahrenheit,
 }
 
@@ -136,6 +141,16 @@ impl Units {
         match self {
             Units::Celsius => "celsius",
             Units::Fahrenheit => "fahrenheit",
+        }
+    }
+
+    /// A reading in degrees, converted to this unit when its symbol says
+    /// it is in the other; anything else comes back unchanged.
+    pub fn convert(self, value: f64, unit: &str) -> (f64, String) {
+        match (unit, self) {
+            ("°C", Units::Fahrenheit) => (value * 9.0 / 5.0 + 32.0, "°F".into()),
+            ("°F", Units::Celsius) => ((value - 32.0) * 5.0 / 9.0, "°C".into()),
+            _ => (value, unit.into()),
         }
     }
 }
@@ -410,6 +425,9 @@ impl Config {
         if !(0.5..=5.0).contains(&cfg.gamma) {
             anyhow::bail!("gamma must be between 0.5 and 5");
         }
+        if let Some(w) = cfg.weather.as_mut() {
+            w.units.get_or_insert(cfg.temperature);
+        }
         if cfg.art_cache.max_megabytes.is_nan() || cfg.art_cache.max_megabytes < 0.0 {
             anyhow::bail!("art_cache.max_megabytes must be 0 or more");
         }
@@ -476,5 +494,18 @@ impl Config {
             }
         }
         Ok(cfg)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Units;
+
+    #[test]
+    fn converts_between_degrees_only() {
+        assert_eq!(Units::Fahrenheit.convert(29.0, "°C"), (84.2, "°F".to_string()));
+        assert_eq!(Units::Celsius.convert(212.0, "°F"), (100.0, "°C".to_string()));
+        assert_eq!(Units::Fahrenheit.convert(50.0, "°F"), (50.0, "°F".to_string()));
+        assert_eq!(Units::Celsius.convert(42.0, "%"), (42.0, "%".to_string()));
     }
 }

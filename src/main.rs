@@ -155,7 +155,7 @@ fn cmd_run(args: &[String]) -> Result<()> {
     let palette = Palette::default().with(&cfg.colors);
     stream(&s, |c, frame| {
         let data = if sample { data::Snapshot::sample(&cfg, frame) } else { shared.lock().unwrap().clone() };
-        let ctx = tiles::Ctx { now: chrono::Local::now(), frame, data: &data, palette: &palette };
+        let ctx = tiles::Ctx { now: chrono::Local::now(), frame, data: &data, palette: &palette, temperature: cfg.temperature };
         dashboard::draw(&cfg.tiles, c, &ctx);
     })
 }
@@ -198,7 +198,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
             w.code %= 1000;
         }
         let palette = Palette::default().with(&cfg.colors);
-        let ctx = tiles::Ctx { now: chrono::Local::now(), frame: 0, data: &data, palette: &palette };
+        let ctx = tiles::Ctx { now: chrono::Local::now(), frame: 0, data: &data, palette: &palette, temperature: cfg.temperature };
         dashboard::draw(&cfg.tiles, &mut canvas, &ctx);
     }
     mask.preview_png(&canvas, 4, &out)?;

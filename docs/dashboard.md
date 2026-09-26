@@ -116,13 +116,16 @@ optional:
   cover sent raw comes out washed out. Set 1.0 if the board's realtime gamma
   correction is switched on instead. The tiles' own colours are sent as they
   are; they were chosen on the panel.
+- `temperature` (default `fahrenheit`, or `celsius`) — the unit for every
+  temperature shown: the weather, and any sensor whose reading is in
+  degrees, converted when Home Assistant reports the other unit.
 - `gaps` (default `2d-gaps.json`) — a copy of the board's WLED gap file (one
   value per pixel, 1 for shown), used only by `preview` to grey out the
   pixels the panel hides. Without it the preview shows the whole 64×64.
   `2d-gaps.json` is git-ignored; `2d-gaps.example.json` is a sample that
   hides the four corners.
-- `[weather]` — latitude, longitude, `units` (`celsius` or `fahrenheit`),
-  `refresh_minutes`.
+- `[weather]` — latitude, longitude, `refresh_minutes`, and `units` to
+  override `temperature` for the weather tile alone.
 - `[spotify]` — `client_id`, and optionally `token_file` (default
   `spotify-token.json` next to the config) and `refresh_seconds`. See below.
 - `[art_cache]` — `dir` (default `art-cache` next to the config) and

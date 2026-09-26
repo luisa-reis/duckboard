@@ -3,7 +3,7 @@
 //! palette in the context, by role.
 
 use crate::canvas::Canvas;
-use crate::config::{Seconds, TileSpec};
+use crate::config::{Seconds, TileSpec, Units};
 use crate::data::Snapshot;
 use crate::icons;
 use crate::palette::{Palette, Rgba};
@@ -22,6 +22,7 @@ pub struct Ctx<'a> {
     pub frame: u32,
     pub data: &'a Snapshot,
     pub palette: &'a Palette,
+    pub temperature: Units,
 }
 
 pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Palette) {
@@ -145,8 +146,15 @@ fn sensor<D: DrawTarget<Color = Rgba>>(
         centred(t, "--", cx, o.y + 8, MonoTextStyle::new(&FONT_6X10, p.track));
         return;
     };
+    // A reading in degrees follows the configured temperature unit.
+    let mut shown_unit = s.unit.clone();
     let value = match s.state.parse::<f64>() {
-        Ok(v) => {
+        Ok(mut v) => {
+            if let Some(u) = &s.unit {
+                let (cv, cu) = ctx.temperature.convert(v, u);
+                v = cv;
+                shown_unit = Some(cu);
+            }
             // Fit 24 pixels: four characters of the big font. Decimals go
             // first, then the font.
             let want = decimals.map(usize::from).unwrap_or(if s.state.contains('.') { 1 } else { 0 });
@@ -163,7 +171,7 @@ fn sensor<D: DrawTarget<Color = Rgba>>(
     } else {
         centred(t, &value, cx, o.y + 10, MonoTextStyle::new(&FONT_4X6, p.text));
     }
-    let unit = unit.map(str::to_string).or_else(|| s.unit.clone()).unwrap_or_default();
+    let unit = unit.map(str::to_string).or(shown_unit).unwrap_or_default();
     centred(t, &unit, cx, o.y + 18, MonoTextStyle::new(&FONT_4X6, p.label));
 }
 

@@ -9,6 +9,9 @@ fps = 10
 # streamed frames, and the HUB75 driver is linear, so sRGB covers need 2.2
 # to look right. 1.0 if the board's realtime gamma correction is on.
 gamma = 2.2
+# Temperatures, everywhere they appear: fahrenheit (the default) or celsius.
+# A Home Assistant reading in the other unit is converted.
+temperature = "fahrenheit"
 # Gap file for `preview`, relative to this file: a copy of the board's WLED
 # gap file, so hidden pixels come out grey. Optional; without it the preview
 # shows the whole panel. 2d-gaps.example.json hides just the four corners.
@@ -61,13 +64,13 @@ background = { kind = "media", alpha = 0.12 }
 # snow = "#ffffff"
 # fog = "#6e6e6e"
 
-# Current conditions from Open-Meteo, no key needed. units: celsius or
-# fahrenheit.
+# Current conditions from Open-Meteo, no key needed. units overrides the
+# top-level temperature for this tile alone.
 [weather]
 latitude = 37.77
 longitude = -122.42
-units = "celsius"
 refresh_minutes = 10
+# units = "celsius"
 
 # Spotify, for now_playing and the media hub. client_id is the Client ID of
 # an app created at developer.spotify.com/dashboard with the redirect URI
