@@ -7,11 +7,13 @@
 //! 4. The print progress, filling from 0 to 100.
 //! 5. The water leak alert.
 //! 6. The whole dashboard again, plain.
-//! 7. The same over cached album covers, one after another.
+//! 7. The same with a cover as a disc in the hub.
+//! 8. The same over cached album covers, one after another.
+//! 9. The covers alone, nothing else drawn.
 
 use crate::artcache::ArtCache;
 use crate::canvas::Canvas;
-use crate::config::{Alert, Background, Config, HubEntry, HubSpec, Seconds, TileEntry, TileSpec, Tiles};
+use crate::config::{Alert, ArtShape, Background, Config, HubEntry, HubSpec, Seconds, TileEntry, TileSpec, Tiles};
 use crate::dashboard;
 use crate::data::Snapshot;
 use crate::ha::{Art, Media, Sensor};
@@ -37,7 +39,9 @@ pub struct Demo {
     progress: u32,
     alert: u32,
     dashboard: u32,
+    hub: u32,
     cover: u32,
+    art_only: u32,
     covers: Vec<(Vec<u8>, Vec<u8>)>,
     alert_spec: Alert,
     background_alpha: f32,
@@ -73,7 +77,9 @@ impl Demo {
             progress: frames(d.progress_seconds),
             alert: frames(d.alert_seconds),
             dashboard: frames(d.dashboard_seconds),
+            hub: frames(d.hub_seconds),
             cover: frames(d.cover_seconds),
+            art_only: frames(d.art_only_seconds),
             covers,
             alert_spec,
             background_alpha: d.background_alpha,
@@ -90,7 +96,9 @@ impl Demo {
             + self.progress
             + self.alert
             + self.dashboard
+            + self.hub * self.covers.len().min(1) as u32
             + self.cover * self.covers.len() as u32
+            + self.art_only * self.covers.len() as u32
     }
 
     pub fn draw(&self, c: &mut Canvas, frame: u32) {
@@ -102,15 +110,19 @@ impl Demo {
         let mut progress: Option<f64> = None;
         let mut leak = false;
         let mut cover: Option<usize> = None;
+        let mut placement = Placement::Background;
 
-        let stages: [(u32, u32); 7] = [
+        let n_covers = self.covers.len() as u32;
+        let stages: [(u32, u32); 9] = [
             (self.tile, 4),
             (self.clock, 1),
             (self.sky, SKIES.len() as u32),
             (self.progress, 1),
             (self.alert, 1),
             (self.dashboard, 1),
-            (self.cover, self.covers.len() as u32),
+            (self.hub, n_covers.min(1)),
+            (self.cover, n_covers),
+            (self.art_only, n_covers),
         ];
         let mut stage = 0;
         let mut index = 0;
@@ -136,14 +148,22 @@ impl Demo {
             2 => sky = Some(SKIES[index as usize]),
             3 => progress = Some((within as f64 / self.progress as f64 * 100.0).round().min(100.0)),
             4 => leak = true,
-            6 => cover = Some(index as usize),
+            6 => {
+                cover = Some(0);
+                placement = Placement::Hub;
+            }
+            7 => cover = Some(index as usize),
+            8 => {
+                cover = Some(index as usize);
+                placement = Placement::Alone;
+            }
             _ => {}
         }
         if stage == 2 {
             sky = Some(SKIES[index as usize]);
         }
 
-        let tiles = self.tiles(date_tile, clock, sky.is_some(), progress.is_some(), cover.is_some());
+        let tiles = self.tiles(date_tile, clock, sky.is_some(), progress.is_some(), cover.is_some(), placement);
         let mut sensors = HashMap::new();
         if let Some(v) = progress {
             sensors.insert(PROGRESS_ENTITY.to_string(), Sensor { state: format!("{v}"), unit: Some("%".into()) });
@@ -169,7 +189,15 @@ impl Demo {
         dashboard::draw(&tiles, std::slice::from_ref(&self.alert_spec), c, &ctx);
     }
 
-    fn tiles(&self, date_tile: usize, clock: bool, weather: bool, progress: bool, background: bool) -> Tiles {
+    fn tiles(
+        &self,
+        date_tile: usize,
+        clock: bool,
+        weather: bool,
+        progress: bool,
+        art: bool,
+        placement: Placement,
+    ) -> Tiles {
         let entry = |spec: TileSpec| TileEntry { spec, colors: Overrides::default() };
         let mut tiles = [
             entry(TileSpec::Blank),
@@ -192,18 +220,38 @@ impl Demo {
                 decimals: 0,
             });
         }
+        if art && placement == Placement::Alone {
+            tiles = [entry(TileSpec::Blank), entry(TileSpec::Blank), entry(TileSpec::Blank), entry(TileSpec::Blank)];
+        }
         let [top_left, top_right, bottom_left, bottom_right] = tiles;
+        let hub = if art && placement == Placement::Hub {
+            HubSpec::Media { spin: false, shape: ArtShape::Disc, paused_alpha: 0.4, corner_alpha: 0.3 }
+        } else {
+            HubSpec::Blank
+        };
+        let background = match (art, placement) {
+            (false, _) | (true, Placement::Hub) => Background::None,
+            (true, Placement::Background) => Background::Media { alpha: self.background_alpha },
+            (true, Placement::Alone) => Background::Media { alpha: 1.0 },
+        };
         Tiles {
             top_left,
             top_right,
             bottom_left,
             bottom_right,
-            hub: HubEntry { spec: HubSpec::Blank, colors: Overrides::default() },
-            background: Some(if background {
-                Background::Media { alpha: self.background_alpha }
-            } else {
-                Background::None
-            }),
+            hub: HubEntry { spec: hub, colors: Overrides::default() },
+            background: Some(background),
         }
     }
+}
+
+/// Where a cover goes in a stage.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Placement {
+    Hub,
+    Background,
+    Alone,
+}
+
+impl Demo {
 }

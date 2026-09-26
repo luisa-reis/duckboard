@@ -67,9 +67,15 @@ pub struct DemoConfig {
     /// The whole dashboard after the alert, before any cover.
     #[serde(default = "d_dashboard")]
     pub dashboard_seconds: f32,
+    /// The dashboard with a cover as a disc in the hub.
+    #[serde(default = "d_hub")]
+    pub hub_seconds: f32,
     /// Each cover as the background, from the art cache.
     #[serde(default = "d_cover")]
     pub cover_seconds: f32,
+    /// Each cover on its own, nothing else drawn, at the end.
+    #[serde(default = "d_art_only")]
+    pub art_only_seconds: f32,
     /// How many cached covers to show, newest first.
     #[serde(default = "d_covers")]
     pub covers: usize,
@@ -96,6 +102,12 @@ fn d_alert() -> f32 {
 fn d_dashboard() -> f32 {
     5.0
 }
+fn d_hub() -> f32 {
+    5.0
+}
+fn d_art_only() -> f32 {
+    4.0
+}
 fn d_cover() -> f32 {
     4.0
 }
@@ -115,7 +127,9 @@ impl Default for DemoConfig {
             progress_seconds: d_progress(),
             alert_seconds: d_alert(),
             dashboard_seconds: d_dashboard(),
+            hub_seconds: d_hub(),
             cover_seconds: d_cover(),
+            art_only_seconds: d_art_only(),
             covers: d_covers(),
             background_alpha: d_alpha(),
         }
@@ -577,7 +591,9 @@ impl Config {
                 d.progress_seconds,
                 d.alert_seconds,
                 d.dashboard_seconds,
+                d.hub_seconds,
                 d.cover_seconds,
+                d.art_only_seconds,
             ];
             if times.iter().any(|t| t.is_nan() || *t <= 0.0) {
                 anyhow::bail!("[demo] timings must be positive seconds");

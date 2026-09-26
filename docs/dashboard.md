@@ -186,8 +186,9 @@ corners of the faded shape; the background has its `alpha`.
 the panel off: the date alone, visiting each tile in turn; the clock joining
 it; the weather tile showing every kind of sky, day and night; the print
 progress filling from 0 to 100; the water leak alert; the whole dashboard
-plain for a moment; and finally the same over album covers from the art
-cache, newest first. It loops until
+plain for a moment; the same with a cover as a disc in the hub; the same
+over each album cover from the art cache, newest first; and finally the
+covers alone, nothing else drawn. It loops until
 Ctrl-C, or `--once` plays a single pass. It needs no source: only `target`,
 and a populated art cache for the last step, which is skipped when empty.
 The alert takes its look from the config's first `[[alerts]]` entry.
@@ -203,7 +204,9 @@ weather_seconds = 2.5     # each sky, nine of them
 progress_seconds = 10.0   # the bar filling
 alert_seconds = 5.0       # the alert
 dashboard_seconds = 5.0   # the dashboard after it, plain
-cover_seconds = 4.0       # each cover
+hub_seconds = 5.0         # a cover as a disc in the hub
+cover_seconds = 4.0       # each cover behind the tiles
+art_only_seconds = 4.0    # each cover alone, at the end
 covers = 8                # how many covers, newest first
 background_alpha = 0.12   # the covers behind the tiles
 ```
