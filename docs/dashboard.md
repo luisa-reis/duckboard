@@ -275,7 +275,8 @@ so the default 4 MB cap holds a few hundred covers. A hit costs no download
 and no decoding and makes the entry the newest; past the cap the oldest
 files are deleted first. The directory is git-ignored under the crate.
 With `keep_originals`, each picture is also kept as downloaded, as a `.jpg`
-or `.png` file named by the URL's hash, and Spotify is asked for its largest
+or `.png` file named `Artist - Album` when the source says what it is and by
+the URL's hash otherwise, and Spotify is asked for its largest
 size; the demo's `art_file` is then written from
 that at full size instead of the panel's pixels scaled up. Originals count
 against the cap, a few tens of kilobytes each.

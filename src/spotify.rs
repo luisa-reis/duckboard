@@ -5,7 +5,7 @@
 
 use crate::artcache::ArtCache;
 use crate::config::SpotifyConfig;
-use crate::ha::{decode_art, Art, Media};
+use crate::ha::{decode_art, name_for, Art, Media};
 use crate::mask::HUB;
 use anyhow::{anyhow, bail, Context, Result};
 use base64::Engine;
@@ -143,6 +143,7 @@ impl Client {
             None => item["show"]["name"].as_str().unwrap_or("").to_string(),
         };
         // Tracks carry their pictures on the album, episodes on themselves.
+        let album = item["album"]["name"].as_str().or_else(|| item["show"]["name"].as_str()).unwrap_or("").to_string();
         let images = if item["album"]["images"].is_array() { &item["album"]["images"] } else { &item["images"] };
         let url = if self.cache.keep_originals { largest_image(images) } else { smallest_image(images) };
         let art = match url {
@@ -150,7 +151,7 @@ impl Client {
             Some(url) => match previous.and_then(|m| m.art.as_ref()).filter(|a| a.url == url) {
                 Some(kept) => Some(kept.clone()),
                 None => {
-                    let (rgb, full) = self.fetch_art(&url)?;
+                    let (rgb, full) = self.fetch_art(&url, &name_for(&artist, &album))?;
                     Some(Art { rgb, full, url })
                 }
             },
@@ -158,7 +159,7 @@ impl Client {
         Ok(Some(Media { playing: v["is_playing"].as_bool().unwrap_or(false), title, artist, art }))
     }
 
-    fn fetch_art(&self, url: &str) -> Result<(Vec<u8>, Vec<u8>)> {
+    fn fetch_art(&self, url: &str, name: &Option<String>) -> Result<(Vec<u8>, Vec<u8>)> {
         if let Some(hit) = self.cache.get(url) {
             return Ok(hit);
         }
@@ -166,7 +167,7 @@ impl Client {
         let mut bytes = Vec::new();
         Read::take(resp.into_reader(), 8 << 20).read_to_end(&mut bytes).context("reading album art")?;
         let art = decode_art(&bytes, self.gamma).context("album art")?;
-        if let Err(e) = self.cache.put(url, &art.0, &art.1).and_then(|()| self.cache.put_original(url, &bytes)) {
+        if let Err(e) = self.cache.put(url, &art.0, &art.1).and_then(|()| self.cache.put_original(url, &bytes, name.as_deref())) {
             eprintln!("panel-ddp: art cache: {e:#}");
         }
         Ok(art)

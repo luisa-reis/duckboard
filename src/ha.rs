@@ -114,18 +114,23 @@ impl Client {
                 match previous.and_then(|m| m.art.as_ref()).filter(|a| a.url == url) {
                     Some(kept) => Some(kept.clone()),
                     None => {
-                        let (rgb, full) = self.fetch_art(&url)?;
+                        let (rgb, full) = self.fetch_art(&url, &name_for(&text("media_artist"), &text("media_album_name")))?;
                         Some(Art { rgb, full, url })
                     }
                 }
             }
         };
-        Ok(Media { playing: s.state == "playing", title: text("media_title"), artist: text("media_artist"), art })
+        Ok(Media {
+            playing: s.state == "playing",
+            title: text("media_title"),
+            artist: text("media_artist"),
+            art,
+        })
     }
 
     /// The art for a picture URL: from the cache, or downloaded, decoded
-    /// and cached.
-    fn fetch_art(&self, url: &str) -> Result<(Vec<u8>, Vec<u8>)> {
+    /// and cached, the original under `name` when there is one.
+    fn fetch_art(&self, url: &str, name: &Option<String>) -> Result<(Vec<u8>, Vec<u8>)> {
         if let Some(hit) = self.cache.get(url) {
             return Ok(hit);
         }
@@ -140,9 +145,17 @@ impl Client {
             .read_to_end(&mut bytes)
             .context("reading entity_picture")?;
         let art = decode_art(&bytes, self.gamma).context("entity_picture")?;
-        if let Err(e) = self.cache.put(url, &art.0, &art.1).and_then(|()| self.cache.put_original(url, &bytes)) {
+        if let Err(e) = self.cache.put(url, &art.0, &art.1).and_then(|()| self.cache.put_original(url, &bytes, name.as_deref())) {
             eprintln!("panel-ddp: art cache: {e:#}");
         }
         Ok(art)
+    }
+}
+
+/// "Artist - Album" when both are known, for naming a cached original.
+pub fn name_for(artist: &str, album: &str) -> Option<String> {
+    match (artist.trim(), album.trim()) {
+        ("", _) | (_, "") => None,
+        (a, b) => Some(format!("{a} - {b}")),
     }
 }

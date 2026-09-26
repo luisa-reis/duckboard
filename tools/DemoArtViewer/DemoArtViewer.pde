@@ -15,7 +15,7 @@ long seen = -1;
 void setup() {
   size(512, 512);
   ART = artPath();
-  surface.setTitle("panel-ddp art");
+  surface.setTitle("");
   noSmooth();  // the scaled-up panel version stays crisp; originals are big enough not to care
   background(0);
 }

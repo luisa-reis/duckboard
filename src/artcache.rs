@@ -2,8 +2,8 @@
 //! gamma it was decoded with, so a changed gamma misses. Each entry
 //! is the hub-sized and panel-sized RGB bytes back to back, about 14 KB, so
 //! the default cap holds a few hundred covers. With `keep_originals` the
-//! picture as downloaded sits beside it, keyed by URL alone and named with
-//! its own format's extension. Oldest files go first when the cap is
+//! picture as downloaded sits beside it, named "Artist - Album" when known
+//! and by the URL's hash otherwise, with its own format's extension. Oldest files go first when the cap is
 //! reached; a hit refreshes the entry's time.
 
 use crate::canvas::{HEIGHT, WIDTH};
@@ -16,6 +16,20 @@ use std::time::SystemTime;
 
 const HUB_BYTES: usize = (HUB.width * HUB.height * 3) as usize;
 const FULL_BYTES: usize = (WIDTH * HEIGHT * 3) as usize;
+
+/// A name made safe for a file: path separators and control characters
+/// replaced, ends trimmed, and no longer than 120 characters.
+fn safe_file_stem(name: &str) -> String {
+    let mut s: String = name
+        .chars()
+        .map(|c| if c == '/' || c == '\\' || c == ':' || c.is_control() { '_' } else { c })
+        .collect();
+    s = s.trim().trim_matches('.').to_string();
+    if s.chars().count() > 120 {
+        s = s.chars().take(120).collect();
+    }
+    s
+}
 
 /// A cached cover.
 pub struct Entry {
@@ -46,21 +60,26 @@ impl ArtCache {
         self.dir.join(format!("{:x}.rgb", hash))
     }
 
-    /// Named by the URL's hash with the picture's own extension: jpg, png,
-    /// or whatever the bytes turn out to be.
-    fn original_path_for(&self, url: &str, bytes: &[u8]) -> PathBuf {
-        let hash = Sha256::digest(url.as_bytes());
+    /// Named "Artist - Album" when given a name, by the URL's hash
+    /// otherwise, with the picture's own extension: jpg, png, or whatever
+    /// the bytes turn out to be.
+    fn original_path_for(&self, url: &str, bytes: &[u8], name: Option<&str>) -> PathBuf {
+        let stem = match name.map(safe_file_stem).filter(|s| !s.is_empty()) {
+            Some(s) => s,
+            None => format!("{:x}", Sha256::digest(url.as_bytes())),
+        };
         let ext = image::guess_format(bytes).ok().and_then(|f| f.extensions_str().first().copied()).unwrap_or("img");
-        self.dir.join(format!("{:x}.{ext}", hash))
+        self.dir.join(format!("{stem}.{ext}"))
     }
 
-    /// Stores a picture as downloaded, when originals are kept.
-    pub fn put_original(&self, url: &str, bytes: &[u8]) -> Result<()> {
+    /// Stores a picture as downloaded, when originals are kept, under
+    /// `name` if there is one.
+    pub fn put_original(&self, url: &str, bytes: &[u8], name: Option<&str>) -> Result<()> {
         if self.max_bytes == 0 || !self.keep_originals {
             return Ok(());
         }
         fs::create_dir_all(&self.dir).with_context(|| format!("creating {}", self.dir.display()))?;
-        let path = self.original_path_for(url, bytes);
+        let path = self.original_path_for(url, bytes, name);
         let tmp = path.with_extension("tmp");
         fs::write(&tmp, bytes).with_context(|| format!("writing {}", tmp.display()))?;
         fs::rename(&tmp, &path).with_context(|| format!("renaming into {}", path.display()))?;
@@ -231,7 +250,7 @@ mod tests {
     #[test]
     fn originals_kept_only_when_asked() {
         let off = ArtCache::new(tempdir("orig-off"), 1 << 20, "g".into(), false);
-        off.put_original("a", b"jpeg bytes").unwrap();
+        off.put_original("a", b"jpeg bytes", None).unwrap();
         assert!(!off.dir.exists());
         let on = ArtCache::new(tempdir("orig-on"), 1 << 20, "g".into(), true);
         let (h, f) = entry(4);
@@ -241,8 +260,10 @@ mod tests {
             image::RgbImage::new(2, 2).write_to(&mut buf, image::ImageFormat::Png).unwrap();
             buf.into_inner()
         };
-        on.put_original("a", &png).unwrap();
-        assert!(on.dir.join(format!("{:x}.png", Sha256::digest(b"a"))).exists(), "named by its format");
+        on.put_original("a", &png, None).unwrap();
+        assert!(on.dir.join(format!("{:x}.png", Sha256::digest(b"a"))).exists(), "hash name, its format's extension");
+        on.put_original("b", &png, Some("AC/DC - Back in Black")).unwrap();
+        assert!(on.dir.join("AC_DC - Back in Black.png").exists(), "named after the album, made safe");
         let e = on.entries(1);
         assert_eq!(e.len(), 1);
         assert_eq!(e[0].original.as_deref(), Some(&png[..]));
