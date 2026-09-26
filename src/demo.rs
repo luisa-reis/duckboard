@@ -117,8 +117,14 @@ impl Demo {
                 *px = image::Rgb([self.ungamma[full[j] as usize], self.ungamma[full[j + 1] as usize], self.ungamma[full[j + 2] as usize]]);
             }
         }
-        // In place, so a viewer watching the path sees the same file change.
-        match img.save_with_format(path, image::ImageFormat::Jpeg) {
+        // Written whole and renamed into place, so a viewer never reads a
+        // half-written file and sees one change per cover.
+        let tmp = path.with_extension("jpg.tmp");
+        let result = img
+            .save_with_format(&tmp, image::ImageFormat::Jpeg)
+            .map_err(|e| e.to_string())
+            .and_then(|()| std::fs::rename(&tmp, path).map_err(|e| e.to_string()));
+        match result {
             Ok(()) => self.written.set(Some(cover)),
             Err(e) => eprintln!("panel-ddp: demo: writing {}: {e}", path.display()),
         }
