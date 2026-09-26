@@ -19,8 +19,14 @@ use crate::data::Snapshot;
 use crate::ha::{Art, Media, Sensor};
 use crate::palette::{Overrides, Palette};
 use crate::tiles::Ctx;
+use crate::canvas::{HEIGHT, WIDTH};
 use crate::weather::Weather;
+use std::cell::Cell;
 use std::collections::HashMap;
+use std::path::PathBuf;
+
+/// Scale of the companion image over the panel.
+const ART_FILE_SCALE: u32 = 4;
 
 /// WMO code and daytime for each sky the weather tile can show.
 const SKIES: [(u16, bool); 9] =
@@ -47,6 +53,11 @@ pub struct Demo {
     background_alpha: f32,
     palette: Palette,
     temperature: crate::config::Units,
+    art_file: Option<PathBuf>,
+    /// Undoes the panel gamma for the companion image.
+    ungamma: Vec<u8>,
+    /// Which cover the companion image holds; None is black.
+    written: Cell<Option<Option<usize>>>,
 }
 
 impl Demo {
@@ -85,6 +96,31 @@ impl Demo {
             background_alpha: d.background_alpha,
             palette: Palette::default().with(&cfg.colors),
             temperature: cfg.temperature,
+            art_file: d.art_file.clone(),
+            ungamma: (0..=255u32).map(|v| ((v as f32 / 255.0).powf(1.0 / cfg.gamma) * 255.0).round() as u8).collect(),
+            written: Cell::new(None),
+        }
+    }
+
+    /// Rewrites the companion image when the cover changes.
+    fn write_art_file(&self, cover: Option<usize>) {
+        let Some(path) = &self.art_file else { return };
+        if self.written.get() == Some(cover) {
+            return;
+        }
+        let (w, h) = (WIDTH * ART_FILE_SCALE, HEIGHT * ART_FILE_SCALE);
+        let mut img = image::RgbImage::new(w, h);
+        if let Some(i) = cover {
+            let full = &self.covers[i].1;
+            for (x, y, px) in img.enumerate_pixels_mut() {
+                let j = ((y / ART_FILE_SCALE) * WIDTH + x / ART_FILE_SCALE) as usize * 3;
+                *px = image::Rgb([self.ungamma[full[j] as usize], self.ungamma[full[j + 1] as usize], self.ungamma[full[j + 2] as usize]]);
+            }
+        }
+        // In place, so a viewer watching the path sees the same file change.
+        match img.save_with_format(path, image::ImageFormat::Jpeg) {
+            Ok(()) => self.written.set(Some(cover)),
+            Err(e) => eprintln!("panel-ddp: demo: writing {}: {e}", path.display()),
         }
     }
 
@@ -163,6 +199,7 @@ impl Demo {
             sky = Some(SKIES[index as usize]);
         }
 
+        self.write_art_file(cover);
         let tiles = self.tiles(date_tile, clock, sky.is_some(), progress.is_some(), cover.is_some(), placement);
         let mut sensors = HashMap::new();
         if let Some(v) = progress {

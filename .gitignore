@@ -3,4 +3,5 @@ dashboard.toml
 dashboard-*.toml
 spotify-token.json
 art-cache/
+demo-art.jpg
 2d-gaps.json

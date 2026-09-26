@@ -82,6 +82,10 @@ pub struct DemoConfig {
     /// Alpha of the cover behind the tiles.
     #[serde(default = "d_alpha")]
     pub background_alpha: f32,
+    /// A JPEG rewritten with the current cover as the demo proceeds, black
+    /// when there is none; relative to the config file. Open it in Preview
+    /// for a companion view.
+    pub art_file: Option<PathBuf>,
 }
 
 fn d_tile() -> f32 {
@@ -132,6 +136,7 @@ impl Default for DemoConfig {
             art_only_seconds: d_art_only(),
             covers: d_covers(),
             background_alpha: d_alpha(),
+            art_file: None,
         }
     }
 }
@@ -626,6 +631,11 @@ impl Config {
             }
             if cfg.art_cache.dir.is_relative() {
                 cfg.art_cache.dir = dir.join(&cfg.art_cache.dir);
+            }
+            if let Some(f) = cfg.demo.art_file.as_mut() {
+                if f.is_relative() {
+                    *f = dir.join(&*f);
+                }
             }
         }
         // Last, after the tiles borrow ends: where the art goes.

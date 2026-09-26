@@ -124,3 +124,4 @@ max_megabytes = 4
 # art_only_seconds = 4.0    # each cover alone, at the end
 # covers = 8                # how many covers, newest first
 # background_alpha = 0.12   # the covers behind the tiles
+# art_file = "demo-art.jpg" # a JPEG rewritten with the current cover (black when none)
