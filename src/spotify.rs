@@ -151,26 +151,26 @@ impl Client {
             Some(url) => match previous.and_then(|m| m.art.as_ref()).filter(|a| a.url == url) {
                 Some(kept) => Some(kept.clone()),
                 None => {
-                    let (rgb, full) = self.fetch_art(&url, &name_for(&artist, &album))?;
-                    Some(Art { rgb, full, url })
+                    let (rgb, full, original) = self.fetch_art(&url, &name_for(&artist, &album))?;
+                    Some(Art { rgb, full, url, original: original.map(std::sync::Arc::new) })
                 }
             },
         };
         Ok(Some(Media { playing: v["is_playing"].as_bool().unwrap_or(false), title, artist, art }))
     }
 
-    fn fetch_art(&self, url: &str, name: &Option<String>) -> Result<(Vec<u8>, Vec<u8>)> {
+    fn fetch_art(&self, url: &str, name: &Option<String>) -> Result<crate::artcache::Decoded> {
         if let Some(hit) = self.cache.get(url) {
             return Ok(hit);
         }
         let resp = self.agent.get(url).call().context("GET album art")?;
         let mut bytes = Vec::new();
         Read::take(resp.into_reader(), 8 << 20).read_to_end(&mut bytes).context("reading album art")?;
-        let art = decode_art(&bytes, self.gamma).context("album art")?;
-        if let Err(e) = self.cache.put(url, &art.0, &art.1).and_then(|()| self.cache.put_original(url, &bytes, name.as_deref())) {
+        let (hub, full) = decode_art(&bytes, self.gamma).context("album art")?;
+        if let Err(e) = self.cache.put(url, &hub, &full).and_then(|()| self.cache.put_original(url, &bytes, name.as_deref())) {
             eprintln!("panel-ddp: art cache: {e:#}");
         }
-        Ok(art)
+        Ok((hub, full, Some(bytes)))
     }
 }
 

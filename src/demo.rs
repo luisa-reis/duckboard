@@ -276,7 +276,7 @@ impl Demo {
                 playing: true,
                 title: String::new(),
                 artist: String::new(),
-                art: Some(Art { url: String::new(), rgb: e.hub.clone(), full: e.full.clone() }),
+                art: Some(Art { url: String::new(), rgb: e.hub.clone(), full: e.full.clone(), original: None }),
             }
         });
         let data = Snapshot {

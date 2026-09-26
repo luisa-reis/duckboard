@@ -46,6 +46,101 @@ pub struct Config {
     /// The folder and pacing for `panel-ddp frame`.
     #[serde(default)]
     pub frame: FrameConfig,
+    /// Dashboard pages shown in turn, each for its own time. When there are
+    /// any, `run` loops through them instead of showing `[tiles]`.
+    #[serde(default)]
+    pub pages: Vec<Page>,
+    /// A JPEG kept at the album cover on show, black when there is none;
+    /// relative to the config file. Removed when the run ends.
+    pub art_file: Option<PathBuf>,
+    /// Run `open` on the art file after each change, so macOS Preview shows
+    /// and re-reads it.
+    #[serde(default)]
+    pub art_open: bool,
+}
+
+/// One page of a looping dashboard: a layout, how long it stays, and
+/// optionally made-up data laid over whatever the sources report.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Page {
+    pub seconds: f32,
+    #[serde(default = "blank_tile")]
+    pub top_left: TileEntry,
+    #[serde(default = "blank_tile")]
+    pub top_right: TileEntry,
+    #[serde(default = "blank_tile")]
+    pub bottom_left: TileEntry,
+    #[serde(default = "blank_tile")]
+    pub bottom_right: TileEntry,
+    #[serde(default = "Tiles::default_hub")]
+    pub hub: HubEntry,
+    /// Unlike `[tiles]`, a page shows no background unless it names one.
+    #[serde(default = "no_background")]
+    pub background: Background,
+    #[serde(default)]
+    pub data: PageData,
+}
+
+fn blank_tile() -> TileEntry {
+    TileSpec::Blank.into()
+}
+
+fn no_background() -> Background {
+    Background::None
+}
+
+impl Page {
+    pub fn tiles(&self) -> Tiles {
+        Tiles {
+            top_left: self.top_left.clone(),
+            top_right: self.top_right.clone(),
+            bottom_left: self.bottom_left.clone(),
+            bottom_right: self.bottom_right.clone(),
+            hub: self.hub.clone(),
+            background: Some(self.background.clone()),
+        }
+    }
+}
+
+/// Values a page lays over the live data, for demos and for pinning a page
+/// to something the sources do not report.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PageData {
+    pub weather: Option<WeatherData>,
+    /// By entity id: a fixed state, or a sweep from one number to another
+    /// over the page's time.
+    #[serde(default)]
+    pub sensors: std::collections::BTreeMap<String, SensorData>,
+    /// A cover from the art cache, newest first (0 is the newest), played.
+    pub cover: Option<usize>,
+    /// The `[frame]` picture, by position, for a `frame` background.
+    pub picture: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WeatherData {
+    /// WMO weather code.
+    pub code: u16,
+    #[serde(default = "yes")]
+    pub is_day: bool,
+    /// In the configured `temperature` unit.
+    pub temperature: f32,
+}
+
+fn yes() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SensorData {
+    pub state: Option<String>,
+    /// From, to: the value moves linearly across the page, rounded.
+    pub sweep: Option<[f64; 2]>,
+    pub unit: Option<String>,
 }
 
 /// Picture frame mode: a folder of pictures shown in turn.
@@ -369,7 +464,7 @@ fn default_gaps() -> PathBuf {
 }
 
 /// What each tile shows, and the hub in the middle.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Tiles {
     #[serde(default = "Tiles::default_top_left")]
@@ -620,7 +715,15 @@ impl Config {
                 _ => None,
             })
             .collect();
+        for p in &self.pages {
+            for e in [&p.top_left, &p.top_right, &p.bottom_left, &p.bottom_right] {
+                if let TileSpec::Sensor { entity, .. } | TileSpec::Progress { entity, .. } = &e.spec {
+                    v.push(entity.clone());
+                }
+            }
+        }
         v.extend(self.alerts.iter().map(|a| a.entity.clone()));
+        v.sort();
         v.dedup();
         v
     }
@@ -642,25 +745,31 @@ impl Config {
         if cfg.art_cache.max_megabytes.is_nan() || cfg.art_cache.max_megabytes < 0.0 {
             anyhow::bail!("art_cache.max_megabytes must be 0 or more");
         }
-        for t in cfg.corner_tiles() {
-            match t {
-                TileSpec::Progress { max, label, .. } if max.is_nan() || *max <= 0.0 => {
-                    anyhow::bail!("progress tile {label}: max must be positive")
+        validate_tiles(&cfg.tiles).context("[tiles]")?;
+        for (i, page) in cfg.pages.iter().enumerate() {
+            let n = i + 1;
+            if page.seconds.is_nan() || page.seconds <= 0.0 {
+                anyhow::bail!("page {n}: seconds must be positive");
+            }
+            validate_tiles(&page.tiles()).with_context(|| format!("page {n}"))?;
+            for (entity, v) in &page.data.sensors {
+                if v.state.is_some() == v.sweep.is_some() {
+                    anyhow::bail!("page {n}: sensor {entity} takes either state or sweep");
                 }
-                TileSpec::Clock { dot_size, .. } if !(1..=12).contains(dot_size) => {
-                    anyhow::bail!("clock dot_size must be between 1 and 12")
-                }
-                _ => {}
             }
         }
+        // With pages, their data may stand in for the sources, so the
+        // sources are only required for a plain [tiles] dashboard.
         let tiles = cfg.corner_tiles();
-        if cfg.weather.is_none() && tiles.iter().any(|t| matches!(t, TileSpec::Weather)) {
-            anyhow::bail!("a weather tile needs the [weather] table");
-        }
-        let needs_ha = tiles.iter().any(|t| matches!(t, TileSpec::Sensor { .. } | TileSpec::Progress { .. }))
-            || !cfg.alerts.is_empty();
-        if needs_ha && cfg.home_assistant.is_none() {
-            anyhow::bail!("sensor and progress tiles, and alerts, need the [home_assistant] table");
+        if cfg.pages.is_empty() {
+            if cfg.weather.is_none() && tiles.iter().any(|t| matches!(t, TileSpec::Weather)) {
+                anyhow::bail!("a weather tile needs the [weather] table");
+            }
+            let needs_ha = tiles.iter().any(|t| matches!(t, TileSpec::Sensor { .. } | TileSpec::Progress { .. }))
+                || !cfg.alerts.is_empty();
+            if needs_ha && cfg.home_assistant.is_none() {
+                anyhow::bail!("sensor and progress tiles, and alerts, need the [home_assistant] table");
+            }
         }
         if cfg.frame.seconds.is_nan() || cfg.frame.seconds <= 0.0 || !(0.0..=1.0).contains(&cfg.frame.alpha) {
             anyhow::bail!("[frame] seconds must be positive and alpha between 0 and 1");
@@ -697,7 +806,7 @@ impl Config {
         }
         let needs_player = tiles.iter().any(|t| matches!(t, TileSpec::NowPlaying))
             || matches!(cfg.tiles.hub.spec, HubSpec::Media { .. });
-        if needs_player && !cfg.has_media_source() {
+        if needs_player && !cfg.has_media_source() && cfg.pages.is_empty() {
             anyhow::bail!("now_playing and media tiles need a [spotify] table or [home_assistant].media_player");
         }
         if let Some(dir) = path.parent() {
@@ -720,39 +829,54 @@ impl Config {
             if cfg.frame.dir.is_relative() {
                 cfg.frame.dir = dir.join(&cfg.frame.dir);
             }
-        }
-        // Last, after the tiles borrow ends: where the art goes.
-        let hub_has_art = matches!(cfg.tiles.hub.spec, HubSpec::Media { .. });
-        if let HubSpec::Media { paused_alpha, corner_alpha, .. } = cfg.tiles.hub.spec {
-            if !(0.0..=1.0).contains(&paused_alpha) || !(0.0..=1.0).contains(&corner_alpha) {
-                anyhow::bail!("hub paused_alpha and corner_alpha must be between 0 and 1");
+            if let Some(f) = cfg.art_file.as_mut() {
+                if f.is_relative() {
+                    *f = dir.join(&*f);
+                }
             }
         }
-        match cfg.tiles.background {
-            Some(Background::Media { alpha }) => {
-                if !(0.0..=1.0).contains(&alpha) {
-                    anyhow::bail!("background alpha must be between 0 and 1");
-                }
-                if hub_has_art {
-                    anyhow::bail!("the art shows once: hub = media or background = media, not both");
-                }
-            }
-            Some(Background::Frame { alpha }) => {
-                if !(0.0..=1.0).contains(&alpha) {
-                    anyhow::bail!("background alpha must be between 0 and 1");
-                }
-            }
-            Some(Background::None) => {}
-            None => {
-                cfg.tiles.background = Some(if hub_has_art {
-                    Background::None
-                } else {
-                    Background::Media { alpha: default_background_alpha() }
-                });
-            }
+        // Last, after the tiles borrow ends: where the art goes when unset.
+        if cfg.tiles.background.is_none() {
+            let hub_has_art = matches!(cfg.tiles.hub.spec, HubSpec::Media { .. });
+            cfg.tiles.background = Some(if hub_has_art {
+                Background::None
+            } else {
+                Background::Media { alpha: default_background_alpha() }
+            });
         }
         Ok(cfg)
     }
+}
+
+/// The checks that do not depend on which sources are configured.
+fn validate_tiles(t: &Tiles) -> Result<()> {
+    for e in [&t.top_left, &t.top_right, &t.bottom_left, &t.bottom_right] {
+        match &e.spec {
+            TileSpec::Progress { max, label, .. } if max.is_nan() || *max <= 0.0 => {
+                anyhow::bail!("progress tile {label}: max must be positive")
+            }
+            TileSpec::Clock { dot_size, .. } if !(1..=12).contains(dot_size) => {
+                anyhow::bail!("clock dot_size must be between 1 and 12")
+            }
+            _ => {}
+        }
+    }
+    let hub_has_art = matches!(t.hub.spec, HubSpec::Media { .. });
+    if let HubSpec::Media { paused_alpha, corner_alpha, .. } = t.hub.spec {
+        if !(0.0..=1.0).contains(&paused_alpha) || !(0.0..=1.0).contains(&corner_alpha) {
+            anyhow::bail!("hub paused_alpha and corner_alpha must be between 0 and 1");
+        }
+    }
+    match t.background {
+        Some(Background::Media { alpha }) | Some(Background::Frame { alpha }) if !(0.0..=1.0).contains(&alpha) => {
+            anyhow::bail!("background alpha must be between 0 and 1")
+        }
+        Some(Background::Media { .. }) if hub_has_art => {
+            anyhow::bail!("the art shows once: hub = media or background = media, not both")
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 #[cfg(test)]

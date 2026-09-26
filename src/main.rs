@@ -1,6 +1,6 @@
 //! panel-ddp: draws dashboard frames and streams them to a WLED matrix.
 //!
-//!     panel-ddp run [--config FILE] [--frames N] [--sample]
+//!     panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
 //!     panel-ddp demo [--config FILE] [--once]
 //!     panel-ddp frame [--config FILE] [--once]
 //!     panel-ddp preview [--config FILE] [--out FILE] [--test | --alert]
@@ -13,6 +13,7 @@
 //! 4.3.2.1 (WLED-AP), PORT to 4048.
 
 mod artcache;
+mod artfile;
 mod canvas;
 mod config;
 mod dashboard;
@@ -24,6 +25,7 @@ mod ha;
 mod hub;
 mod icons;
 mod mask;
+mod pages;
 mod palette;
 mod spotify;
 mod testframe;
@@ -50,7 +52,7 @@ fn stop_flag() -> Arc<AtomicBool> {
 }
 
 const USAGE: &str = "usage:
-  panel-ddp run [--config FILE] [--frames N] [--sample]
+  panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
   panel-ddp demo [--config FILE] [--once]
   panel-ddp frame [--config FILE] [--once]
   panel-ddp preview [--config FILE] [--out FILE] [--test | --weather-code N | --alert]
@@ -141,27 +143,46 @@ fn cmd_test(args: &[String]) -> Result<()> {
     stream(&s, testframe::draw)
 }
 
-/// The `[frame]` pictures, loaded only when the background wants them.
+/// The `[frame]` pictures, loaded only when a background or a page wants
+/// them. For pages a missing folder only leaves those pages out.
 fn frame_pictures(cfg: &Config) -> Result<Option<frame::Frame>> {
-    match cfg.tiles.background {
-        Some(config::Background::Frame { .. }) => Ok(Some(frame::Frame::new(cfg)?)),
-        _ => Ok(None),
+    let wants = |b: &Option<config::Background>| matches!(b, Some(config::Background::Frame { .. }));
+    let pages_want = cfg
+        .pages
+        .iter()
+        .any(|p| matches!(p.background, config::Background::Frame { .. }) || p.data.picture.is_some());
+    if cfg.pages.is_empty() && wants(&cfg.tiles.background) {
+        return Ok(Some(frame::Frame::new(cfg)?));
     }
+    if pages_want {
+        return match frame::Frame::new(cfg) {
+            Ok(f) => Ok(Some(f)),
+            Err(e) => {
+                eprintln!("panel-ddp: pages: no [frame] pictures ({e:#})");
+                Ok(None)
+            }
+        };
+    }
+    Ok(None)
 }
 
 fn cmd_run(args: &[String]) -> Result<()> {
     let mut config = PathBuf::from(DEFAULT_CONFIG);
     let mut frames = None;
+    let mut once = false;
+    let mut target = None;
     let mut sample = false;
     let mut it = args.iter();
     while let Some(a) = it.next() {
         match a.as_str() {
             "--config" => config = it.next().context("--config needs a file")?.into(),
+            "--target" => target = Some(it.next().context("--target needs a host")?.clone()),
             "--frames" => {
                 frames = Some(
                     it.next().and_then(|v| v.parse().ok()).context("--frames needs a number")?,
                 )
             }
+            "--once" => once = true,
             "--sample" => sample = true,
             o => bail!("unknown option {o}"),
         }
@@ -170,7 +191,24 @@ fn cmd_run(args: &[String]) -> Result<()> {
     if cfg.spotify.is_some() && cfg.home_assistant.as_ref().is_some_and(|h| h.media_player.is_some()) {
         eprintln!("panel-ddp: both [spotify] and [home_assistant].media_player are set; Spotify feeds the hub");
     }
-    let s = Stream { target: ddp::target_with_default_port(&cfg.target), fps: cfg.fps, frames };
+    let pictures = frame_pictures(&cfg)?;
+    let pages = if cfg.pages.is_empty() {
+        None
+    } else {
+        let p = pages::Pages::new(&cfg, pictures.as_ref().map_or(0, |f| f.len()))?;
+        eprintln!(
+            "panel-ddp: {} pages, one pass is {:.0} s",
+            cfg.pages.len(),
+            p.total_frames() as f32 / cfg.fps as f32
+        );
+        Some(p)
+    };
+    if once {
+        let p = pages.as_ref().context("--once plays the pages through once; this config has none")?;
+        frames = Some(p.total_frames());
+    }
+    let target = target.unwrap_or_else(|| cfg.target.clone());
+    let s = Stream { target: ddp::target_with_default_port(&target), fps: cfg.fps, frames };
     let shared: data::Shared = Default::default();
     if sample {
         eprintln!("panel-ddp: --sample: made-up data, no source is contacted");
@@ -178,9 +216,24 @@ fn cmd_run(args: &[String]) -> Result<()> {
         data::spawn_sources(&cfg, &shared);
     }
     let palette = Palette::default().with(&cfg.colors);
-    let pictures = frame_pictures(&cfg)?;
-    stream(&s, |c, frame| {
-        let data = if sample { data::Snapshot::sample(&cfg, frame) } else { shared.lock().unwrap().clone() };
+    let mut art_file = cfg.art_file.clone().map(|p| artfile::ArtFile::new(p, cfg.art_open));
+    let result = stream(&s, |c, frame| {
+        let mut data = if sample { data::Snapshot::sample(&cfg, frame) } else { shared.lock().unwrap().clone() };
+        let (tiles, picture) = match &pages {
+            Some(p) => {
+                let at = p.at(frame);
+                p.apply(at.data, at.t, &mut data);
+                let picture = match at.data.picture {
+                    Some(i) => pictures.as_ref().map(|f| f.picture_at(i)),
+                    None => pictures.as_ref().map(|f| f.picture(frame)),
+                };
+                (at.tiles, picture)
+            }
+            None => (&cfg.tiles, pictures.as_ref().map(|f| f.picture(frame))),
+        };
+        if let Some(a) = art_file.as_mut() {
+            a.update(tiles, &data);
+        }
         let ctx = tiles::Ctx {
             now: chrono::Local::now(),
             frame,
@@ -188,10 +241,14 @@ fn cmd_run(args: &[String]) -> Result<()> {
             palette: &palette,
             temperature: cfg.temperature,
             fps: cfg.fps,
-            picture: pictures.as_ref().map(|p| p.picture(frame)),
+            picture,
         };
-        dashboard::draw(&cfg.tiles, &cfg.alerts, c, &ctx);
-    })
+        dashboard::draw(tiles, &cfg.alerts, c, &ctx);
+    });
+    if let Some(a) = &art_file {
+        a.remove();
+    }
+    result
 }
 
 fn cmd_demo(args: &[String]) -> Result<()> {

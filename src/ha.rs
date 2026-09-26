@@ -37,6 +37,9 @@ pub struct Art {
     pub rgb: Vec<u8>,
     /// Scaled to the whole panel, for the background.
     pub full: Vec<u8>,
+    /// The picture as downloaded, for the art file; shared, since the
+    /// snapshot is copied every frame.
+    pub original: Option<std::sync::Arc<Vec<u8>>>,
 }
 
 /// Decodes a picture, scales it to fill the hub and the panel (cropping to
@@ -114,8 +117,9 @@ impl Client {
                 match previous.and_then(|m| m.art.as_ref()).filter(|a| a.url == url) {
                     Some(kept) => Some(kept.clone()),
                     None => {
-                        let (rgb, full) = self.fetch_art(&url, &name_for(&text("media_artist"), &text("media_album_name")))?;
-                        Some(Art { rgb, full, url })
+                        let (rgb, full, original) =
+                            self.fetch_art(&url, &name_for(&text("media_artist"), &text("media_album_name")))?;
+                        Some(Art { rgb, full, url, original: original.map(std::sync::Arc::new) })
                     }
                 }
             }
@@ -130,7 +134,7 @@ impl Client {
 
     /// The art for a picture URL: from the cache, or downloaded, decoded
     /// and cached, the original under `name` when there is one.
-    fn fetch_art(&self, url: &str, name: &Option<String>) -> Result<(Vec<u8>, Vec<u8>)> {
+    fn fetch_art(&self, url: &str, name: &Option<String>) -> Result<crate::artcache::Decoded> {
         if let Some(hit) = self.cache.get(url) {
             return Ok(hit);
         }
@@ -144,11 +148,11 @@ impl Client {
         std::io::Read::take(resp.into_reader(), 8 << 20)
             .read_to_end(&mut bytes)
             .context("reading entity_picture")?;
-        let art = decode_art(&bytes, self.gamma).context("entity_picture")?;
-        if let Err(e) = self.cache.put(url, &art.0, &art.1).and_then(|()| self.cache.put_original(url, &bytes, name.as_deref())) {
+        let (hub, full) = decode_art(&bytes, self.gamma).context("entity_picture")?;
+        if let Err(e) = self.cache.put(url, &hub, &full).and_then(|()| self.cache.put_original(url, &bytes, name.as_deref())) {
             eprintln!("panel-ddp: art cache: {e:#}");
         }
-        Ok(art)
+        Ok((hub, full, Some(bytes)))
     }
 }
 

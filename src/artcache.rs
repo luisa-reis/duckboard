@@ -31,6 +31,9 @@ fn safe_file_stem(name: &str) -> String {
     s
 }
 
+/// Hub pixels, panel pixels, and the original when one was kept.
+pub type Decoded = (Vec<u8>, Vec<u8>, Option<Vec<u8>>);
+
 /// A cached cover.
 pub struct Entry {
     pub hub: Vec<u8>,
@@ -87,7 +90,9 @@ impl ArtCache {
     }
 
     /// The decoded art for `url`, if cached; the entry becomes the newest.
-    pub fn get(&self, url: &str) -> Option<(Vec<u8>, Vec<u8>)> {
+    /// The hub and panel pixels for `url`, and the original when one was
+    /// kept. Both files become the newest, so they are evicted together.
+    pub fn get(&self, url: &str) -> Option<Decoded> {
         if self.max_bytes == 0 {
             return None;
         }
@@ -97,11 +102,17 @@ impl ArtCache {
             let _ = fs::remove_file(&path);
             return None;
         }
-        if let Ok(f) = fs::File::open(&path) {
-            let _ = f.set_modified(SystemTime::now());
+        // Found before the touch, since pairing goes by modification time.
+        let original_path = self.original_path_beside(&path);
+        let original = original_path.as_ref().and_then(|p| fs::read(p).ok());
+        let now = SystemTime::now();
+        for p in std::iter::once(&path).chain(original_path.as_ref()) {
+            if let Ok(f) = fs::File::open(p) {
+                let _ = f.set_modified(now);
+            }
         }
         let (hub, full) = bytes.split_at(HUB_BYTES);
-        Some((hub.to_vec(), full.to_vec()))
+        Some((hub.to_vec(), full.to_vec(), original))
     }
 
     /// Stores decoded art and trims the cache back under the cap.
@@ -151,11 +162,15 @@ impl ArtCache {
     /// The original written closest in time to a decoded entry, within a
     /// couple of seconds, since both are written by the same fetch.
     fn original_beside(&self, entry: &std::path::Path) -> Option<Vec<u8>> {
+        fs::read(self.original_path_beside(entry)?).ok()
+    }
+
+    fn original_path_beside(&self, entry: &std::path::Path) -> Option<PathBuf> {
         let t = fs::metadata(entry).ok()?.modified().ok()?;
         let mut best: Option<(std::time::Duration, PathBuf)> = None;
         for e in fs::read_dir(&self.dir).ok()?.flatten() {
             let p = e.path();
-            if p.extension().is_none_or(|x| x == "rgb" || x == "tmp") {
+            if p.extension().is_none_or(|x| x == "rgb" || x == "tmp") || p.file_name().is_some_and(|n| n == ".DS_Store") {
                 continue;
             }
             let m = e.metadata().ok()?.modified().ok()?;
@@ -164,7 +179,7 @@ impl ArtCache {
                 best = Some((d, p));
             }
         }
-        fs::read(best?.1).ok()
+        Some(best?.1)
     }
 
     /// Deletes the oldest files, entries and originals alike, until the
@@ -213,7 +228,7 @@ mod tests {
         assert!(c.get("a").is_none());
         let (h, f) = entry(7);
         c.put("a", &h, &f).unwrap();
-        assert_eq!(c.get("a"), Some((h, f)));
+        assert_eq!(c.get("a"), Some((h, f, None)));
         assert!(c.get("b").is_none());
     }
 

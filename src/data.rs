@@ -61,7 +61,7 @@ impl Snapshot {
                 playing: true,
                 title: "Sample Song Title".into(),
                 artist: "Sample Artist".into(),
-                art: Some(Art { url: String::new(), rgb, full }),
+                art: Some(Art { url: String::new(), rgb, full, original: None }),
             }),
         }
     }
