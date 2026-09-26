@@ -180,6 +180,32 @@ The hub's `media` kind has two alphas of its own, `paused_alpha` (default
 0.4) for the art while paused and `corner_alpha` (default 0.3) for the
 corners of the faded shape; the background has its `alpha`.
 
+## The demo
+
+`panel-ddp demo` streams a scripted crescendo on made-up data, for showing
+the panel off: the date alone, visiting each tile in turn; the clock joining
+it; the weather tile showing every kind of sky, day and night; the print
+progress filling from 0 to 100; the water leak alert; and finally the whole
+dashboard over album covers from the art cache, newest first. It loops until
+Ctrl-C, or `--once` plays a single pass. It needs no source: only `target`,
+and a populated art cache for the last step, which is skipped when empty.
+The alert takes its look from the config's first `[[alerts]]` entry.
+
+Every timing is in `[demo]`, in seconds, so the pacing is tuned without a
+rebuild. The defaults:
+
+```toml
+[demo]
+tile_seconds = 3.0        # the date in each tile
+clock_seconds = 5.0       # after the clock joins
+weather_seconds = 2.5     # each sky, nine of them
+progress_seconds = 10.0   # the bar filling
+alert_seconds = 5.0       # the alert
+cover_seconds = 4.0       # each cover
+covers = 8                # how many covers, newest first
+background_alpha = 0.12   # the covers behind the tiles
+```
+
 ## Alerts
 
 An alert is a Home Assistant entity and the state that raises it. While
@@ -191,7 +217,7 @@ state clears. Any number of `[[alerts]]` tables; the first raised one wins:
 [[alerts]]
 entity = "binary_sensor.bathroom_water_leak"
 state = "on"                # the default
-label = "LEAK"              # up to four characters
+label = "WATER LEAK"        # up to four characters large in the hub, up to eleven small above it
 color = "#ff1e1e"           # the default
 pulse_seconds = 1.5         # the default
 ```
@@ -225,6 +251,7 @@ default name). If it is lost, log in again.
 target/release/panel-ddp run                        # dashboard.toml, until Ctrl-C
 target/release/panel-ddp run --config other.toml --frames 100
 target/release/panel-ddp run --sample                 # made-up data, sensors sweep 0..100: a demo of the layout
+target/release/panel-ddp demo                         # the scripted crescendo, looping; --once for a single pass
 target/release/panel-ddp preview --out preview.png  # one frame from sample data, mask applied
 target/release/panel-ddp preview --weather-code 95  # check an icon (add 1000 for night)
 target/release/panel-ddp preview --alert            # the alert view

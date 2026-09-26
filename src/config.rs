@@ -40,6 +40,79 @@ pub struct Config {
     /// tiles, pulses in the alert's colour and shows its label.
     #[serde(default)]
     pub alerts: Vec<Alert>,
+    /// Timings for `panel-ddp demo`.
+    #[serde(default)]
+    pub demo: DemoConfig,
+}
+
+/// How long each step of the demo lasts, in seconds.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DemoConfig {
+    /// The date alone, in each tile in turn.
+    #[serde(default = "d_tile")]
+    pub tile_seconds: f32,
+    /// After the clock joins it.
+    #[serde(default = "d_clock")]
+    pub clock_seconds: f32,
+    /// Each kind of sky on the weather tile.
+    #[serde(default = "d_weather")]
+    pub weather_seconds: f32,
+    /// The print progress filling from 0 to 100.
+    #[serde(default = "d_progress")]
+    pub progress_seconds: f32,
+    /// The water leak alert.
+    #[serde(default = "d_alert")]
+    pub alert_seconds: f32,
+    /// Each cover as the background, from the art cache.
+    #[serde(default = "d_cover")]
+    pub cover_seconds: f32,
+    /// How many cached covers to show, newest first.
+    #[serde(default = "d_covers")]
+    pub covers: usize,
+    /// Alpha of the cover behind the tiles.
+    #[serde(default = "d_alpha")]
+    pub background_alpha: f32,
+}
+
+fn d_tile() -> f32 {
+    3.0
+}
+fn d_clock() -> f32 {
+    5.0
+}
+fn d_weather() -> f32 {
+    2.5
+}
+fn d_progress() -> f32 {
+    10.0
+}
+fn d_alert() -> f32 {
+    5.0
+}
+fn d_cover() -> f32 {
+    4.0
+}
+fn d_covers() -> usize {
+    8
+}
+fn d_alpha() -> f32 {
+    0.12
+}
+
+impl Default for DemoConfig {
+    fn default() -> Self {
+        Self {
+            tile_seconds: d_tile(),
+            clock_seconds: d_clock(),
+            weather_seconds: d_weather(),
+            progress_seconds: d_progress(),
+            alert_seconds: d_alert(),
+            cover_seconds: d_cover(),
+            covers: d_covers(),
+            background_alpha: d_alpha(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -49,7 +122,8 @@ pub struct Alert {
     /// The state that raises the alert.
     #[serde(default = "default_alert_state")]
     pub state: String,
-    /// Shown in the middle of the panel; up to four characters.
+    /// Shown in the middle of the panel: up to four characters large in
+    /// the hub, up to eleven small on the band above it.
     pub label: String,
     #[serde(default = "default_alert_color")]
     pub color: Rgba,
@@ -487,9 +561,19 @@ impl Config {
         if needs_ha && cfg.home_assistant.is_none() {
             anyhow::bail!("sensor and progress tiles, and alerts, need the [home_assistant] table");
         }
+        {
+            let d = &cfg.demo;
+            let times = [d.tile_seconds, d.clock_seconds, d.weather_seconds, d.progress_seconds, d.alert_seconds, d.cover_seconds];
+            if times.iter().any(|t| t.is_nan() || *t <= 0.0) {
+                anyhow::bail!("[demo] timings must be positive seconds");
+            }
+            if !(0.0..=1.0).contains(&d.background_alpha) {
+                anyhow::bail!("[demo] background_alpha must be between 0 and 1");
+            }
+        }
         for a in &cfg.alerts {
-            if a.label.chars().count() > 4 || a.label.is_empty() {
-                anyhow::bail!("alert {}: the label is one to four characters", a.entity);
+            if a.label.chars().count() > 11 || a.label.is_empty() {
+                anyhow::bail!("alert {}: the label is one to eleven characters", a.entity);
             }
             if a.pulse_seconds.is_nan() || a.pulse_seconds <= 0.0 {
                 anyhow::bail!("alert {}: pulse_seconds must be positive", a.entity);

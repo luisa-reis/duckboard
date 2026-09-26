@@ -106,6 +106,18 @@ max_megabytes = 4
 # [[alerts]]
 # entity = "binary_sensor.bathroom_water_leak"
 # state = "on"
-# label = "LEAK"
+# label = "WATER LEAK"      # up to 4 characters large in the hub, up to 11 small above it
 # color = "#ff1e1e"
 # pulse_seconds = 1.5
+
+# Timings for `panel-ddp demo`, the scripted crescendo, in seconds. These
+# are the defaults.
+# [demo]
+# tile_seconds = 3.0        # the date in each tile
+# clock_seconds = 5.0       # after the clock joins
+# weather_seconds = 2.5     # each sky, nine of them
+# progress_seconds = 10.0   # the bar filling
+# alert_seconds = 5.0       # the alert
+# cover_seconds = 4.0       # each cover
+# covers = 8                # how many covers, newest first
+# background_alpha = 0.12   # the covers behind the tiles

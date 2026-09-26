@@ -68,6 +68,26 @@ impl ArtCache {
         self.trim()
     }
 
+    /// Up to `limit` cached covers, newest first, as (hub, full) pairs.
+    pub fn entries(&self, limit: usize) -> Vec<(Vec<u8>, Vec<u8>)> {
+        let mut files: Vec<(SystemTime, PathBuf)> = match fs::read_dir(&self.dir) {
+            Ok(rd) => rd
+                .flatten()
+                .filter(|e| e.path().extension().is_some_and(|x| x == "rgb"))
+                .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
+                .collect(),
+            Err(_) => return Vec::new(),
+        };
+        files.sort_by_key(|f| std::cmp::Reverse(f.0));
+        files
+            .into_iter()
+            .take(limit)
+            .filter_map(|(_, p)| fs::read(p).ok())
+            .filter(|b| b.len() == HUB_BYTES + FULL_BYTES)
+            .map(|b| (b[..HUB_BYTES].to_vec(), b[HUB_BYTES..].to_vec()))
+            .collect()
+    }
+
     /// Deletes the oldest entries until the total is under the cap.
     fn trim(&self) -> Result<()> {
         let mut entries: Vec<(SystemTime, u64, PathBuf)> = Vec::new();

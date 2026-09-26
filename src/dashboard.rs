@@ -8,7 +8,7 @@ use crate::mask::{hub as hub_area, Tile};
 use crate::palette::{Rgba, BLACK};
 use crate::tiles::{self, centred, Ctx};
 use embedded_graphics::{
-    mono_font::{iso_8859_1::FONT_5X8, iso_8859_1::FONT_6X10, MonoTextStyle},
+    mono_font::{iso_8859_1::FONT_4X6, iso_8859_1::FONT_5X8, iso_8859_1::FONT_6X10, MonoTextStyle},
     prelude::*,
     primitives::{PrimitiveStyle, Rectangle},
 };
@@ -32,10 +32,11 @@ fn alert(a: &Alert, c: &mut Canvas, ctx: &Ctx) {
     let cx = area.top_left.x + area.size.width as i32 / 2;
     let cy = area.top_left.y + area.size.height as i32 / 2;
     let white = Rgba::rgb(255, 255, 255);
-    if a.label.chars().count() <= 3 {
-        centred(c, &a.label, cx, cy - 5, MonoTextStyle::new(&FONT_6X10, white));
-    } else {
-        centred(c, &a.label, cx, cy - 4, MonoTextStyle::new(&FONT_5X8, white));
+    match a.label.chars().count() {
+        0..=3 => centred(c, &a.label, cx, cy - 5, MonoTextStyle::new(&FONT_6X10, white)),
+        4 => centred(c, &a.label, cx, cy - 4, MonoTextStyle::new(&FONT_5X8, white)),
+        // Longer labels go on the band above the hub, rows 23 to 28.
+        _ => centred(c, &a.label, cx, 23, MonoTextStyle::new(&FONT_4X6, white)),
     }
 }
 
