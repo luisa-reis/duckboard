@@ -128,8 +128,9 @@ optional:
   override `temperature` for the weather tile alone.
 - `[spotify]` — `client_id`, and optionally `token_file` (default
   `spotify-token.json` next to the config) and `refresh_seconds`. See below.
-- `[art_cache]` — `dir` (default `art-cache` next to the config) and
-  `max_megabytes` (default 4; 0 disables). See below.
+- `[art_cache]` — `dir` (default `art-cache` next to the config),
+  `max_megabytes` (default 4; 0 disables) and `keep_originals` (default
+  false). See below.
 - `[home_assistant]` — `url`, a long-lived access `token` (profile page,
   Security tab), the `media_player` entity to use as the media source when
   there is no `[spotify]`, `refresh_seconds`.
@@ -272,7 +273,11 @@ Decoded album art is cached on disk under `[art_cache].dir`, one file per
 picture URL and gamma holding the hub-sized and panel-sized pixels, about 14 KB each,
 so the default 4 MB cap holds a few hundred covers. A hit costs no download
 and no decoding and makes the entry the newest; past the cap the oldest
-entries are deleted first. The directory is git-ignored under the crate.
+files are deleted first. The directory is git-ignored under the crate.
+With `keep_originals`, each picture is also kept as downloaded, and Spotify
+is asked for its largest size; the demo's `art_file` is then written from
+that at full size instead of the panel's pixels scaled up. Originals count
+against the cap, a few tens of kilobytes each.
 
 The sender uses an unconnected UDP socket on purpose: a connected one turns
 the ICMP unreachable from a rebooting board into a send error, which would end

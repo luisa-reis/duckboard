@@ -140,7 +140,7 @@ impl Client {
             .read_to_end(&mut bytes)
             .context("reading entity_picture")?;
         let art = decode_art(&bytes, self.gamma).context("entity_picture")?;
-        if let Err(e) = self.cache.put(url, &art.0, &art.1) {
+        if let Err(e) = self.cache.put(url, &art.0, &art.1).and_then(|()| self.cache.put_original(url, &bytes)) {
             eprintln!("panel-ddp: art cache: {e:#}");
         }
         Ok(art)

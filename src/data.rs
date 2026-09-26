@@ -73,7 +73,12 @@ pub type Shared = Arc<Mutex<Snapshot>>;
 /// and logs a failure only when its message changes, so a service that is
 /// down does not fill the log at every retry.
 pub fn spawn_sources(cfg: &Config, shared: &Shared) {
-    let cache = ArtCache::new(cfg.art_cache.dir.clone(), cfg.art_cache.max_bytes(), format!("gamma {}", cfg.gamma));
+    let cache = ArtCache::new(
+        cfg.art_cache.dir.clone(),
+        cfg.art_cache.max_bytes(),
+        format!("gamma {}", cfg.gamma),
+        cfg.art_cache.keep_originals,
+    );
     let gamma = cfg.gamma;
     if let Some(w) = cfg.weather.clone() {
         let shared = Arc::clone(shared);

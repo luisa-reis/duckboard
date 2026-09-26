@@ -11,7 +11,7 @@
 //! 8. The same over cached album covers, one after another.
 //! 9. The covers alone, nothing else drawn.
 
-use crate::artcache::ArtCache;
+use crate::artcache::{ArtCache, Entry};
 use crate::canvas::Canvas;
 use crate::config::{Alert, ArtShape, Background, Config, HubEntry, HubSpec, Seconds, TileEntry, TileSpec, Tiles};
 use crate::dashboard;
@@ -48,7 +48,7 @@ pub struct Demo {
     hub: u32,
     cover: u32,
     art_only: u32,
-    covers: Vec<(Vec<u8>, Vec<u8>)>,
+    covers: Vec<Entry>,
     alert_spec: Alert,
     background_alpha: f32,
     palette: Palette,
@@ -64,7 +64,12 @@ impl Demo {
     pub fn new(cfg: &Config) -> Self {
         let d = &cfg.demo;
         let frames = |secs: f32| ((secs * cfg.fps as f32).round() as u32).max(1);
-        let cache = ArtCache::new(cfg.art_cache.dir.clone(), cfg.art_cache.max_bytes(), format!("gamma {}", cfg.gamma));
+        let cache = ArtCache::new(
+            cfg.art_cache.dir.clone(),
+            cfg.art_cache.max_bytes(),
+            format!("gamma {}", cfg.gamma),
+            cfg.art_cache.keep_originals,
+        );
         let covers = cache.entries(d.covers);
         if covers.is_empty() {
             eprintln!("panel-ddp: demo: no covers in the art cache yet, skipping that step");
@@ -108,15 +113,27 @@ impl Demo {
         if self.written.get() == Some(cover) {
             return;
         }
-        let (w, h) = (WIDTH * ART_FILE_SCALE, HEIGHT * ART_FILE_SCALE);
-        let mut img = image::RgbImage::new(w, h);
-        if let Some(i) = cover {
-            let full = &self.covers[i].1;
-            for (x, y, px) in img.enumerate_pixels_mut() {
-                let j = ((y / ART_FILE_SCALE) * WIDTH + x / ART_FILE_SCALE) as usize * 3;
-                *px = image::Rgb([self.ungamma[full[j] as usize], self.ungamma[full[j + 1] as usize], self.ungamma[full[j + 2] as usize]]);
-            }
-        }
+        // The original picture when it was kept, else the panel's pixels
+        // scaled up with the gamma undone; black when there is no cover.
+        let img = match cover {
+            Some(i) => match self.covers[i].original.as_deref().and_then(|b| image::load_from_memory(b).ok()) {
+                Some(orig) => orig.to_rgb8(),
+                None => {
+                    let full = &self.covers[i].full;
+                    let mut img = image::RgbImage::new(WIDTH * ART_FILE_SCALE, HEIGHT * ART_FILE_SCALE);
+                    for (x, y, px) in img.enumerate_pixels_mut() {
+                        let j = ((y / ART_FILE_SCALE) * WIDTH + x / ART_FILE_SCALE) as usize * 3;
+                        *px = image::Rgb([
+                            self.ungamma[full[j] as usize],
+                            self.ungamma[full[j + 1] as usize],
+                            self.ungamma[full[j + 2] as usize],
+                        ]);
+                    }
+                    img
+                }
+            },
+            None => image::RgbImage::new(WIDTH * ART_FILE_SCALE, HEIGHT * ART_FILE_SCALE),
+        };
         // Written whole and renamed into place, so a viewer never reads a
         // half-written file and sees one change per cover.
         let tmp = path.with_extension("jpg.tmp");
@@ -213,8 +230,13 @@ impl Demo {
         }
         sensors.insert(LEAK_ENTITY.to_string(), Sensor { state: if leak { "on" } else { "off" }.into(), unit: None });
         let media = cover.map(|i| {
-            let (rgb, full) = self.covers[i].clone();
-            Media { playing: true, title: String::new(), artist: String::new(), art: Some(Art { url: String::new(), rgb, full }) }
+            let e = &self.covers[i];
+            Media {
+                playing: true,
+                title: String::new(),
+                artist: String::new(),
+                art: Some(Art { url: String::new(), rgb: e.hub.clone(), full: e.full.clone() }),
+            }
         });
         let data = Snapshot {
             weather: sky.map(|(code, is_day)| Weather { temperature: 72.0, code, is_day }),

@@ -180,6 +180,11 @@ pub struct ArtCacheConfig {
     /// 0 disables the cache.
     #[serde(default = "default_cache_megabytes")]
     pub max_megabytes: f64,
+    /// Also keep each picture as downloaded, at its original size, and ask
+    /// Spotify for its largest. The demo's `art_file` is then written from
+    /// it. Costs a few tens of kilobytes per cover against the cap.
+    #[serde(default)]
+    pub keep_originals: bool,
 }
 
 fn default_cache_dir() -> PathBuf {
@@ -192,7 +197,7 @@ fn default_cache_megabytes() -> f64 {
 
 impl Default for ArtCacheConfig {
     fn default() -> Self {
-        Self { dir: default_cache_dir(), max_megabytes: default_cache_megabytes() }
+        Self { dir: default_cache_dir(), max_megabytes: default_cache_megabytes(), keep_originals: false }
     }
 }
 

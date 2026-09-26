@@ -144,7 +144,7 @@ impl Client {
         };
         // Tracks carry their pictures on the album, episodes on themselves.
         let images = if item["album"]["images"].is_array() { &item["album"]["images"] } else { &item["images"] };
-        let url = smallest_image(images);
+        let url = if self.cache.keep_originals { largest_image(images) } else { smallest_image(images) };
         let art = match url {
             None => None,
             Some(url) => match previous.and_then(|m| m.art.as_ref()).filter(|a| a.url == url) {
@@ -166,11 +166,23 @@ impl Client {
         let mut bytes = Vec::new();
         Read::take(resp.into_reader(), 8 << 20).read_to_end(&mut bytes).context("reading album art")?;
         let art = decode_art(&bytes, self.gamma).context("album art")?;
-        if let Err(e) = self.cache.put(url, &art.0, &art.1) {
+        if let Err(e) = self.cache.put(url, &art.0, &art.1).and_then(|()| self.cache.put_original(url, &bytes)) {
             eprintln!("panel-ddp: art cache: {e:#}");
         }
         Ok(art)
     }
+}
+
+/// The largest picture on offer, for keeping originals.
+fn largest_image(images: &serde_json::Value) -> Option<String> {
+    let mut best: Option<(u64, &str)> = None;
+    for img in images.as_array()? {
+        let (Some(url), Some(w)) = (img["url"].as_str(), img["width"].as_u64()) else { continue };
+        if best.is_none_or(|(bw, _)| w > bw) {
+            best = Some((w, url));
+        }
+    }
+    best.map(|(_, u)| u.to_string()).or_else(|| images[0]["url"].as_str().map(str::to_string))
 }
 
 /// The smallest picture that still covers the hub; Spotify offers 640, 300

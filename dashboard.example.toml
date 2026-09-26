@@ -87,6 +87,9 @@ client_id = "PASTE-CLIENT-ID"
 [art_cache]
 dir = "art-cache"
 max_megabytes = 4
+# Also keep each picture as downloaded, Spotify's largest; the demo's
+# art_file is then written from it. A few tens of kilobytes per cover.
+keep_originals = false
 
 # Home Assistant, for sensor and progress tiles, or as the media source when
 # there is no [spotify]. The token is a long-lived access token from your
