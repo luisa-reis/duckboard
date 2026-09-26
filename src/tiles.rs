@@ -27,7 +27,7 @@ pub struct Ctx<'a> {
 pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Palette) {
     let mut clipped = c.clipped(&area);
     match spec {
-        TileSpec::Clock { seconds } => clock(&mut clipped, area, ctx, p, *seconds),
+        TileSpec::Clock { seconds, dot_size } => clock(&mut clipped, area, ctx, p, *seconds, *dot_size),
         TileSpec::Date => date(&mut clipped, area, ctx, p),
         TileSpec::Weather => weather(&mut clipped, area, ctx, p),
         TileSpec::Sensor { entity, label, unit, decimals } => {
@@ -51,7 +51,14 @@ fn fill<D: DrawTarget<Color = Rgba>>(t: &mut D, r: Rectangle, colour: Rgba) {
     let _ = r.into_styled(PrimitiveStyle::with_fill(colour)).draw(t);
 }
 
-fn clock<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ctx, p: &Palette, seconds: Seconds) {
+fn clock<D: DrawTarget<Color = Rgba>>(
+    t: &mut D,
+    area: Rectangle,
+    ctx: &Ctx,
+    p: &Palette,
+    seconds: Seconds,
+    dot_size: u32,
+) {
     let o = area.top_left;
     let cx = o.x + 12;
     centred(t, &format!("{:02}", ctx.now.hour()), cx, o.y + 2, MonoTextStyle::new(&FONT_6X10, p.text));
@@ -77,17 +84,15 @@ fn clock<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ctx, p: 
         }
         Seconds::Dot => {
             let _ = ring.draw(t);
-            // The ring pixel nearest the second, going the short way round.
-            let nearest = ring.pixels().map(|Pixel(q, _)| q).min_by(|a, b| {
-                let d = |q: Point| {
-                    let d = (angle_of(q) - target).abs();
-                    d.min(std::f32::consts::TAU - d)
-                };
-                d(*a).total_cmp(&d(*b))
-            });
-            if let Some(q) = nearest {
-                let _ = Pixel(q, p.accent).draw(t);
-            }
+            // The `dot_size` ring pixels nearest the second, going the short
+            // way round.
+            let distance = |q: Point| {
+                let d = (angle_of(q) - target).abs();
+                d.min(std::f32::consts::TAU - d)
+            };
+            let mut px: Vec<Point> = ring.pixels().map(|Pixel(q, _)| q).collect();
+            px.sort_by(|a, b| distance(*a).total_cmp(&distance(*b)));
+            let _ = t.draw_iter(px.into_iter().take(dot_size as usize).map(|q| Pixel(q, p.accent)));
         }
     }
 }

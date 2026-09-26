@@ -251,7 +251,7 @@ impl<'de> Deserialize<'de> for HubEntry {
 
 impl Tiles {
     fn default_top_left() -> TileEntry {
-        TileSpec::Clock { seconds: Seconds::Dot }.into()
+        TileSpec::Clock { seconds: Seconds::Dot, dot_size: default_dot_size() }.into()
     }
     fn default_top_right() -> TileEntry {
         TileSpec::Date.into()
@@ -280,6 +280,10 @@ impl Default for Tiles {
     }
 }
 
+fn default_dot_size() -> u32 {
+    2
+}
+
 /// How the clock shows the seconds on its ring.
 #[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -298,6 +302,9 @@ pub enum TileSpec {
     Clock {
         #[serde(default)]
         seconds: Seconds,
+        /// Ring pixels the seconds dot covers.
+        #[serde(default = "default_dot_size")]
+        dot_size: u32,
     },
     /// Weekday, day of month, month.
     Date,
@@ -407,10 +414,14 @@ impl Config {
             anyhow::bail!("art_cache.max_megabytes must be 0 or more");
         }
         for t in cfg.corner_tiles() {
-            if let TileSpec::Progress { max, label, .. } = t {
-                if max.is_nan() || *max <= 0.0 {
-                    anyhow::bail!("progress tile {label}: max must be positive");
+            match t {
+                TileSpec::Progress { max, label, .. } if max.is_nan() || *max <= 0.0 => {
+                    anyhow::bail!("progress tile {label}: max must be positive")
                 }
+                TileSpec::Clock { dot_size, .. } if !(1..=12).contains(dot_size) => {
+                    anyhow::bail!("clock dot_size must be between 1 and 12")
+                }
+                _ => {}
             }
         }
         let tiles = cfg.corner_tiles();

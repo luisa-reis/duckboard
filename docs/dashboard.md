@@ -26,8 +26,9 @@ panel needs no account at all; the rest switch on with a table in the config.
 No source needed:
 
 - `clock` — hours over minutes inside a seconds ring, advanced once a
-  second: `seconds = "dot"` (the default) moves a single dot round it like a
-  second hand, `seconds = "ring"` fills it clockwise from twelve.
+  second: `seconds = "dot"` (the default) moves a dot of `dot_size` ring
+  pixels (default 2) round it like a second hand, `seconds = "ring"` fills
+  it clockwise from twelve.
 - `date` — weekday, day of month, month.
 - `blank`
 
