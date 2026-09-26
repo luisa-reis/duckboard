@@ -251,7 +251,7 @@ impl<'de> Deserialize<'de> for HubEntry {
 
 impl Tiles {
     fn default_top_left() -> TileEntry {
-        TileSpec::Clock { seconds: Seconds::Ring }.into()
+        TileSpec::Clock { seconds: Seconds::Dot }.into()
     }
     fn default_top_right() -> TileEntry {
         TileSpec::Date.into()
@@ -285,9 +285,9 @@ impl Default for Tiles {
 #[serde(rename_all = "snake_case")]
 pub enum Seconds {
     /// The ring fills clockwise from twelve.
-    #[default]
     Ring,
     /// A single dot travels round the ring, like a second hand.
+    #[default]
     Dot,
 }
 
