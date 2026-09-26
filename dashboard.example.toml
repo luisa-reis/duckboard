@@ -1,5 +1,6 @@
 # panel-ddp dashboard configuration. Copy to dashboard.toml (git-ignored)
-# and fill in. Every table but `target` is optional.
+# and fill in. `target` and `[tiles]` are all a clock-and-weather panel needs;
+# the other tables switch on the tiles that need an account.
 
 # WLED host, "host" or "host:port". 4.3.2.1 is the WLED-AP address.
 target = "4.3.2.1"
@@ -9,30 +10,47 @@ fps = 10
 # shows the whole panel. 2d-gaps.example.json hides just the four corners.
 # gaps = "2d-gaps.json"
 
-# Current conditions from Open-Meteo (no key needed). units: celsius or
-# fahrenheit. Remove the table to drop the weather tile.
+# What the four tiles show and what goes in the hub.
+# Tile kinds:
+#   clock, date            no source needed
+#   weather                needs [weather]
+#   now_playing            needs [spotify] or [home_assistant].media_player
+#   sensor, progress       need [home_assistant]; progress adds a bar, full at max (default 100)
+#   blank
+# Hub kinds: media (album art, needs the same as now_playing), blank.
+[tiles]
+top_left = { kind = "clock" }
+top_right = { kind = "date" }
+bottom_left = { kind = "weather" }
+bottom_right = { kind = "now_playing" }
+hub = { kind = "media" }
+
+# Current conditions from Open-Meteo, no key needed. units: celsius or
+# fahrenheit.
 [weather]
 latitude = 37.77
 longitude = -122.42
 units = "celsius"
 refresh_minutes = 10
 
-# Home Assistant, for the sensor and now_playing tiles and the media hub.
-# The token is a long-lived access token from your profile page. Remove
-# the table to run without it.
-[home_assistant]
-url = "http://homeassistant.local:8123"
-token = "PASTE-TOKEN"
-media_player = "media_player.living_room"
-refresh_seconds = 10
+# Spotify, for now_playing and the media hub. client_id is the Client ID of
+# an app created at developer.spotify.com/dashboard with the redirect URI
+# http://127.0.0.1:8888/callback. Then log in once, which writes the token
+# file (git-ignored) next to this config:
+#   panel-ddp spotify-login
+[spotify]
+client_id = "PASTE-CLIENT-ID"
+# token_file = "spotify-token.json"
+# refresh_seconds = 5
 
-# What the four tiles show and what goes in the hub.
-# Tile kinds: clock, date, weather, sensor, progress, now_playing, blank.
-# progress shows a bar under the value, full at max (default 100).
-# Hub kinds: media, blank.
-[tiles]
-top_left = { kind = "clock" }
-top_right = { kind = "date" }
-bottom_left = { kind = "weather" }
-bottom_right = { kind = "progress", entity = "sensor.x1c_print_progress", label = "PRINT" }
-hub = { kind = "media" }
+# Home Assistant, for sensor and progress tiles, or as the media source when
+# there is no [spotify]. The token is a long-lived access token from your
+# profile's Security tab.
+# [home_assistant]
+# url = "http://homeassistant.local:8123"
+# token = "PASTE-TOKEN"
+# media_player = "media_player.living_room"
+# refresh_seconds = 10
+# Example tiles for it:
+# bottom_right = { kind = "sensor", entity = "sensor.living_room_temperature", label = "ROOM" }
+# bottom_right = { kind = "progress", entity = "sensor.x1c_print_progress", label = "PRINT" }

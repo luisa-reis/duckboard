@@ -6,6 +6,7 @@
 use crate::config::Config;
 use crate::ha::{self, Art, Media, Sensor};
 use crate::mask::HUB;
+use crate::spotify;
 use crate::weather::{self, Weather};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -77,9 +78,38 @@ pub fn spawn_sources(cfg: &Config, shared: &Shared) {
         });
     }
 
+    if let Some(sp) = cfg.spotify.clone() {
+        let shared = Arc::clone(shared);
+        thread::spawn(move || {
+            let mut last_err = None;
+            let mut client = None;
+            loop {
+                if client.is_none() {
+                    match spotify::Client::load(&sp) {
+                        Ok(c) => client = Some(c),
+                        Err(e) => log_changed(&mut last_err, "spotify", e),
+                    }
+                }
+                if let Some(c) = client.as_mut() {
+                    let previous = shared.lock().unwrap().media.clone();
+                    match c.currently_playing(previous.as_ref()) {
+                        Ok(v) => {
+                            shared.lock().unwrap().media = v;
+                            last_err = None;
+                        }
+                        Err(e) => log_changed(&mut last_err, "spotify", e),
+                    }
+                }
+                thread::sleep(Duration::from_secs(sp.refresh_seconds.max(1)));
+            }
+        });
+    }
+
     if let Some(h) = cfg.home_assistant.clone() {
         let shared = Arc::clone(shared);
         let entities = cfg.sensor_entities();
+        // With Spotify configured, the media player here is left alone.
+        let player = if cfg.spotify.is_some() { None } else { h.media_player.clone() };
         thread::spawn(move || {
             let client = ha::Client::new(&h);
             // One error slot per request, so a missing entity is reported
@@ -95,7 +125,7 @@ pub fn spawn_sources(cfg: &Config, shared: &Shared) {
                         Err(e) => log_changed(last_err, "home assistant", e),
                     }
                 }
-                if let Some(player) = &h.media_player {
+                if let Some(player) = &player {
                     let previous = shared.lock().unwrap().media.clone();
                     let last_err = errors.last_mut().unwrap();
                     match client.media(player, previous.as_ref()) {

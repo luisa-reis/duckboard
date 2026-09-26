@@ -18,7 +18,29 @@ pub struct Config {
     #[serde(default)]
     pub tiles: Tiles,
     pub weather: Option<WeatherConfig>,
+    pub spotify: Option<SpotifyConfig>,
     pub home_assistant: Option<HomeAssistantConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SpotifyConfig {
+    /// The Client ID of an app from developer.spotify.com/dashboard.
+    pub client_id: String,
+    /// Where `panel-ddp spotify-login` keeps the tokens, relative to the
+    /// config file.
+    #[serde(default = "default_token_file")]
+    pub token_file: PathBuf,
+    #[serde(default = "default_spotify_refresh")]
+    pub refresh_seconds: u64,
+}
+
+fn default_token_file() -> PathBuf {
+    "spotify-token.json".into()
+}
+
+fn default_spotify_refresh() -> u64 {
+    5
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -177,6 +199,12 @@ impl Config {
         [&self.tiles.top_left, &self.tiles.top_right, &self.tiles.bottom_left, &self.tiles.bottom_right]
     }
 
+    /// Whether something can feed the now_playing tile and the media hub.
+    /// Spotify takes precedence over a Home Assistant media player.
+    pub fn has_media_source(&self) -> bool {
+        self.spotify.is_some() || self.home_assistant.as_ref().is_some_and(|h| h.media_player.is_some())
+    }
+
     /// Every entity a sensor tile reads.
     pub fn sensor_entities(&self) -> Vec<String> {
         self.corner_tiles()
@@ -207,22 +235,23 @@ impl Config {
         if cfg.weather.is_none() && tiles.iter().any(|t| matches!(t, TileSpec::Weather)) {
             anyhow::bail!("a weather tile needs the [weather] table");
         }
-        let needs_ha = tiles
-            .iter()
-            .any(|t| matches!(t, TileSpec::Sensor { .. } | TileSpec::Progress { .. } | TileSpec::NowPlaying))
-            || matches!(cfg.tiles.hub, HubSpec::Media);
+        let needs_ha = tiles.iter().any(|t| matches!(t, TileSpec::Sensor { .. } | TileSpec::Progress { .. }));
+        if needs_ha && cfg.home_assistant.is_none() {
+            anyhow::bail!("sensor and progress tiles need the [home_assistant] table");
+        }
         let needs_player = tiles.iter().any(|t| matches!(t, TileSpec::NowPlaying))
             || matches!(cfg.tiles.hub, HubSpec::Media);
-        match &cfg.home_assistant {
-            None if needs_ha => anyhow::bail!("sensor, now_playing and media tiles need the [home_assistant] table"),
-            Some(ha) if needs_player && ha.media_player.is_none() => {
-                anyhow::bail!("now_playing and media tiles need [home_assistant].media_player")
-            }
-            _ => {}
+        if needs_player && !cfg.has_media_source() {
+            anyhow::bail!("now_playing and media tiles need a [spotify] table or [home_assistant].media_player");
         }
-        if cfg.gaps.is_relative() {
-            if let Some(dir) = path.parent() {
+        if let Some(dir) = path.parent() {
+            if cfg.gaps.is_relative() {
                 cfg.gaps = dir.join(&cfg.gaps);
+            }
+            if let Some(sp) = cfg.spotify.as_mut() {
+                if sp.token_file.is_relative() {
+                    sp.token_file = dir.join(&sp.token_file);
+                }
             }
         }
         Ok(cfg)

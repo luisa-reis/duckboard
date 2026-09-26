@@ -3,6 +3,7 @@
 //!     panel-ddp run [--config FILE] [--frames N] [--sample]
 //!     panel-ddp preview [--config FILE] [--out FILE] [--test]
 //!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
+//!     panel-ddp spotify-login [--config FILE] [--port N]
 //!
 //! The config file defaults to dashboard.toml in the current directory.
 //! `preview` renders one frame from sample data into a PNG with the mask
@@ -19,6 +20,7 @@ mod hub;
 mod icons;
 mod mask;
 mod palette;
+mod spotify;
 mod testframe;
 mod tiles;
 mod weather;
@@ -35,7 +37,8 @@ use std::time::{Duration, Instant};
 const USAGE: &str = "usage:
   panel-ddp run [--config FILE] [--frames N] [--sample]
   panel-ddp preview [--config FILE] [--out FILE] [--test | --weather-code N]
-  panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]";
+  panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
+  panel-ddp spotify-login [--config FILE] [--port N]";
 
 const DEFAULT_CONFIG: &str = "dashboard.toml";
 
@@ -99,6 +102,22 @@ fn stream(s: &Stream, mut draw: impl FnMut(&mut Canvas, u32)) -> Result<()> {
     Ok(())
 }
 
+fn cmd_spotify_login(args: &[String]) -> Result<()> {
+    let mut config = PathBuf::from(DEFAULT_CONFIG);
+    let mut port = 8888u16;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--config" => config = it.next().context("--config needs a file")?.into(),
+            "--port" => port = it.next().and_then(|v| v.parse().ok()).context("--port needs a number")?,
+            o => bail!("unknown option {o}"),
+        }
+    }
+    let cfg = Config::load(&config)?;
+    let sp = cfg.spotify.as_ref().context("the config has no [spotify] table")?;
+    spotify::login(sp, port)
+}
+
 fn cmd_test(args: &[String]) -> Result<()> {
     let s = parse_stream(args)?;
     stream(&s, testframe::draw)
@@ -122,6 +141,9 @@ fn cmd_run(args: &[String]) -> Result<()> {
         }
     }
     let cfg = Config::load(&config)?;
+    if cfg.spotify.is_some() && cfg.home_assistant.as_ref().is_some_and(|h| h.media_player.is_some()) {
+        eprintln!("panel-ddp: both [spotify] and [home_assistant].media_player are set; Spotify feeds the hub");
+    }
     let s = Stream { target: ddp::target_with_default_port(&cfg.target), fps: cfg.fps, frames };
     let shared: data::Shared = Default::default();
     if sample {
@@ -194,6 +216,7 @@ fn main() {
         "run" => cmd_run(rest),
         "preview" => cmd_preview(rest),
         "test" => cmd_test(rest),
+        "spotify-login" => cmd_spotify_login(rest),
         "-h" | "--help" => {
             eprintln!("{USAGE}");
             return;
