@@ -20,6 +20,40 @@ pub struct Config {
     pub weather: Option<WeatherConfig>,
     pub spotify: Option<SpotifyConfig>,
     pub home_assistant: Option<HomeAssistantConfig>,
+    #[serde(default)]
+    pub art_cache: ArtCacheConfig,
+}
+
+/// Where decoded album art is kept between runs, and how much of it.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArtCacheConfig {
+    /// Relative to the config file.
+    #[serde(default = "default_cache_dir")]
+    pub dir: PathBuf,
+    /// 0 disables the cache.
+    #[serde(default = "default_cache_megabytes")]
+    pub max_megabytes: f64,
+}
+
+fn default_cache_dir() -> PathBuf {
+    "art-cache".into()
+}
+
+fn default_cache_megabytes() -> f64 {
+    4.0
+}
+
+impl Default for ArtCacheConfig {
+    fn default() -> Self {
+        Self { dir: default_cache_dir(), max_megabytes: default_cache_megabytes() }
+    }
+}
+
+impl ArtCacheConfig {
+    pub fn max_bytes(&self) -> u64 {
+        (self.max_megabytes.max(0.0) * 1024.0 * 1024.0) as u64
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -129,15 +163,16 @@ pub struct Tiles {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Background {
     None,
-    /// The album art across the panel, dimmed so the tiles stay legible.
+    /// The album art across the panel, blended over black at `alpha` so
+    /// the tiles stay legible.
     Media {
-        /// 0..1, how bright the art is drawn.
-        #[serde(default = "default_background_brightness")]
-        brightness: f32,
+        /// 0..1, the art's opacity.
+        #[serde(default = "default_background_alpha")]
+        alpha: f32,
     },
 }
 
-fn default_background_brightness() -> f32 {
+fn default_background_alpha() -> f32 {
     0.12
 }
 
@@ -264,6 +299,9 @@ impl Config {
         if cfg.fps == 0 {
             anyhow::bail!("fps must be positive");
         }
+        if cfg.art_cache.max_megabytes.is_nan() || cfg.art_cache.max_megabytes < 0.0 {
+            anyhow::bail!("art_cache.max_megabytes must be 0 or more");
+        }
         for t in cfg.corner_tiles() {
             if let TileSpec::Progress { max, label, .. } = t {
                 if max.is_nan() || *max <= 0.0 {
@@ -293,13 +331,16 @@ impl Config {
                     sp.token_file = dir.join(&sp.token_file);
                 }
             }
+            if cfg.art_cache.dir.is_relative() {
+                cfg.art_cache.dir = dir.join(&cfg.art_cache.dir);
+            }
         }
         // Last, after the tiles borrow ends: where the art goes.
         let hub_has_art = matches!(cfg.tiles.hub, HubSpec::Media { .. });
         match cfg.tiles.background {
-            Some(Background::Media { brightness }) => {
-                if !(0.0..=1.0).contains(&brightness) {
-                    anyhow::bail!("background brightness must be between 0 and 1");
+            Some(Background::Media { alpha }) => {
+                if !(0.0..=1.0).contains(&alpha) {
+                    anyhow::bail!("background alpha must be between 0 and 1");
                 }
                 if hub_has_art {
                     anyhow::bail!("the art shows once: hub = media or background = media, not both");
@@ -310,7 +351,7 @@ impl Config {
                 cfg.tiles.background = Some(if hub_has_art {
                     Background::None
                 } else {
-                    Background::Media { brightness: default_background_brightness() }
+                    Background::Media { alpha: default_background_alpha() }
                 });
             }
         }

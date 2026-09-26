@@ -54,9 +54,9 @@ With `[home_assistant]`:
 The hub also takes `blank`.
 
 The art shows in one place. By default it is the `background`: the cover
-across the whole panel behind the tiles, dimmed to `brightness` (default
-0.12) so they stay legible, and dimmed further while paused. A hub set to
-`media` moves it there and leaves the background black. Setting both is
+across the whole panel behind the tiles, blended over black at `alpha`
+(default 0.12) so they stay legible, and nothing else done to it. A hub set
+to `media` moves it there and leaves the background black. Setting both is
 refused; `background = { kind = "none" }` shows no art at all.
 
 ![sample dashboard behind the mask](dashboard-preview.png)
@@ -80,7 +80,7 @@ top_right = { kind = "blank" }
 bottom_left = { kind = "blank" }
 bottom_right = { kind = "blank" }
 hub = { kind = "blank" }
-background = { kind = "media", brightness = 1.0 }
+background = { kind = "media", alpha = 1.0 }
 ```
 
 ```sh
@@ -116,6 +116,8 @@ optional:
   `refresh_minutes`.
 - `[spotify]` — `client_id`, and optionally `token_file` (default
   `spotify-token.json` next to the config) and `refresh_seconds`. See below.
+- `[art_cache]` — `dir` (default `art-cache` next to the config) and
+  `max_megabytes` (default 4; 0 disables). See below.
 - `[home_assistant]` — `url`, a long-lived access `token` (profile page,
   Security tab), the `media_player` entity to use as the media source when
   there is no `[spotify]`, `refresh_seconds`.
@@ -160,6 +162,12 @@ Each source runs on its own thread with its own refresh interval and keeps the
 last good reading, so a slow or dead service never stalls a frame. A failure is
 logged once, when its message changes. Album art is fetched only when the
 picture URL changes.
+
+Decoded album art is cached on disk under `[art_cache].dir`, one file per
+picture URL holding the hub-sized and panel-sized pixels, about 14 KB each,
+so the default 4 MB cap holds a few hundred covers. A hit costs no download
+and no decoding and makes the entry the newest; past the cap the oldest
+entries are deleted first. The directory is git-ignored under the crate.
 
 The sender uses an unconnected UDP socket on purpose: a connected one turns
 the ICMP unreachable from a rebooting board into a send error, which would end

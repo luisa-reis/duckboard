@@ -10,6 +10,7 @@
 //! applied; `--test` renders the test frame instead. HOST defaults to
 //! 4.3.2.1 (WLED-AP), PORT to 4048.
 
+mod artcache;
 mod canvas;
 mod config;
 mod dashboard;

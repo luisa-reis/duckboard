@@ -10,15 +10,14 @@ use embedded_graphics::prelude::*;
 
 pub fn draw(tiles: &Tiles, c: &mut Canvas, ctx: &Ctx) {
     c.clear(BLACK).unwrap();
-    if let Some(Background::Media { brightness }) = tiles.background {
+    if let Some(Background::Media { alpha }) = tiles.background {
         if let Some(art) = ctx.data.media.as_ref().and_then(|m| m.art.as_ref()) {
-            // Paused playback dims the background further, like the hub.
-            let dim = brightness * if ctx.data.media.as_ref().is_some_and(|m| m.playing) { 1.0 } else { 0.4 };
+            // The art over the black panel at `alpha`, and nothing else.
             for i in 0..(WIDTH * HEIGHT) as usize {
                 let p = &art.full[i * 3..i * 3 + 3];
-                c.px[i * 3] = (p[0] as f32 * dim) as u8;
-                c.px[i * 3 + 1] = (p[1] as f32 * dim) as u8;
-                c.px[i * 3 + 2] = (p[2] as f32 * dim) as u8;
+                c.px[i * 3] = (p[0] as f32 * alpha) as u8;
+                c.px[i * 3 + 1] = (p[1] as f32 * alpha) as u8;
+                c.px[i * 3 + 2] = (p[2] as f32 * alpha) as u8;
             }
         }
     }

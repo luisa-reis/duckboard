@@ -2,6 +2,7 @@
 //! media player's title, artist and album art for the hub. One long-lived
 //! access token covers all of it.
 
+use crate::artcache::ArtCache;
 use crate::canvas::{HEIGHT, WIDTH};
 use crate::config::HomeAssistantConfig;
 use crate::mask::HUB;
@@ -58,14 +59,16 @@ pub struct Client {
     agent: ureq::Agent,
     base: String,
     token: String,
+    cache: ArtCache,
 }
 
 impl Client {
-    pub fn new(cfg: &HomeAssistantConfig) -> Self {
+    pub fn new(cfg: &HomeAssistantConfig, cache: ArtCache) -> Self {
         Self {
             agent: ureq::AgentBuilder::new().timeout(TIMEOUT).build(),
             base: cfg.url.trim_end_matches('/').to_string(),
             token: cfg.token.clone(),
+            cache,
         }
     }
 
@@ -109,8 +112,12 @@ impl Client {
         Ok(Media { playing: s.state == "playing", title: text("media_title"), artist: text("media_artist"), art })
     }
 
-    /// Downloads a picture and scales it for the hub and the background.
+    /// The art for a picture URL: from the cache, or downloaded, decoded
+    /// and cached.
     fn fetch_art(&self, url: &str) -> Result<(Vec<u8>, Vec<u8>)> {
+        if let Some(hit) = self.cache.get(url) {
+            return Ok(hit);
+        }
         let resp = self
             .agent
             .get(url)
@@ -121,6 +128,10 @@ impl Client {
         std::io::Read::take(resp.into_reader(), 8 << 20)
             .read_to_end(&mut bytes)
             .context("reading entity_picture")?;
-        decode_art(&bytes).context("entity_picture")
+        let art = decode_art(&bytes).context("entity_picture")?;
+        if let Err(e) = self.cache.put(url, &art.0, &art.1) {
+            eprintln!("panel-ddp: art cache: {e:#}");
+        }
+        Ok(art)
     }
 }

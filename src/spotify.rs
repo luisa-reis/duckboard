@@ -3,6 +3,7 @@
 //! the refresh token, which `panel-ddp spotify-login` obtains once and the
 //! client keeps in a token file, rewriting it as Spotify rotates the token.
 
+use crate::artcache::ArtCache;
 use crate::config::SpotifyConfig;
 use crate::ha::{decode_art, Art, Media};
 use crate::mask::HUB;
@@ -74,15 +75,17 @@ pub struct Client {
     client_id: String,
     token_file: std::path::PathBuf,
     tokens: Tokens,
+    cache: ArtCache,
 }
 
 impl Client {
-    pub fn load(cfg: &SpotifyConfig) -> Result<Self> {
+    pub fn load(cfg: &SpotifyConfig, cache: ArtCache) -> Result<Self> {
         Ok(Self {
             agent: ureq::AgentBuilder::new().timeout(TIMEOUT).build(),
             client_id: cfg.client_id.clone(),
             token_file: cfg.token_file.clone(),
             tokens: read_tokens(&cfg.token_file)?,
+            cache,
         })
     }
 
@@ -154,10 +157,17 @@ impl Client {
     }
 
     fn fetch_art(&self, url: &str) -> Result<(Vec<u8>, Vec<u8>)> {
+        if let Some(hit) = self.cache.get(url) {
+            return Ok(hit);
+        }
         let resp = self.agent.get(url).call().context("GET album art")?;
         let mut bytes = Vec::new();
         Read::take(resp.into_reader(), 8 << 20).read_to_end(&mut bytes).context("reading album art")?;
-        decode_art(&bytes).context("album art")
+        let art = decode_art(&bytes).context("album art")?;
+        if let Err(e) = self.cache.put(url, &art.0, &art.1) {
+            eprintln!("panel-ddp: art cache: {e:#}");
+        }
+        Ok(art)
     }
 }
 

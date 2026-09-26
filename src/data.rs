@@ -3,6 +3,7 @@
 //! run on their own threads and each refreshes its part on its own clock,
 //! so a slow or dead service never stalls a frame.
 
+use crate::artcache::ArtCache;
 use crate::canvas::{HEIGHT, WIDTH};
 use crate::config::Config;
 use crate::ha::{self, Art, Media, Sensor};
@@ -66,6 +67,7 @@ pub type Shared = Arc<Mutex<Snapshot>>;
 /// and logs a failure only when its message changes, so a service that is
 /// down does not fill the log at every retry.
 pub fn spawn_sources(cfg: &Config, shared: &Shared) {
+    let cache = ArtCache::new(cfg.art_cache.dir.clone(), cfg.art_cache.max_bytes());
     if let Some(w) = cfg.weather.clone() {
         let shared = Arc::clone(shared);
         thread::spawn(move || {
@@ -86,12 +88,13 @@ pub fn spawn_sources(cfg: &Config, shared: &Shared) {
 
     if let Some(sp) = cfg.spotify.clone() {
         let shared = Arc::clone(shared);
+        let cache = cache.clone();
         thread::spawn(move || {
             let mut last_err = None;
             let mut client = None;
             loop {
                 if client.is_none() {
-                    match spotify::Client::load(&sp) {
+                    match spotify::Client::load(&sp, cache.clone()) {
                         Ok(c) => client = Some(c),
                         Err(e) => log_changed(&mut last_err, "spotify", e),
                     }
@@ -116,8 +119,9 @@ pub fn spawn_sources(cfg: &Config, shared: &Shared) {
         let entities = cfg.sensor_entities();
         // With Spotify configured, the media player here is left alone.
         let player = if cfg.spotify.is_some() { None } else { h.media_player.clone() };
+        let cache = cache.clone();
         thread::spawn(move || {
-            let client = ha::Client::new(&h);
+            let client = ha::Client::new(&h, cache);
             // One error slot per request, so a missing entity is reported
             // once and a working one next to it does not reset that.
             let mut errors = vec![None; entities.len() + 1];

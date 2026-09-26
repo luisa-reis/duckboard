@@ -2,4 +2,5 @@ target/
 dashboard.toml
 dashboard-*.toml
 spotify-token.json
+art-cache/
 2d-gaps.json

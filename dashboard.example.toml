@@ -20,8 +20,8 @@ fps = 10
 # Hub kinds: media (album art, needs the same as now_playing), blank.
 #
 # The album art shows in one place. By default it is the background: the
-# cover across the whole panel behind the tiles, dimmed to brightness (0..1)
-# so they stay legible. Setting the hub to media moves it there instead, as a
+# cover across the whole panel behind the tiles at alpha (0..1) so they stay
+# legible. Setting the hub to media moves it there instead, as a
 # shape: disc (a record, the default), square (the whole cover) or faded (the
 # whole cover with the corners outside the circle dimmed), with spin = true
 # turning it while playing. background = { kind = "none" } shows none.
@@ -31,10 +31,10 @@ top_right = { kind = "date" }
 bottom_left = { kind = "weather" }
 bottom_right = { kind = "now_playing" }
 hub = { kind = "blank" }
-background = { kind = "media", brightness = 0.12 }
+background = { kind = "media", alpha = 0.12 }
 # hub = { kind = "media", spin = false, shape = "disc" }
 # For a panel that shows only the cover: every tile and the hub blank, and
-# background = { kind = "media", brightness = 1.0 }
+# background = { kind = "media", alpha = 1.0 }
 
 # Current conditions from Open-Meteo, no key needed. units: celsius or
 # fahrenheit.
@@ -53,6 +53,12 @@ refresh_minutes = 10
 client_id = "PASTE-CLIENT-ID"
 # token_file = "spotify-token.json"
 # refresh_seconds = 5
+
+# Decoded album art is kept on disk between runs, oldest out first past the
+# cap. dir is relative to this file; max_megabytes = 0 disables the cache.
+[art_cache]
+dir = "art-cache"
+max_megabytes = 4
 
 # Home Assistant, for sensor and progress tiles, or as the media source when
 # there is no [spotify]. The token is a long-lived access token from your
