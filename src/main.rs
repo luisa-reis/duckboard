@@ -1,6 +1,6 @@
 //! panel-ddp: draws dashboard frames and streams them to a WLED matrix.
 //!
-//!     panel-ddp run [--config FILE] [--frames N]
+//!     panel-ddp run [--config FILE] [--frames N] [--sample]
 //!     panel-ddp preview [--config FILE] [--out FILE] [--test]
 //!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
 //!
@@ -33,7 +33,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 const USAGE: &str = "usage:
-  panel-ddp run [--config FILE] [--frames N]
+  panel-ddp run [--config FILE] [--frames N] [--sample]
   panel-ddp preview [--config FILE] [--out FILE] [--test | --weather-code N]
   panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]";
 
@@ -107,6 +107,7 @@ fn cmd_test(args: &[String]) -> Result<()> {
 fn cmd_run(args: &[String]) -> Result<()> {
     let mut config = PathBuf::from(DEFAULT_CONFIG);
     let mut frames = None;
+    let mut sample = false;
     let mut it = args.iter();
     while let Some(a) = it.next() {
         match a.as_str() {
@@ -116,15 +117,20 @@ fn cmd_run(args: &[String]) -> Result<()> {
                     it.next().and_then(|v| v.parse().ok()).context("--frames needs a number")?,
                 )
             }
+            "--sample" => sample = true,
             o => bail!("unknown option {o}"),
         }
     }
     let cfg = Config::load(&config)?;
     let s = Stream { target: ddp::target_with_default_port(&cfg.target), fps: cfg.fps, frames };
     let shared: data::Shared = Default::default();
-    data::spawn_sources(&cfg, &shared);
+    if sample {
+        eprintln!("panel-ddp: --sample: made-up data, no source is contacted");
+    } else {
+        data::spawn_sources(&cfg, &shared);
+    }
     stream(&s, |c, frame| {
-        let data = shared.lock().unwrap().clone();
+        let data = if sample { data::Snapshot::sample(&cfg, frame) } else { shared.lock().unwrap().clone() };
         let ctx = tiles::Ctx { now: chrono::Local::now(), frame, data: &data };
         dashboard::draw(&cfg.tiles, c, &ctx);
     })
@@ -161,7 +167,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     if test {
         testframe::draw(&mut canvas, 0);
     } else {
-        let mut data = data::Snapshot::sample(&cfg);
+        let mut data = data::Snapshot::sample(&cfg, 95);
         if let (Some(code), Some(w)) = (weather_code, data.weather.as_mut()) {
             w.code = code;
             w.is_day = code < 1000;

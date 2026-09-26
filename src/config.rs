@@ -38,6 +38,10 @@ fn default_refresh_seconds() -> u64 {
     10
 }
 
+fn default_max() -> f64 {
+    100.0
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WeatherConfig {
@@ -142,6 +146,17 @@ pub enum TileSpec {
         /// Decimal places for a numeric state; fewer are used if it does not fit.
         decimals: Option<u8>,
     },
+    /// A Home Assistant entity's numeric state as a bar under the value,
+    /// full at `max`; needs [home_assistant].
+    Progress {
+        entity: String,
+        label: String,
+        #[serde(default = "default_max")]
+        max: f64,
+        /// Decimal places for the value; 0 unless set.
+        #[serde(default)]
+        decimals: u8,
+    },
     /// Artist and title scrolling; needs [home_assistant].media_player.
     NowPlaying,
     /// Nothing.
@@ -167,7 +182,7 @@ impl Config {
         self.corner_tiles()
             .iter()
             .filter_map(|t| match t {
-                TileSpec::Sensor { entity, .. } => Some(entity.clone()),
+                TileSpec::Sensor { entity, .. } | TileSpec::Progress { entity, .. } => Some(entity.clone()),
                 _ => None,
             })
             .collect()
@@ -181,11 +196,20 @@ impl Config {
         if cfg.fps == 0 {
             anyhow::bail!("fps must be positive");
         }
+        for t in cfg.corner_tiles() {
+            if let TileSpec::Progress { max, label, .. } = t {
+                if max.is_nan() || *max <= 0.0 {
+                    anyhow::bail!("progress tile {label}: max must be positive");
+                }
+            }
+        }
         let tiles = cfg.corner_tiles();
         if cfg.weather.is_none() && tiles.iter().any(|t| matches!(t, TileSpec::Weather)) {
             anyhow::bail!("a weather tile needs the [weather] table");
         }
-        let needs_ha = tiles.iter().any(|t| matches!(t, TileSpec::Sensor { .. } | TileSpec::NowPlaying))
+        let needs_ha = tiles
+            .iter()
+            .any(|t| matches!(t, TileSpec::Sensor { .. } | TileSpec::Progress { .. } | TileSpec::NowPlaying))
             || matches!(cfg.tiles.hub, HubSpec::Media);
         let needs_player = tiles.iter().any(|t| matches!(t, TileSpec::NowPlaying))
             || matches!(cfg.tiles.hub, HubSpec::Media);

@@ -21,13 +21,18 @@ pub struct Snapshot {
 }
 
 impl Snapshot {
-    /// Made-up data for previews that must not touch the network: every
-    /// sensor the config names reads 42, and a gradient plays as album art.
-    pub fn sample(cfg: &Config) -> Self {
+    /// Made-up data for previews and demos that must not touch the network:
+    /// every sensor the config names sweeps 0..100 over `SWEEP_FRAMES` and
+    /// holds full for a moment, and a gradient plays as album art.
+    pub fn sample(cfg: &Config, frame: u32) -> Self {
+        const SWEEP_FRAMES: u32 = 150;
+        const HOLD_FRAMES: u32 = 30;
+        let t = frame % (SWEEP_FRAMES + HOLD_FRAMES);
+        let value = (t.min(SWEEP_FRAMES) as f64 * 100.0 / SWEEP_FRAMES as f64 * 10.0).round() / 10.0;
         let sensors = cfg
             .sensor_entities()
             .into_iter()
-            .map(|e| (e, Sensor { state: "42.5".into(), unit: Some("°C".into()) }))
+            .map(|e| (e, Sensor { state: format!("{value}"), unit: Some("%".into()) }))
             .collect();
         let mut rgb = Vec::with_capacity((HUB.width * HUB.height * 3) as usize);
         for y in 0..HUB.height {

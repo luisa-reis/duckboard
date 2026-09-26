@@ -32,6 +32,9 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx) {
         TileSpec::Sensor { entity, label, unit, decimals } => {
             sensor(&mut clipped, area, ctx, entity, label, unit.as_deref(), *decimals)
         }
+        TileSpec::Progress { entity, label, max, decimals } => {
+            progress(&mut clipped, area, ctx, entity, label, *max, *decimals)
+        }
         TileSpec::NowPlaying => now_playing(&mut clipped, area, ctx),
         TileSpec::Blank => {}
     }
@@ -133,6 +136,57 @@ fn sensor<D: DrawTarget<Color = Rgb888>>(
     }
     let unit = unit.map(str::to_string).or_else(|| s.unit.clone()).unwrap_or_default();
     centred(t, &unit, cx, o.y + 18, MonoTextStyle::new(&FONT_4X6, GREY));
+}
+
+const FULL: Rgb888 = Rgb888::new(60, 220, 90);
+
+/// Label, the value, and a bar along the bottom edge that fills left to
+/// right, amber on the way and green once it reaches `max`.
+fn progress<D: DrawTarget<Color = Rgb888>>(
+    t: &mut D,
+    area: Rectangle,
+    ctx: &Ctx,
+    entity: &str,
+    label: &str,
+    max: f64,
+    decimals: u8,
+) {
+    let o = area.top_left;
+    let cx = o.x + 12;
+    centred(t, label, cx, o.y, MonoTextStyle::new(&FONT_4X6, GREY));
+    let sensor = ctx.data.sensors.get(entity);
+    let value = sensor.and_then(|s| s.state.parse::<f64>().ok());
+    let Some(v) = value else {
+        centred(t, "--", cx, o.y + 7, MonoTextStyle::new(&FONT_6X10, DIM));
+        fill(t, Rectangle::new(Point::new(o.x, o.y + 19), Size::new(24, 4)), DIM);
+        return;
+    };
+    // The value, with a short unit such as "%" in the small font on its
+    // baseline; the pair is centred as one. Decimals go if it does not fit.
+    let unit = sensor.and_then(|s| s.unit.as_deref()).filter(|u| u.chars().count() <= 2).unwrap_or("");
+    let unit_w = if unit.is_empty() { 0 } else { text_width(unit, 4) + 1 };
+    let want = usize::from(decimals);
+    let mut text = format!("{v:.want$}");
+    if text_width(&text, 6) + unit_w > 24 {
+        text = format!("{v:.0}");
+    }
+    let left = cx - (text_width(&text, 6) + unit_w) / 2;
+    let ts = TextStyleBuilder::new().alignment(Alignment::Left).baseline(Baseline::Top).build();
+    let _ = Text::with_text_style(&text, Point::new(left, o.y + 7), MonoTextStyle::new(&FONT_6X10, WHITE), ts).draw(t);
+    if !unit.is_empty() {
+        let x = left + text_width(&text, 6) + 1;
+        let _ = Text::with_text_style(unit, Point::new(x, o.y + 11), MonoTextStyle::new(&FONT_4X6, GREY), ts).draw(t);
+    }
+    // The bar: a one-pixel frame around a 22x2 fill.
+    let frac = (v / max).clamp(0.0, 1.0);
+    let colour = if frac >= 1.0 { FULL } else { AMBER };
+    let _ = Rectangle::new(Point::new(o.x, o.y + 19), Size::new(24, 4))
+        .into_styled(PrimitiveStyle::with_stroke(GREY, 1))
+        .draw(t);
+    let w = (frac * 22.0).round() as u32;
+    if w > 0 {
+        fill(t, Rectangle::new(Point::new(o.x + 1, o.y + 20), Size::new(w, 2)), colour);
+    }
 }
 
 /// Text on one line, scrolling left when wider than the tile.

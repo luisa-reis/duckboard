@@ -27,11 +27,12 @@ media_player = "media_player.living_room"
 refresh_seconds = 10
 
 # What the four tiles show and what goes in the hub.
-# Tile kinds: clock, date, weather, sensor, now_playing, blank.
+# Tile kinds: clock, date, weather, sensor, progress, now_playing, blank.
+# progress shows a bar under the value, full at max (default 100).
 # Hub kinds: media, blank.
 [tiles]
 top_left = { kind = "clock" }
 top_right = { kind = "date" }
 bottom_left = { kind = "weather" }
-bottom_right = { kind = "sensor", entity = "sensor.nozzle_temperature", label = "NOZZLE", decimals = 0 }
+bottom_right = { kind = "progress", entity = "sensor.x1c_print_progress", label = "PRINT" }
 hub = { kind = "media" }
