@@ -99,3 +99,13 @@ max_megabytes = 4
 # Example tiles for it:
 # bottom_right = { kind = "sensor", entity = "sensor.living_room_temperature", label = "ROOM" }
 # bottom_right = { kind = "progress", entity = "sensor.x1c_print_progress", label = "PRINT" }
+
+# Alerts: while the entity is in the state, the panel drops the tiles,
+# pulses in the colour and shows the label (up to four characters). Needs
+# [home_assistant]. Any number of these.
+# [[alerts]]
+# entity = "binary_sensor.bathroom_water_leak"
+# state = "on"
+# label = "LEAK"
+# color = "#ff1e1e"
+# pulse_seconds = 1.5

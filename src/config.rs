@@ -1,6 +1,6 @@
 //! The dashboard configuration, a TOML file. See dashboard.example.toml.
 
-use crate::palette::Overrides;
+use crate::palette::{Overrides, Rgba};
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -36,6 +36,38 @@ pub struct Config {
     pub home_assistant: Option<HomeAssistantConfig>,
     #[serde(default)]
     pub art_cache: ArtCacheConfig,
+    /// While any of these entities is in its state, the panel drops the
+    /// tiles, pulses in the alert's colour and shows its label.
+    #[serde(default)]
+    pub alerts: Vec<Alert>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Alert {
+    pub entity: String,
+    /// The state that raises the alert.
+    #[serde(default = "default_alert_state")]
+    pub state: String,
+    /// Shown in the middle of the panel; up to four characters.
+    pub label: String,
+    #[serde(default = "default_alert_color")]
+    pub color: Rgba,
+    /// One pulse, in seconds.
+    #[serde(default = "default_pulse_seconds")]
+    pub pulse_seconds: f32,
+}
+
+fn default_alert_state() -> String {
+    "on".into()
+}
+
+fn default_alert_color() -> Rgba {
+    Rgba::rgb(255, 30, 30)
+}
+
+fn default_pulse_seconds() -> f32 {
+    1.5
 }
 
 /// Where decoded album art is kept between runs, and how much of it.
@@ -403,15 +435,19 @@ impl Config {
         self.spotify.is_some() || self.home_assistant.as_ref().is_some_and(|h| h.media_player.is_some())
     }
 
-    /// Every entity a sensor tile reads.
+    /// Every entity a sensor tile or an alert reads.
     pub fn sensor_entities(&self) -> Vec<String> {
-        self.corner_tiles()
+        let mut v: Vec<String> = self
+            .corner_tiles()
             .iter()
             .filter_map(|t| match t {
                 TileSpec::Sensor { entity, .. } | TileSpec::Progress { entity, .. } => Some(entity.clone()),
                 _ => None,
             })
-            .collect()
+            .collect();
+        v.extend(self.alerts.iter().map(|a| a.entity.clone()));
+        v.dedup();
+        v
     }
 
     pub fn load(path: &Path) -> Result<Self> {
@@ -446,9 +482,18 @@ impl Config {
         if cfg.weather.is_none() && tiles.iter().any(|t| matches!(t, TileSpec::Weather)) {
             anyhow::bail!("a weather tile needs the [weather] table");
         }
-        let needs_ha = tiles.iter().any(|t| matches!(t, TileSpec::Sensor { .. } | TileSpec::Progress { .. }));
+        let needs_ha = tiles.iter().any(|t| matches!(t, TileSpec::Sensor { .. } | TileSpec::Progress { .. }))
+            || !cfg.alerts.is_empty();
         if needs_ha && cfg.home_assistant.is_none() {
-            anyhow::bail!("sensor and progress tiles need the [home_assistant] table");
+            anyhow::bail!("sensor and progress tiles, and alerts, need the [home_assistant] table");
+        }
+        for a in &cfg.alerts {
+            if a.label.chars().count() > 4 || a.label.is_empty() {
+                anyhow::bail!("alert {}: the label is one to four characters", a.entity);
+            }
+            if a.pulse_seconds.is_nan() || a.pulse_seconds <= 0.0 {
+                anyhow::bail!("alert {}: pulse_seconds must be positive", a.entity);
+            }
         }
         let needs_player = tiles.iter().any(|t| matches!(t, TileSpec::NowPlaying))
             || matches!(cfg.tiles.hub.spec, HubSpec::Media { .. });

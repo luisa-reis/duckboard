@@ -180,6 +180,26 @@ The hub's `media` kind has two alphas of its own, `paused_alpha` (default
 0.4) for the art while paused and `corner_alpha` (default 0.3) for the
 corners of the faded shape; the background has its `alpha`.
 
+## Alerts
+
+An alert is a Home Assistant entity and the state that raises it. While
+any alert is raised, the panel drops the tiles, pulses in the alert's colour
+and shows its label in the middle, then returns to the dashboard when the
+state clears. Any number of `[[alerts]]` tables; the first raised one wins:
+
+```toml
+[[alerts]]
+entity = "binary_sensor.bathroom_water_leak"
+state = "on"                # the default
+label = "LEAK"              # up to four characters
+color = "#ff1e1e"           # the default
+pulse_seconds = 1.5         # the default
+```
+
+Alerts need `[home_assistant]`; their entities are polled with the sensors.
+`preview --alert` renders one, and `run --sample` raises them for five
+seconds of every thirty.
+
 ## Spotify
 
 Spotify's API needs an app of your own, which takes a minute: at
@@ -207,6 +227,7 @@ target/release/panel-ddp run --config other.toml --frames 100
 target/release/panel-ddp run --sample                 # made-up data, sensors sweep 0..100: a demo of the layout
 target/release/panel-ddp preview --out preview.png  # one frame from sample data, mask applied
 target/release/panel-ddp preview --weather-code 95  # check an icon (add 1000 for night)
+target/release/panel-ddp preview --alert            # the alert view
 target/release/panel-ddp test <board-ip>            # colour bars, ramp, counter, bouncing dot
 ```
 

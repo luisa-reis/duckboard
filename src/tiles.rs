@@ -23,6 +23,8 @@ pub struct Ctx<'a> {
     pub data: &'a Snapshot,
     pub palette: &'a Palette,
     pub temperature: Units,
+    /// Frames per second, for anything timed in seconds.
+    pub fps: u32,
 }
 
 pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Palette) {

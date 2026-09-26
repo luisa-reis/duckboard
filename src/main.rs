@@ -1,7 +1,7 @@
 //! panel-ddp: draws dashboard frames and streams them to a WLED matrix.
 //!
 //!     panel-ddp run [--config FILE] [--frames N] [--sample]
-//!     panel-ddp preview [--config FILE] [--out FILE] [--test]
+//!     panel-ddp preview [--config FILE] [--out FILE] [--test | --alert]
 //!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
 //!     panel-ddp spotify-login [--config FILE] [--port N]
 //!
@@ -37,7 +37,7 @@ use std::time::{Duration, Instant};
 
 const USAGE: &str = "usage:
   panel-ddp run [--config FILE] [--frames N] [--sample]
-  panel-ddp preview [--config FILE] [--out FILE] [--test | --weather-code N]
+  panel-ddp preview [--config FILE] [--out FILE] [--test | --weather-code N | --alert]
   panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
   panel-ddp spotify-login [--config FILE] [--port N]";
 
@@ -155,8 +155,8 @@ fn cmd_run(args: &[String]) -> Result<()> {
     let palette = Palette::default().with(&cfg.colors);
     stream(&s, |c, frame| {
         let data = if sample { data::Snapshot::sample(&cfg, frame) } else { shared.lock().unwrap().clone() };
-        let ctx = tiles::Ctx { now: chrono::Local::now(), frame, data: &data, palette: &palette, temperature: cfg.temperature };
-        dashboard::draw(&cfg.tiles, c, &ctx);
+        let ctx = tiles::Ctx { now: chrono::Local::now(), frame, data: &data, palette: &palette, temperature: cfg.temperature, fps: cfg.fps };
+        dashboard::draw(&cfg.tiles, &cfg.alerts, c, &ctx);
     })
 }
 
@@ -164,6 +164,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     let mut config = PathBuf::from(DEFAULT_CONFIG);
     let mut out = PathBuf::from("preview.png");
     let mut test = false;
+    let mut alert_preview = false;
     let mut weather_code = None;
     let mut it = args.iter();
     while let Some(a) = it.next() {
@@ -171,6 +172,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
             "--config" => config = it.next().context("--config needs a file")?.into(),
             "--out" => out = it.next().context("--out needs a file")?.into(),
             "--test" => test = true,
+            "--alert" => alert_preview = true,
             "--weather-code" => {
                 weather_code = Some(
                     it.next().and_then(|v| v.parse().ok()).context("--weather-code needs a number")?,
@@ -191,15 +193,15 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     if test {
         testframe::draw(&mut canvas, 0);
     } else {
-        let mut data = data::Snapshot::sample(&cfg, 95);
+        let mut data = data::Snapshot::sample(&cfg, if alert_preview { 60 } else { 0 });
         if let (Some(code), Some(w)) = (weather_code, data.weather.as_mut()) {
             w.code = code;
             w.is_day = code < 1000;
             w.code %= 1000;
         }
         let palette = Palette::default().with(&cfg.colors);
-        let ctx = tiles::Ctx { now: chrono::Local::now(), frame: 0, data: &data, palette: &palette, temperature: cfg.temperature };
-        dashboard::draw(&cfg.tiles, &mut canvas, &ctx);
+        let ctx = tiles::Ctx { now: chrono::Local::now(), frame: 0, data: &data, palette: &palette, temperature: cfg.temperature, fps: cfg.fps };
+        dashboard::draw(&cfg.tiles, &cfg.alerts, &mut canvas, &ctx);
     }
     mask.preview_png(&canvas, 4, &out)?;
     eprintln!("panel-ddp: wrote {}", out.display());

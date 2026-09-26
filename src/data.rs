@@ -32,11 +32,17 @@ impl Snapshot {
         const HOLD_FRAMES: u32 = 30;
         let t = frame % (SWEEP_FRAMES + HOLD_FRAMES);
         let value = (t.min(SWEEP_FRAMES) as f64 * 100.0 / SWEEP_FRAMES as f64 * 10.0).round() / 10.0;
-        let sensors = cfg
+        // Alerts raise for five seconds of every thirty, at 10 fps.
+        let alert_on = (frame % 300) >= 50 && (frame % 300) < 100;
+        let mut sensors: HashMap<String, Sensor> = cfg
             .sensor_entities()
             .into_iter()
             .map(|e| (e, Sensor { state: format!("{value}"), unit: Some("%".into()) }))
             .collect();
+        for a in &cfg.alerts {
+            let state = if alert_on { a.state.clone() } else { format!("not {}", a.state) };
+            sensors.insert(a.entity.clone(), Sensor { state, unit: None });
+        }
         let gradient = |w: u32, h: u32| {
             let mut rgb = Vec::with_capacity((w * h * 3) as usize);
             for y in 0..h {
