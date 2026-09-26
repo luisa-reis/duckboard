@@ -86,6 +86,10 @@ pub struct DemoConfig {
     /// when there is none; relative to the config file. Open it in Preview
     /// for a companion view.
     pub art_file: Option<PathBuf>,
+    /// Run `open` on the art file after each change, so macOS Preview shows
+    /// and re-reads it.
+    #[serde(default)]
+    pub art_open: bool,
 }
 
 fn d_tile() -> f32 {
@@ -137,6 +141,7 @@ impl Default for DemoConfig {
             covers: d_covers(),
             background_alpha: d_alpha(),
             art_file: None,
+            art_open: false,
         }
     }
 }

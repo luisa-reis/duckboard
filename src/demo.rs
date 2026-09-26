@@ -54,6 +54,7 @@ pub struct Demo {
     palette: Palette,
     temperature: crate::config::Units,
     art_file: Option<PathBuf>,
+    art_open: bool,
     /// Undoes the panel gamma for the companion image.
     ungamma: Vec<u8>,
     /// Which cover the companion image holds; None is black.
@@ -102,6 +103,7 @@ impl Demo {
             palette: Palette::default().with(&cfg.colors),
             temperature: cfg.temperature,
             art_file: d.art_file.clone(),
+            art_open: d.art_open,
             ungamma: (0..=255u32).map(|v| ((v as f32 / 255.0).powf(1.0 / cfg.gamma) * 255.0).round() as u8).collect(),
             written: Cell::new(None),
         }
@@ -142,7 +144,13 @@ impl Demo {
             .map_err(|e| e.to_string())
             .and_then(|()| std::fs::rename(&tmp, path).map_err(|e| e.to_string()));
         match result {
-            Ok(()) => self.written.set(Some(cover)),
+            Ok(()) => {
+                self.written.set(Some(cover));
+                if self.art_open {
+                    // Preview re-reads a file it is told to open.
+                    let _ = std::process::Command::new("open").arg(path).spawn();
+                }
+            }
             Err(e) => eprintln!("panel-ddp: demo: writing {}: {e}", path.display()),
         }
     }
