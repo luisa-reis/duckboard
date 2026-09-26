@@ -1,4 +1,5 @@
-// Shows the demo's art file, redrawing whenever the file changes.
+// Shows the demo's art file, redrawing whenever the file changes, and black
+// while there is no file.
 //
 // It follows demo-art.jpg at the top of the repository, the art_file the demo
 // writes. To follow another file, set DEMO_ART when starting Processing:
@@ -13,21 +14,23 @@ PImage art;
 long seen = -1;
 
 void setup() {
-  size(512, 512);
+  size(640, 640);
   ART = artPath();
-  surface.setTitle("");
+  surface.setTitle("panel-ddp art");
   noSmooth();  // the scaled-up panel version stays crisp; originals are big enough not to care
   background(0);
 }
 
 void draw() {
   File f = new File(ART);
-  long modified = f.exists() ? f.lastModified() : -1;
-  if (modified != seen) {
-    PImage next = f.exists() ? loadImage(ART) : null;  // null while half-written; try again next frame
-    if (next != null || !f.exists()) {
+  if (!f.exists()) {
+    art = null;
+    seen = -1;
+  } else if (f.lastModified() != seen) {
+    PImage next = loadImage(ART);  // null while half-written; try again next frame
+    if (next != null) {
       art = next;
-      seen = modified;
+      seen = f.lastModified();
     }
   }
   background(0);
