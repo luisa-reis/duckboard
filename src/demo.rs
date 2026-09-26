@@ -6,7 +6,8 @@
 //! 3. The weather, showing every kind of sky.
 //! 4. The print progress, filling from 0 to 100.
 //! 5. The water leak alert.
-//! 6. The whole dashboard over cached album covers, one after another.
+//! 6. The whole dashboard again, plain.
+//! 7. The same over cached album covers, one after another.
 
 use crate::artcache::ArtCache;
 use crate::canvas::Canvas;
@@ -35,6 +36,7 @@ pub struct Demo {
     sky: u32,
     progress: u32,
     alert: u32,
+    dashboard: u32,
     cover: u32,
     covers: Vec<(Vec<u8>, Vec<u8>)>,
     alert_spec: Alert,
@@ -70,6 +72,7 @@ impl Demo {
             sky: frames(d.weather_seconds),
             progress: frames(d.progress_seconds),
             alert: frames(d.alert_seconds),
+            dashboard: frames(d.dashboard_seconds),
             cover: frames(d.cover_seconds),
             covers,
             alert_spec,
@@ -86,6 +89,7 @@ impl Demo {
             + self.sky * SKIES.len() as u32
             + self.progress
             + self.alert
+            + self.dashboard
             + self.cover * self.covers.len() as u32
     }
 
@@ -99,12 +103,13 @@ impl Demo {
         let mut leak = false;
         let mut cover: Option<usize> = None;
 
-        let stages: [(u32, u32); 6] = [
+        let stages: [(u32, u32); 7] = [
             (self.tile, 4),
             (self.clock, 1),
             (self.sky, SKIES.len() as u32),
             (self.progress, 1),
             (self.alert, 1),
+            (self.dashboard, 1),
             (self.cover, self.covers.len() as u32),
         ];
         let mut stage = 0;
@@ -131,7 +136,7 @@ impl Demo {
             2 => sky = Some(SKIES[index as usize]),
             3 => progress = Some((within as f64 / self.progress as f64 * 100.0).round().min(100.0)),
             4 => leak = true,
-            5 => cover = Some(index as usize),
+            6 => cover = Some(index as usize),
             _ => {}
         }
         if stage == 2 {

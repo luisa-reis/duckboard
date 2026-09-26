@@ -64,6 +64,9 @@ pub struct DemoConfig {
     /// The water leak alert.
     #[serde(default = "d_alert")]
     pub alert_seconds: f32,
+    /// The whole dashboard after the alert, before any cover.
+    #[serde(default = "d_dashboard")]
+    pub dashboard_seconds: f32,
     /// Each cover as the background, from the art cache.
     #[serde(default = "d_cover")]
     pub cover_seconds: f32,
@@ -90,6 +93,9 @@ fn d_progress() -> f32 {
 fn d_alert() -> f32 {
     5.0
 }
+fn d_dashboard() -> f32 {
+    5.0
+}
 fn d_cover() -> f32 {
     4.0
 }
@@ -108,6 +114,7 @@ impl Default for DemoConfig {
             weather_seconds: d_weather(),
             progress_seconds: d_progress(),
             alert_seconds: d_alert(),
+            dashboard_seconds: d_dashboard(),
             cover_seconds: d_cover(),
             covers: d_covers(),
             background_alpha: d_alpha(),
@@ -563,7 +570,15 @@ impl Config {
         }
         {
             let d = &cfg.demo;
-            let times = [d.tile_seconds, d.clock_seconds, d.weather_seconds, d.progress_seconds, d.alert_seconds, d.cover_seconds];
+            let times = [
+                d.tile_seconds,
+                d.clock_seconds,
+                d.weather_seconds,
+                d.progress_seconds,
+                d.alert_seconds,
+                d.dashboard_seconds,
+                d.cover_seconds,
+            ];
             if times.iter().any(|t| t.is_nan() || *t <= 0.0) {
                 anyhow::bail!("[demo] timings must be positive seconds");
             }
