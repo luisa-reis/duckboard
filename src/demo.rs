@@ -11,12 +11,15 @@
 //! 8. The same with a cover as a disc in the hub.
 //! 9. The same over cached album covers, one after another.
 //! 10. The covers alone, nothing else drawn.
+//! 11. A few of the `[frame]` pictures, full screen.
+//! 12. The dashboard with those pictures behind it.
 
 use crate::artcache::{ArtCache, Entry};
 use crate::canvas::Canvas;
 use crate::config::{Alert, ArtShape, Background, Config, HubEntry, HubSpec, Seconds, TileEntry, TileSpec, Tiles};
 use crate::dashboard;
 use crate::data::Snapshot;
+use crate::frame::Frame;
 use crate::ha::{Art, Media, Sensor};
 use crate::palette::{Overrides, Palette};
 use crate::tiles::Ctx;
@@ -51,7 +54,10 @@ pub struct Demo {
     hub: u32,
     cover: u32,
     art_only: u32,
+    frame_each: u32,
     covers: Vec<Entry>,
+    pictures: Option<Frame>,
+    n_pictures: u32,
     alert_spec: Alert,
     background_alpha: f32,
     palette: Palette,
@@ -78,6 +84,14 @@ impl Demo {
         if covers.is_empty() {
             eprintln!("panel-ddp: demo: no covers with originals in the art cache yet (keep_originals), skipping those steps");
         }
+        let pictures = match Frame::new(cfg) {
+            Ok(f) => Some(f),
+            Err(e) => {
+                eprintln!("panel-ddp: demo: no frame pictures ({e:#}), skipping those steps");
+                None
+            }
+        };
+        let n_pictures = pictures.as_ref().map_or(0, |f| f.len().min(d.frame_pictures)) as u32;
         // The alert's look comes from the config's first alert, if any.
         let alert_spec = match cfg.alerts.first() {
             Some(a) => Alert { entity: LEAK_ENTITY.into(), state: "on".into(), ..a.clone() },
@@ -101,7 +115,10 @@ impl Demo {
             hub: frames(d.hub_seconds),
             cover: frames(d.cover_seconds),
             art_only: frames(d.art_only_seconds),
+            frame_each: frames(d.frame_seconds),
             covers,
+            pictures,
+            n_pictures,
             alert_spec,
             background_alpha: d.background_alpha,
             palette: Palette::default().with(&cfg.colors),
@@ -155,6 +172,7 @@ impl Demo {
             + self.hub * self.covers.len().min(1) as u32
             + self.cover * self.covers.len() as u32
             + self.art_only * self.covers.len() as u32
+            + self.frame_each * self.n_pictures * 2
     }
 
     pub fn draw(&self, c: &mut Canvas, frame: u32) {
@@ -168,9 +186,10 @@ impl Demo {
         let mut leak = false;
         let mut cover: Option<usize> = None;
         let mut placement = Placement::Background;
+        let mut picture: Option<usize> = None;
 
         let n_covers = self.covers.len() as u32;
-        let stages: [(u32, u32); 10] = [
+        let stages: [(u32, u32); 12] = [
             (self.tile, 4),
             (self.clock, 1),
             (self.sky, SKIES.len() as u32),
@@ -181,6 +200,8 @@ impl Demo {
             (self.hub, n_covers.min(1)),
             (self.cover, n_covers),
             (self.art_only, n_covers),
+            (self.frame_each, self.n_pictures),
+            (self.frame_each, self.n_pictures),
         ];
         let mut stage = 0;
         let mut index = 0;
@@ -220,6 +241,11 @@ impl Demo {
                 cover = Some(index as usize);
                 placement = Placement::Alone;
             }
+            10 => {
+                picture = Some(index as usize);
+                placement = Placement::Alone;
+            }
+            11 => picture = Some(index as usize),
             _ => {}
         }
         if stage == 2 {
@@ -227,7 +253,16 @@ impl Demo {
         }
 
         self.write_art_file(cover);
-        let tiles = self.tiles(date_tile, clock, sky.is_some(), progress.is_some(), sensor, cover.is_some(), placement);
+        let tiles = self.tiles(
+            date_tile,
+            clock,
+            sky.is_some(),
+            progress.is_some(),
+            sensor,
+            cover.is_some(),
+            picture.is_some(),
+            placement,
+        );
         let mut sensors = HashMap::new();
         if let Some(v) = progress {
             sensors.insert(PROGRESS_ENTITY.to_string(), Sensor { state: format!("{v}"), unit: Some("%".into()) });
@@ -256,7 +291,7 @@ impl Demo {
             palette: &self.palette,
             temperature: self.temperature,
             fps: self.fps,
-            picture: None,
+            picture: picture.and_then(|i| self.pictures.as_ref().map(|f| f.picture_at(i))),
         };
         dashboard::draw(&tiles, std::slice::from_ref(&self.alert_spec), c, &ctx);
     }
@@ -270,6 +305,7 @@ impl Demo {
         progress: bool,
         sensor: bool,
         art: bool,
+        picture: bool,
         placement: Placement,
     ) -> Tiles {
         let entry = |spec: TileSpec| TileEntry { spec, colors: Overrides::default() };
@@ -302,7 +338,7 @@ impl Demo {
                 decimals: None,
             });
         }
-        if art && placement == Placement::Alone {
+        if (art || picture) && placement == Placement::Alone {
             tiles = [entry(TileSpec::Blank), entry(TileSpec::Blank), entry(TileSpec::Blank), entry(TileSpec::Blank)];
         }
         let [top_left, top_right, bottom_left, bottom_right] = tiles;
@@ -311,10 +347,12 @@ impl Demo {
         } else {
             HubSpec::Blank
         };
-        let background = match (art, placement) {
-            (false, _) | (true, Placement::Hub) => Background::None,
-            (true, Placement::Background) => Background::Media { alpha: self.background_alpha },
-            (true, Placement::Alone) => Background::Media { alpha: 1.0 },
+        let background = match (art, picture, placement) {
+            (_, true, Placement::Alone) => Background::Frame { alpha: 1.0 },
+            (_, true, _) => Background::Frame { alpha: self.background_alpha },
+            (false, _, _) | (true, _, Placement::Hub) => Background::None,
+            (true, _, Placement::Background) => Background::Media { alpha: self.background_alpha },
+            (true, _, Placement::Alone) => Background::Media { alpha: 1.0 },
         };
         Tiles {
             top_left,

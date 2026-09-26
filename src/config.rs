@@ -120,6 +120,12 @@ pub struct DemoConfig {
     /// How many cached covers to show, newest first.
     #[serde(default = "d_covers")]
     pub covers: usize,
+    /// Each `[frame]` picture, full screen and then behind the tiles.
+    #[serde(default = "d_frame")]
+    pub frame_seconds: f32,
+    /// How many `[frame]` pictures those two steps use.
+    #[serde(default = "d_frame_pictures")]
+    pub frame_pictures: usize,
     /// Alpha of the cover behind the tiles.
     #[serde(default = "d_alpha")]
     pub background_alpha: f32,
@@ -166,6 +172,12 @@ fn d_cover() -> f32 {
 fn d_covers() -> usize {
     8
 }
+fn d_frame() -> f32 {
+    4.0
+}
+fn d_frame_pictures() -> usize {
+    4
+}
 fn d_alpha() -> f32 {
     0.12
 }
@@ -184,6 +196,8 @@ impl Default for DemoConfig {
             cover_seconds: d_cover(),
             art_only_seconds: d_art_only(),
             covers: d_covers(),
+            frame_seconds: d_frame(),
+            frame_pictures: d_frame_pictures(),
             background_alpha: d_alpha(),
             art_file: None,
             art_open: false,
@@ -664,6 +678,7 @@ impl Config {
                 d.hub_seconds,
                 d.cover_seconds,
                 d.art_only_seconds,
+                d.frame_seconds,
             ];
             if times.iter().any(|t| t.is_nan() || *t <= 0.0) {
                 anyhow::bail!("[demo] timings must be positive seconds");

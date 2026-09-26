@@ -43,6 +43,15 @@ impl Frame {
         Ok(Self { pictures, frames_each: ((f.seconds * cfg.fps as f32).round() as u32).max(1), alpha: f.alpha })
     }
 
+    pub fn len(&self) -> usize {
+        self.pictures.len()
+    }
+
+    /// The panel-sized pixels of picture `i`.
+    pub fn picture_at(&self, i: usize) -> &[u8] {
+        &self.pictures[i % self.pictures.len()].1
+    }
+
     pub fn total_frames(&self) -> u32 {
         self.frames_each * self.pictures.len() as u32
     }
