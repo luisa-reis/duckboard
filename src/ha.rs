@@ -5,8 +5,8 @@
 use crate::artcache::ArtCache;
 use crate::canvas::{HEIGHT, WIDTH};
 use crate::config::HomeAssistantConfig;
-use crate::mask::HUB;
 use anyhow::{anyhow, Context, Result};
+use embedded_graphics::prelude::Size;
 use image::imageops::FilterType;
 use serde::Deserialize;
 use std::io::Read;
@@ -42,9 +42,10 @@ pub struct Art {
     pub original: Option<std::sync::Arc<Vec<u8>>>,
 }
 
-/// Decodes a picture, scales it to fill the hub and the panel (cropping to
-/// square) and applies `gamma`, so the bytes are what the LEDs should show.
-pub fn decode_art(bytes: &[u8], gamma: f32) -> Result<(Vec<u8>, Vec<u8>)> {
+/// Decodes a picture, scales it to fill a hub of `hub`'s size and the panel
+/// (cropping to their shapes) and applies `gamma`, so the bytes are what the
+/// LEDs should show.
+pub fn decode_art(bytes: &[u8], gamma: f32, hub: Size) -> Result<(Vec<u8>, Vec<u8>)> {
     let img = image::load_from_memory(bytes).map_err(|e| anyhow!("decoding picture: {e}"))?;
     let lut: Vec<u8> = (0..=255u32)
         .map(|v| ((v as f32 / 255.0).powf(gamma) * 255.0).round() as u8)
@@ -57,7 +58,7 @@ pub fn decode_art(bytes: &[u8], gamma: f32) -> Result<(Vec<u8>, Vec<u8>)> {
             .map(|v| lut[v as usize])
             .collect()
     };
-    Ok((convert(HUB.width, HUB.height), convert(WIDTH, HEIGHT)))
+    Ok((convert(hub.width, hub.height), convert(WIDTH, HEIGHT)))
 }
 
 #[derive(Deserialize)]
@@ -148,7 +149,7 @@ impl Client {
         std::io::Read::take(resp.into_reader(), 8 << 20)
             .read_to_end(&mut bytes)
             .context("reading entity_picture")?;
-        let (hub, full) = decode_art(&bytes, self.gamma).context("entity_picture")?;
+        let (hub, full) = decode_art(&bytes, self.gamma, self.cache.hub).context("entity_picture")?;
         if let Err(e) = self.cache.put(url, &hub, &full).and_then(|()| self.cache.put_original(url, &bytes, name.as_deref())) {
             eprintln!("panel-ddp: art cache: {e:#}");
         }

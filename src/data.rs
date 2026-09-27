@@ -7,7 +7,6 @@ use crate::artcache::ArtCache;
 use crate::canvas::{HEIGHT, WIDTH};
 use crate::config::Config;
 use crate::ha::{self, Art, Media, Sensor};
-use crate::mask::HUB;
 use crate::spotify;
 use crate::weather::{self, Weather};
 use std::collections::HashMap;
@@ -52,7 +51,7 @@ impl Snapshot {
             }
             rgb
         };
-        let rgb = gradient(HUB.width, HUB.height);
+        let rgb = gradient(cfg.regions.hub.width, cfg.regions.hub.height);
         let full = gradient(WIDTH, HEIGHT);
         Self {
             weather: Some(Weather { temperature: 21.4, code: 61, is_day: true }),
@@ -73,12 +72,7 @@ pub type Shared = Arc<Mutex<Snapshot>>;
 /// and logs a failure only when its message changes, so a service that is
 /// down does not fill the log at every retry.
 pub fn spawn_sources(cfg: &Config, shared: &Shared) {
-    let cache = ArtCache::new(
-        cfg.art_cache.dir.clone(),
-        cfg.art_cache.max_bytes(),
-        format!("gamma {}", cfg.gamma),
-        cfg.art_cache.keep_originals,
-    );
+    let cache = ArtCache::for_config(cfg);
     let gamma = cfg.gamma;
     if let Some(w) = cfg.weather.clone() {
         let shared = Arc::clone(shared);

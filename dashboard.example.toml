@@ -43,6 +43,17 @@ bottom_left = { kind = "weather" }
 bottom_right = { kind = "now_playing" }
 hub = { kind = "blank" }
 background = { kind = "media", alpha = 0.12 }
+
+# Where each tile and the hub sit: x, y, width and height in panel pixels,
+# and z to stack regions that overlap (higher draws on top; default 0, and
+# with the same z the hub draws last). A region left out keeps its default;
+# these are the defaults.
+# [regions]
+# top_left = { x = 2, y = 2, width = 24, height = 24 }
+# top_right = { x = 38, y = 2, width = 24, height = 24 }
+# bottom_left = { x = 2, y = 38, width = 24, height = 24 }
+# bottom_right = { x = 38, y = 38, width = 24, height = 24 }
+# hub = { x = 21, y = 21, width = 22, height = 22 }
 # hub = { kind = "media", spin = false, shape = "disc", paused_alpha = 0.4, corner_alpha = 0.3 }
 # For a panel that shows only the cover: every tile and the hub blank, and
 # background = { kind = "media", alpha = 1.0 }

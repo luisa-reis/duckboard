@@ -11,15 +11,39 @@ cannot do is in [ddp.md](ddp.md).
 
 ## Layout
 
-The screen is split into five areas, four tiles and a hub:
+The screen is split into five regions, four tiles and a hub. By default:
 
-| Area         | Origin   | Size  |
-|--------------|----------|-------|
-| top left     | (2, 2)   | 24×24 |
-| top right    | (38, 2)  | 24×24 |
-| bottom left  | (2, 38)  | 24×24 |
-| bottom right | (38, 38) | 24×24 |
-| hub          | (21, 21) | 22×22 |
+| Region         | Origin   | Size  |
+|----------------|----------|-------|
+| `top_left`     | (2, 2)   | 24×24 |
+| `top_right`    | (38, 2)  | 24×24 |
+| `bottom_left`  | (2, 38)  | 24×24 |
+| `bottom_right` | (38, 38) | 24×24 |
+| `hub`          | (21, 21) | 22×22 |
+
+`[regions]` moves and resizes them. A region given there takes `x`, `y`,
+`width` and `height` in panel pixels, all four, and must fit the 64×64; one
+left out keeps its default:
+
+```toml
+[regions]
+hub = { x = 0, y = 34, width = 64, height = 30, z = -1 }
+top_left = { x = 0, y = 0, width = 34, height = 34 }
+```
+
+Regions may overlap. They are drawn in ascending `z` (default 0), so a
+higher one draws over a lower one; with the same `z` the order is
+`top_left`, `top_right`, `bottom_left`, `bottom_right`, `hub`, which is how
+the default hub sits over the tiles' inner corners. A region has no
+background of its own, so it covers what is below only where it draws: the
+hub's disc hides the tiles under it, the corners around the disc do not.
+
+A tile lays its content out for 24 pixels of height, centred in a taller or
+shorter region, and takes the region's width: the clock's ring is the
+largest circle that fits, text is centred and fitted to the width, the
+progress bar spans it. Fonts do not scale, and what does not fit is clipped
+to the region. The hub's art is decoded at the hub's size and its disc is
+the largest circle that fits.
 
 Each corner shows one tile, the hub one of its own kinds. A clock-and-weather
 panel needs no account at all; the rest switch on with a table in the config.
@@ -424,7 +448,7 @@ logged once, when its message changes. Album art is fetched only when the
 picture URL changes.
 
 Decoded album art is cached on disk under `[art_cache].dir`, one file per
-picture URL and gamma holding the hub-sized and panel-sized pixels, about 14 KB each,
+picture URL, gamma and hub size holding the hub-sized and panel-sized pixels, about 14 KB each,
 so the default 4 MB cap holds a few hundred covers. A hit costs no download
 and no decoding and makes the entry the newest; past the cap the oldest
 files are deleted first. The directory is git-ignored under the crate.

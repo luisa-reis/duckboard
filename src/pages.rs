@@ -37,12 +37,7 @@ impl Pages {
     /// name a cover or a picture that is not there are left out.
     pub fn new(cfg: &Config, pictures: usize) -> Result<Self> {
         let covers = if cfg.pages.iter().any(|p| p.data.cover.is_some()) {
-            let cache = ArtCache::new(
-                cfg.art_cache.dir.clone(),
-                cfg.art_cache.max_bytes(),
-                format!("gamma {}", cfg.gamma),
-                cfg.art_cache.keep_originals,
-            );
+            let cache = ArtCache::for_config(cfg);
             // With originals kept, only covers that have one, so an art
             // file only ever gets real covers.
             cache

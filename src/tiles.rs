@@ -1,6 +1,7 @@
-//! The tiles in the corners of the panel. Each draws into a 24x24 area;
-//! anything that would spill over is clipped to it. Colours come from the
-//! palette in the context, by role.
+//! The tiles, each drawn into its region (24x24 by default); anything that
+//! would spill over is clipped to it. A tile's content is laid out for 24
+//! pixels of height and centred in taller or shorter regions; widths follow
+//! the region. Colours come from the palette in the context, by role.
 
 use crate::canvas::Canvas;
 use crate::config::{Seconds, TileSpec, Units};
@@ -46,6 +47,13 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Pal
     }
 }
 
+/// The column a tile centres its content on, and the top of its content,
+/// which is laid out for 24 pixels of height and centred vertically.
+fn anchor(area: Rectangle) -> (i32, i32) {
+    let o = area.top_left;
+    (o.x + area.size.width as i32 / 2, o.y + (area.size.height as i32 - 24) / 2)
+}
+
 /// Text centred on `cx`, its top edge at `top`.
 pub fn centred<D: DrawTarget<Color = Rgba>>(t: &mut D, text: &str, cx: i32, top: i32, style: MonoTextStyle<Rgba>) {
     let ts = TextStyleBuilder::new().alignment(Alignment::Center).baseline(Baseline::Top).build();
@@ -64,17 +72,18 @@ fn clock<D: DrawTarget<Color = Rgba>>(
     seconds: Seconds,
     dot_size: u32,
 ) {
-    let o = area.top_left;
-    let cx = o.x + 12;
-    centred(t, &format!("{:02}", ctx.now.hour()), cx, o.y + 2, MonoTextStyle::new(&FONT_6X10, p.text));
-    centred(t, &format!("{:02}", ctx.now.minute()), cx, o.y + 12, MonoTextStyle::new(&FONT_6X10, p.secondary));
-    // Seconds on a ring around the tile, clockwise from twelve o'clock, one
-    // step per second: either the ring fills up to the second, or a single
-    // dot sits at it. The ring's pixels come from the circle itself, so the
-    // track and the accent agree.
-    let ring = Circle::new(o, 24).into_styled(PrimitiveStyle::with_stroke(p.track, 1));
+    let (cx, top) = anchor(area);
+    centred(t, &format!("{:02}", ctx.now.hour()), cx, top + 2, MonoTextStyle::new(&FONT_6X10, p.text));
+    centred(t, &format!("{:02}", ctx.now.minute()), cx, top + 12, MonoTextStyle::new(&FONT_6X10, p.secondary));
+    // Seconds on a ring around the tile, the largest circle that fits,
+    // clockwise from twelve o'clock, one step per second: either the ring
+    // fills up to the second, or a single dot sits at it. The ring's pixels
+    // come from the circle itself, so the track and the accent agree.
+    let d = area.size.width.min(area.size.height);
+    let o = area.top_left + Point::new((area.size.width - d) as i32 / 2, (area.size.height - d) as i32 / 2);
+    let ring = Circle::new(o, d).into_styled(PrimitiveStyle::with_stroke(p.track, 1));
     let target = ctx.now.second() as f32 / 60.0 * std::f32::consts::TAU;
-    let centre = 11.5;
+    let centre = (d as f32 - 1.0) / 2.0;
     let angle_of = |q: Point| {
         let dx = (q.x - o.x) as f32 - centre;
         let dy = (q.y - o.y) as f32 - centre;
@@ -106,25 +115,24 @@ const WEEKDAYS: [&str; 7] = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 const MONTHS: [&str; 12] = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
 fn date<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ctx, p: &Palette) {
-    let o = area.top_left;
-    let cx = o.x + 12;
+    let (cx, top) = anchor(area);
     let weekday = WEEKDAYS[ctx.now.weekday().num_days_from_monday() as usize];
     let month = MONTHS[ctx.now.month0() as usize];
-    centred(t, weekday, cx, o.y, MonoTextStyle::new(&FONT_5X8, p.accent));
-    centred(t, &ctx.now.day().to_string(), cx, o.y + 8, MonoTextStyle::new(&FONT_6X10, p.text));
-    centred(t, month, cx, o.y + 18, MonoTextStyle::new(&FONT_4X6, p.label));
+    centred(t, weekday, cx, top, MonoTextStyle::new(&FONT_5X8, p.accent));
+    centred(t, &ctx.now.day().to_string(), cx, top + 8, MonoTextStyle::new(&FONT_6X10, p.text));
+    centred(t, month, cx, top + 18, MonoTextStyle::new(&FONT_4X6, p.label));
 }
 
 fn weather<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ctx, p: &Palette) {
-    let o = area.top_left;
-    let cx = o.x + 12;
+    let (cx, top) = anchor(area);
     let Some(w) = &ctx.data.weather else {
-        centred(t, "--", cx, o.y + 13, MonoTextStyle::new(&FONT_6X10, p.track));
+        centred(t, "--", cx, top + 13, MonoTextStyle::new(&FONT_6X10, p.track));
         return;
     };
-    icons::draw(t, Sky::from_code(w.code), w.is_day, o + Point::new((24 - icons::SIZE as i32) / 2, 0), p);
+    let icon_x = area.top_left.x + (area.size.width as i32 - icons::SIZE as i32) / 2;
+    icons::draw(t, Sky::from_code(w.code), w.is_day, Point::new(icon_x, top), p);
     let temp = format!("{}°", w.temperature.round() as i32);
-    centred(t, &temp, cx, o.y + 13, MonoTextStyle::new(&FONT_6X10, p.text));
+    centred(t, &temp, cx, top + 13, MonoTextStyle::new(&FONT_6X10, p.text));
 }
 
 /// Pixel width of `text` in a font whose characters are `cw` wide.
@@ -143,11 +151,11 @@ fn sensor<D: DrawTarget<Color = Rgba>>(
     unit: Option<&str>,
     decimals: Option<u8>,
 ) {
-    let o = area.top_left;
-    let cx = o.x + 12;
-    centred(t, label, cx, o.y, MonoTextStyle::new(&FONT_4X6, p.label));
+    let (cx, top) = anchor(area);
+    let width = area.size.width as i32;
+    centred(t, label, cx, top, MonoTextStyle::new(&FONT_4X6, p.label));
     let Some(s) = ctx.data.sensors.get(entity) else {
-        centred(t, "--", cx, o.y + 8, MonoTextStyle::new(&FONT_6X10, p.track));
+        centred(t, "--", cx, top + 8, MonoTextStyle::new(&FONT_6X10, p.track));
         return;
     };
     // A reading in degrees follows the configured temperature unit.
@@ -159,28 +167,28 @@ fn sensor<D: DrawTarget<Color = Rgba>>(
                 v = cv;
                 shown_unit = Some(cu);
             }
-            // Fit 24 pixels: four characters of the big font. Decimals go
-            // first, then the font.
+            // Fit the tile's width (four characters of the big font in 24
+            // pixels). Decimals go first, then the font.
             let want = decimals.map(usize::from).unwrap_or(if s.state.contains('.') { 1 } else { 0 });
             let mut text = format!("{v:.want$}");
-            if text_width(&text, 6) > 24 {
+            if text_width(&text, 6) > width {
                 text = format!("{v:.0}");
             }
             text
         }
         Err(_) => s.state.to_uppercase(),
     };
-    if text_width(&value, 6) <= 24 {
-        centred(t, &value, cx, o.y + 8, MonoTextStyle::new(&FONT_6X10, p.text));
+    if text_width(&value, 6) <= width {
+        centred(t, &value, cx, top + 8, MonoTextStyle::new(&FONT_6X10, p.text));
     } else {
-        centred(t, &value, cx, o.y + 10, MonoTextStyle::new(&FONT_4X6, p.text));
+        centred(t, &value, cx, top + 10, MonoTextStyle::new(&FONT_4X6, p.text));
     }
     let unit = unit.map(str::to_string).or(shown_unit).unwrap_or_default();
-    centred(t, &unit, cx, o.y + 18, MonoTextStyle::new(&FONT_4X6, p.label));
+    centred(t, &unit, cx, top + 18, MonoTextStyle::new(&FONT_4X6, p.label));
 }
 
-/// Label, the value, and a bar along the bottom edge that fills left to
-/// right, accent on the way and full once it reaches `max`.
+/// Label, the value, and a bar across the tile's width under them that
+/// fills left to right, accent on the way and full once it reaches `max`.
 #[allow(clippy::too_many_arguments)]
 fn progress<D: DrawTarget<Color = Rgba>>(
     t: &mut D,
@@ -192,14 +200,15 @@ fn progress<D: DrawTarget<Color = Rgba>>(
     max: f64,
     decimals: u8,
 ) {
-    let o = area.top_left;
-    let cx = o.x + 12;
-    centred(t, label, cx, o.y, MonoTextStyle::new(&FONT_4X6, p.label));
+    let (cx, top) = anchor(area);
+    let (left_edge, width) = (area.top_left.x, area.size.width);
+    let bar = Rectangle::new(Point::new(left_edge, top + 19), Size::new(width, 4));
+    centred(t, label, cx, top, MonoTextStyle::new(&FONT_4X6, p.label));
     let sensor = ctx.data.sensors.get(entity);
     let value = sensor.and_then(|s| s.state.parse::<f64>().ok());
     let Some(v) = value else {
-        centred(t, "--", cx, o.y + 7, MonoTextStyle::new(&FONT_6X10, p.track));
-        fill(t, Rectangle::new(Point::new(o.x, o.y + 19), Size::new(24, 4)), p.track);
+        centred(t, "--", cx, top + 7, MonoTextStyle::new(&FONT_6X10, p.track));
+        fill(t, bar, p.track);
         return;
     };
     // The value, with a short unit such as "%" in the small font on its
@@ -208,25 +217,23 @@ fn progress<D: DrawTarget<Color = Rgba>>(
     let unit_w = if unit.is_empty() { 0 } else { text_width(unit, 4) + 1 };
     let want = usize::from(decimals);
     let mut text = format!("{v:.want$}");
-    if text_width(&text, 6) + unit_w > 24 {
+    if text_width(&text, 6) + unit_w > width as i32 {
         text = format!("{v:.0}");
     }
     let left = cx - (text_width(&text, 6) + unit_w) / 2;
     let ts = TextStyleBuilder::new().alignment(Alignment::Left).baseline(Baseline::Top).build();
-    let _ = Text::with_text_style(&text, Point::new(left, o.y + 7), MonoTextStyle::new(&FONT_6X10, p.text), ts).draw(t);
+    let _ = Text::with_text_style(&text, Point::new(left, top + 7), MonoTextStyle::new(&FONT_6X10, p.text), ts).draw(t);
     if !unit.is_empty() {
         let x = left + text_width(&text, 6) + 1;
-        let _ = Text::with_text_style(unit, Point::new(x, o.y + 11), MonoTextStyle::new(&FONT_4X6, p.label), ts).draw(t);
+        let _ = Text::with_text_style(unit, Point::new(x, top + 11), MonoTextStyle::new(&FONT_4X6, p.label), ts).draw(t);
     }
-    // The bar: a one-pixel frame around a 22x2 fill.
+    // The bar: a one-pixel frame around a two-pixel-high fill.
     let frac = (v / max).clamp(0.0, 1.0);
     let colour = if frac >= 1.0 { p.full } else { p.accent };
-    let _ = Rectangle::new(Point::new(o.x, o.y + 19), Size::new(24, 4))
-        .into_styled(PrimitiveStyle::with_stroke(p.label, 1))
-        .draw(t);
-    let w = (frac * 22.0).round() as u32;
+    let _ = bar.into_styled(PrimitiveStyle::with_stroke(p.label, 1)).draw(t);
+    let w = (frac * width.saturating_sub(2) as f64).round() as u32;
     if w > 0 {
-        fill(t, Rectangle::new(Point::new(o.x + 1, o.y + 20), Size::new(w, 2)), colour);
+        fill(t, Rectangle::new(Point::new(left_edge + 1, top + 20), Size::new(w, 2)), colour);
     }
 }
 
@@ -249,11 +256,11 @@ fn marquee<D: DrawTarget<Color = Rgba>>(t: &mut D, text: &str, area: Rectangle, 
 }
 
 fn now_playing<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ctx, p: &Palette) {
-    let o = area.top_left;
+    let (cx, top) = anchor(area);
     let Some(m) = ctx.data.media.as_ref().filter(|m| m.playing) else {
-        centred(t, "--", o.x + 12, o.y + 8, MonoTextStyle::new(&FONT_6X10, p.track));
+        centred(t, "--", cx, top + 8, MonoTextStyle::new(&FONT_6X10, p.track));
         return;
     };
-    marquee(t, &m.artist, area, o.y + 4, ctx.frame, p.label);
-    marquee(t, &m.title, area, o.y + 13, ctx.frame, p.text);
+    marquee(t, &m.artist, area, top + 4, ctx.frame, p.label);
+    marquee(t, &m.title, area, top + 13, ctx.frame, p.text);
 }

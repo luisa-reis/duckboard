@@ -243,7 +243,7 @@ fn cmd_run(args: &[String]) -> Result<()> {
             fps: cfg.fps,
             picture,
         };
-        dashboard::draw(tiles, &cfg.alerts, c, &ctx);
+        dashboard::draw(tiles, &cfg.regions, &cfg.alerts, c, &ctx);
     });
     if let Some(a) = &art_file {
         a.remove();
@@ -322,7 +322,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
             fps: cfg.fps,
             picture: pictures.as_ref().map(|p| p.picture(0)),
         };
-        dashboard::draw(&cfg.tiles, &cfg.alerts, &mut canvas, &ctx);
+        dashboard::draw(&cfg.tiles, &cfg.regions, &cfg.alerts, &mut canvas, &ctx);
     }
     mask.preview_png(&canvas, 4, &out)?;
     eprintln!("panel-ddp: wrote {}", out.display());

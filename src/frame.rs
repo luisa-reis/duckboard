@@ -31,7 +31,7 @@ impl Frame {
         let mut pictures = Vec::new();
         for p in paths {
             let bytes = std::fs::read(&p).with_context(|| format!("reading {}", p.display()))?;
-            match decode_art(&bytes, cfg.gamma) {
+            match decode_art(&bytes, cfg.gamma, cfg.regions.hub.size()) {
                 Ok((_, full)) => pictures.push((p, full)),
                 Err(e) => eprintln!("panel-ddp: frame: skipping {}: {e:#}", p.display()),
             }

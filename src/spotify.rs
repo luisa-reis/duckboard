@@ -6,7 +6,6 @@
 use crate::artcache::ArtCache;
 use crate::config::SpotifyConfig;
 use crate::ha::{decode_art, name_for, Art, Media};
-use crate::mask::HUB;
 use anyhow::{anyhow, bail, Context, Result};
 use base64::Engine;
 use serde::{Deserialize, Serialize};
@@ -145,7 +144,8 @@ impl Client {
         // Tracks carry their pictures on the album, episodes on themselves.
         let album = item["album"]["name"].as_str().or_else(|| item["show"]["name"].as_str()).unwrap_or("").to_string();
         let images = if item["album"]["images"].is_array() { &item["album"]["images"] } else { &item["images"] };
-        let url = if self.cache.keep_originals { largest_image(images) } else { smallest_image(images) };
+        let hub = self.cache.hub.width.max(self.cache.hub.height);
+        let url = if self.cache.keep_originals { largest_image(images) } else { smallest_image(images, hub) };
         let art = match url {
             None => None,
             Some(url) => match previous.and_then(|m| m.art.as_ref()).filter(|a| a.url == url) {
@@ -166,7 +166,7 @@ impl Client {
         let resp = self.agent.get(url).call().context("GET album art")?;
         let mut bytes = Vec::new();
         Read::take(resp.into_reader(), 8 << 20).read_to_end(&mut bytes).context("reading album art")?;
-        let (hub, full) = decode_art(&bytes, self.gamma).context("album art")?;
+        let (hub, full) = decode_art(&bytes, self.gamma, self.cache.hub).context("album art")?;
         if let Err(e) = self.cache.put(url, &hub, &full).and_then(|()| self.cache.put_original(url, &bytes, name.as_deref())) {
             eprintln!("panel-ddp: art cache: {e:#}");
         }
@@ -186,13 +186,13 @@ fn largest_image(images: &serde_json::Value) -> Option<String> {
     best.map(|(_, u)| u.to_string()).or_else(|| images[0]["url"].as_str().map(str::to_string))
 }
 
-/// The smallest picture that still covers the hub; Spotify offers 640, 300
-/// and 64 pixels square.
-fn smallest_image(images: &serde_json::Value) -> Option<String> {
+/// The smallest picture at least `min` pixels wide, enough to cover the hub;
+/// Spotify offers 640, 300 and 64 pixels square.
+fn smallest_image(images: &serde_json::Value, min: u32) -> Option<String> {
     let mut best: Option<(u64, &str)> = None;
     for img in images.as_array()? {
         let (Some(url), Some(w)) = (img["url"].as_str(), img["width"].as_u64()) else { continue };
-        if w >= HUB.width as u64 && best.is_none_or(|(bw, _)| w < bw) {
+        if w >= min as u64 && best.is_none_or(|(bw, _)| w < bw) {
             best = Some((w, url));
         }
     }

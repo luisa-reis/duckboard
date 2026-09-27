@@ -14,15 +14,23 @@ Context for Claude Code sessions working on panel-ddp.
   the board's WLED gap file (1 = lit), used only by `preview` to grey out
   hidden pixels; without it the preview shows the whole panel. The real
   `2d-gaps.json` is git-ignored; `2d-gaps.example.json` (four corners
-  hidden) is the committed sample. The tile and hub rectangles in
-  `src/mask.rs` are hard-coded and do not follow the gap file.
+  hidden) is the committed sample. The gap file does not shape the
+  layout.
+- The screen is split into five regions (four tiles and the hub), set in
+  `[regions]` (`Regions` in `src/config.rs`) with x, y, width, height and a
+  `z`; they are drawn in ascending `z`, ties in `Slot` order with the hub
+  last. Regions have no background, so overlaps composite. Drawing code
+  must take its size from the region it is given, never a constant; hub art
+  is decoded at the hub region's size (`ArtCache::hub`).
 
 ## Layout
 
 - `src/main.rs` — CLI (`run`, `frame`, `preview`, `test`, `spotify-login`).
-- `src/config.rs` — TOML/JSON config, defaults, path resolution.
+- `src/config.rs` — TOML/JSON config, regions, defaults, path resolution.
 - `src/ddp.rs` — the sender (an unconnected UDP socket, on purpose).
-- `src/tiles.rs`, `hub.rs`, `dashboard.rs`, `pages.rs` — drawing.
+- `src/dashboard.rs` — draws the regions in `z` order; `src/tiles.rs` and
+  `hub.rs` draw into a given area; `pages.rs` loops layouts.
+- `src/mask.rs` — the gap file, for previews only.
 - `src/ha.rs`, `spotify.rs`, `weather.rs`, `data.rs` — data sources, each on
   its own thread keeping the last good reading.
 - `demo.json` — the demo, a config with `pages`.

@@ -1,8 +1,10 @@
 //! The dashboard configuration, a TOML file or the same in JSON. See
 //! dashboard.example.toml, and demo.json for pages.
 
+use crate::canvas::{HEIGHT, WIDTH};
 use crate::palette::{Overrides, Rgba};
 use anyhow::{Context, Result};
+use embedded_graphics::{prelude::*, primitives::Rectangle};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
@@ -29,6 +31,9 @@ pub struct Config {
     pub gaps: PathBuf,
     #[serde(default)]
     pub tiles: Tiles,
+    /// Where each tile and the hub sit, and which draws over which.
+    #[serde(default)]
+    pub regions: Regions,
     /// Colour roles for every tile; a tile's own `colors` wins over these.
     #[serde(default)]
     pub colors: Overrides,
@@ -340,6 +345,137 @@ fn default_gaps() -> PathBuf {
     "2d-gaps.json".into()
 }
 
+/// The five places on the screen: four tiles and the hub. Regions with the
+/// same `z` are drawn in this order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Slot {
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+    Hub,
+}
+
+impl Slot {
+    pub const ALL: [Slot; 5] = [Slot::TopLeft, Slot::TopRight, Slot::BottomLeft, Slot::BottomRight, Slot::Hub];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Slot::TopLeft => "top_left",
+            Slot::TopRight => "top_right",
+            Slot::BottomLeft => "bottom_left",
+            Slot::BottomRight => "bottom_right",
+            Slot::Hub => "hub",
+        }
+    }
+}
+
+/// A rectangle of the screen and where it stacks: regions are drawn in
+/// ascending `z`, so a higher one covers a lower one where they overlap.
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Region {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+    #[serde(default)]
+    pub z: i32,
+}
+
+impl Region {
+    const fn new(x: u32, y: u32, width: u32, height: u32) -> Self {
+        Self { x, y, width, height, z: 0 }
+    }
+
+    pub fn size(&self) -> Size {
+        Size::new(self.width, self.height)
+    }
+
+    pub fn rect(&self) -> Rectangle {
+        Rectangle::new(Point::new(self.x as i32, self.y as i32), self.size())
+    }
+}
+
+/// Where each tile and the hub sit. Unset, a region keeps its place in the
+/// default layout: four 24x24 tiles two pixels in from the corners, and a
+/// 22x22 hub in the middle, drawn over their inner corners.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Regions {
+    #[serde(default = "Regions::default_top_left")]
+    pub top_left: Region,
+    #[serde(default = "Regions::default_top_right")]
+    pub top_right: Region,
+    #[serde(default = "Regions::default_bottom_left")]
+    pub bottom_left: Region,
+    #[serde(default = "Regions::default_bottom_right")]
+    pub bottom_right: Region,
+    #[serde(default = "Regions::default_hub")]
+    pub hub: Region,
+}
+
+impl Regions {
+    fn default_top_left() -> Region {
+        Region::new(2, 2, 24, 24)
+    }
+    fn default_top_right() -> Region {
+        Region::new(38, 2, 24, 24)
+    }
+    fn default_bottom_left() -> Region {
+        Region::new(2, 38, 24, 24)
+    }
+    fn default_bottom_right() -> Region {
+        Region::new(38, 38, 24, 24)
+    }
+    fn default_hub() -> Region {
+        Region::new(21, 21, 22, 22)
+    }
+
+    pub fn get(&self, slot: Slot) -> Region {
+        match slot {
+            Slot::TopLeft => self.top_left,
+            Slot::TopRight => self.top_right,
+            Slot::BottomLeft => self.bottom_left,
+            Slot::BottomRight => self.bottom_right,
+            Slot::Hub => self.hub,
+        }
+    }
+
+    /// Every region in drawing order: by `z`, then in `Slot` order.
+    pub fn in_order(&self) -> Vec<(Slot, Region)> {
+        let mut v: Vec<(Slot, Region)> = Slot::ALL.iter().map(|&s| (s, self.get(s))).collect();
+        v.sort_by_key(|&(s, r)| (r.z, s));
+        v
+    }
+
+    fn validate(&self) -> Result<()> {
+        for slot in Slot::ALL {
+            let r = self.get(slot);
+            if r.width == 0 || r.height == 0 {
+                anyhow::bail!("{}: width and height must be positive", slot.name());
+            }
+            let past = |at: u32, len: u32, max: u32| at.checked_add(len).is_none_or(|end| end > max);
+            if past(r.x, r.width, WIDTH) || past(r.y, r.height, HEIGHT) {
+                anyhow::bail!("{}: must fit the {WIDTH}x{HEIGHT} panel", slot.name());
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Default for Regions {
+    fn default() -> Self {
+        Self {
+            top_left: Self::default_top_left(),
+            top_right: Self::default_top_right(),
+            bottom_left: Self::default_bottom_left(),
+            bottom_right: Self::default_bottom_right(),
+            hub: Self::default_hub(),
+        }
+    }
+}
+
 /// What each tile shows, and the hub in the middle.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -444,6 +580,17 @@ impl<'de> Deserialize<'de> for HubEntry {
 }
 
 impl Tiles {
+    /// The tile in a corner slot; the hub is not a tile.
+    pub fn tile(&self, slot: Slot) -> Option<&TileEntry> {
+        match slot {
+            Slot::TopLeft => Some(&self.top_left),
+            Slot::TopRight => Some(&self.top_right),
+            Slot::BottomLeft => Some(&self.bottom_left),
+            Slot::BottomRight => Some(&self.bottom_right),
+            Slot::Hub => None,
+        }
+    }
+
     fn default_top_left() -> TileEntry {
         TileSpec::Clock { seconds: Seconds::Dot, dot_size: default_dot_size() }.into()
     }
@@ -627,6 +774,7 @@ impl Config {
             anyhow::bail!("art_cache.max_megabytes must be 0 or more");
         }
         validate_tiles(&cfg.tiles).context("[tiles]")?;
+        cfg.regions.validate().context("[regions]")?;
         for (i, page) in cfg.pages.iter().enumerate() {
             let n = i + 1;
             if page.seconds.is_nan() || page.seconds <= 0.0 {
@@ -759,6 +907,36 @@ mod tests {
         let bad = dir.join("bad.json");
         std::fs::write(&bad, r#"{"target": "x", "pages": [{"seconds": 2, "top_left": {"kind": "date", "bogus": 1}}]}"#).unwrap();
         assert!(super::Config::load(&bad).is_err(), "stray keys are refused in JSON too");
+    }
+
+    #[test]
+    fn regions_default_to_the_classic_layout_and_stack_by_z() {
+        use super::{Regions, Slot};
+        let r = Regions::default();
+        let order: Vec<Slot> = r.in_order().into_iter().map(|(s, _)| s).collect();
+        assert_eq!(order, Slot::ALL, "same z: slot order, hub last");
+        assert_eq!((r.hub.x, r.hub.y, r.hub.width, r.hub.height), (21, 21, 22, 22));
+
+        let r: Regions = toml::from_str("hub = { x = 0, y = 0, width = 64, height = 64, z = -1 }\ntop_left = { x = 2, y = 2, width = 24, height = 24, z = 5 }").unwrap();
+        let order: Vec<Slot> = r.in_order().into_iter().map(|(s, _)| s).collect();
+        assert_eq!(order, [Slot::Hub, Slot::TopRight, Slot::BottomLeft, Slot::BottomRight, Slot::TopLeft]);
+        assert_eq!(r.top_right, Regions::default().top_right, "unset regions keep their default");
+    }
+
+    #[test]
+    fn regions_must_fit_the_panel() {
+        let dir = std::env::temp_dir().join(format!("panel-ddp-regions-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        for (bad, why) in [
+            ("hub = { x = 50, y = 0, width = 20, height = 10 }", "past the right edge"),
+            ("hub = { x = 0, y = 0, width = 0, height = 10 }", "zero width"),
+            ("hub = { x = 0, y = 0, width = 10 }", "missing height"),
+            ("hub = { x = 0, y = 0, width = 10, height = 10, depth = 1 }", "unknown key"),
+        ] {
+            let path = dir.join("r.toml");
+            std::fs::write(&path, format!("target = \"x\"\n[regions]\n{bad}\n")).unwrap();
+            assert!(super::Config::load(&path).is_err(), "{why} is refused");
+        }
     }
 
     #[test]

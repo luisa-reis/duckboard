@@ -1,20 +1,21 @@
-//! A disk cache of decoded album art, keyed by the picture's URL and the
-//! gamma it was decoded with, so a changed gamma misses. Each entry
-//! is the hub-sized and panel-sized RGB bytes back to back, about 14 KB, so
+//! A disk cache of decoded album art, keyed by the picture's URL, the gamma
+//! it was decoded with and the hub's size, so a change of either misses. Each
+//! entry is the hub-sized and panel-sized RGB bytes back to back, about 14 KB
+//! with the default hub, so
 //! the default cap holds a few hundred covers. With `keep_originals` the
 //! picture as downloaded sits beside it, named "Artist - Album" when known
 //! and by the URL's hash otherwise, with its own format's extension. Oldest files go first when the cap is
 //! reached; a hit refreshes the entry's time.
 
 use crate::canvas::{HEIGHT, WIDTH};
-use crate::mask::HUB;
+use crate::config::Config;
 use anyhow::{Context, Result};
+use embedded_graphics::prelude::Size;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-const HUB_BYTES: usize = (HUB.width * HUB.height * 3) as usize;
 const FULL_BYTES: usize = (WIDTH * HEIGHT * 3) as usize;
 
 /// A name made safe for a file: path separators and control characters
@@ -50,16 +51,34 @@ pub struct ArtCache {
     /// differently miss.
     salt: String,
     pub keep_originals: bool,
+    /// The size hub art is decoded at, the hub region's.
+    pub hub: Size,
 }
 
 impl ArtCache {
     /// A cap of zero disables the cache; nothing is read or written.
-    pub fn new(dir: PathBuf, max_bytes: u64, salt: String, keep_originals: bool) -> Self {
-        Self { dir, max_bytes, salt, keep_originals }
+    pub fn new(dir: PathBuf, max_bytes: u64, salt: String, keep_originals: bool, hub: Size) -> Self {
+        Self { dir, max_bytes, salt, keep_originals, hub }
+    }
+
+    /// The cache a config describes, for art decoded with its gamma at its
+    /// hub's size.
+    pub fn for_config(cfg: &Config) -> Self {
+        Self::new(
+            cfg.art_cache.dir.clone(),
+            cfg.art_cache.max_bytes(),
+            format!("gamma {}", cfg.gamma),
+            cfg.art_cache.keep_originals,
+            cfg.regions.hub.size(),
+        )
+    }
+
+    fn hub_bytes(&self) -> usize {
+        (self.hub.width * self.hub.height * 3) as usize
     }
 
     fn path_for(&self, url: &str) -> PathBuf {
-        let hash = Sha256::digest(format!("{}\n{url}", self.salt).as_bytes());
+        let hash = Sha256::digest(format!("{}\n{}x{}\n{url}", self.salt, self.hub.width, self.hub.height).as_bytes());
         self.dir.join(format!("{:x}.rgb", hash))
     }
 
@@ -98,7 +117,7 @@ impl ArtCache {
         }
         let path = self.path_for(url);
         let bytes = fs::read(&path).ok()?;
-        if bytes.len() != HUB_BYTES + FULL_BYTES {
+        if bytes.len() != self.hub_bytes() + FULL_BYTES {
             let _ = fs::remove_file(&path);
             return None;
         }
@@ -111,7 +130,7 @@ impl ArtCache {
                 let _ = f.set_modified(now);
             }
         }
-        let (hub, full) = bytes.split_at(HUB_BYTES);
+        let (hub, full) = bytes.split_at(self.hub_bytes());
         Some((hub.to_vec(), full.to_vec(), original))
     }
 
@@ -123,7 +142,7 @@ impl ArtCache {
         fs::create_dir_all(&self.dir).with_context(|| format!("creating {}", self.dir.display()))?;
         let path = self.path_for(url);
         let tmp = path.with_extension("tmp");
-        let mut bytes = Vec::with_capacity(HUB_BYTES + FULL_BYTES);
+        let mut bytes = Vec::with_capacity(self.hub_bytes() + FULL_BYTES);
         bytes.extend_from_slice(hub);
         bytes.extend_from_slice(full);
         fs::write(&tmp, &bytes).with_context(|| format!("writing {}", tmp.display()))?;
@@ -148,13 +167,14 @@ impl ArtCache {
             .take(limit)
             .filter_map(|(_, p)| {
                 let b = fs::read(&p).ok()?;
-                if b.len() != HUB_BYTES + FULL_BYTES {
+                if b.len() != self.hub_bytes() + FULL_BYTES {
                     return None;
                 }
                 // The original sits beside it under the URL-only hash, which
                 // the entry's name does not carry; match on time instead.
                 let original = self.original_beside(&p);
-                Some(Entry { hub: b[..HUB_BYTES].to_vec(), full: b[HUB_BYTES..].to_vec(), original })
+                let (hub, full) = b.split_at(self.hub_bytes());
+                Some(Entry { hub: hub.to_vec(), full: full.to_vec(), original })
             })
             .collect()
     }
@@ -212,6 +232,9 @@ impl ArtCache {
 mod tests {
     use super::*;
 
+    const HUB: Size = Size::new(22, 22);
+    const HUB_BYTES: usize = (HUB.width * HUB.height * 3) as usize;
+
     fn entry(n: u8) -> (Vec<u8>, Vec<u8>) {
         (vec![n; HUB_BYTES], vec![n; FULL_BYTES])
     }
@@ -224,7 +247,7 @@ mod tests {
 
     #[test]
     fn round_trip_and_miss() {
-        let c = ArtCache::new(tempdir("rt"), 1 << 20, "g".into(), false);
+        let c = ArtCache::new(tempdir("rt"), 1 << 20, "g".into(), false, HUB);
         assert!(c.get("a").is_none());
         let (h, f) = entry(7);
         c.put("a", &h, &f).unwrap();
@@ -235,7 +258,7 @@ mod tests {
     #[test]
     fn oldest_goes_first_and_a_hit_refreshes() {
         // Room for two entries, not three.
-        let c = ArtCache::new(tempdir("ev"), (HUB_BYTES + FULL_BYTES) as u64 * 2, "g".into(), false);
+        let c = ArtCache::new(tempdir("ev"), (HUB_BYTES + FULL_BYTES) as u64 * 2, "g".into(), false, HUB);
         for (i, url) in ["a", "b"].iter().enumerate() {
             let (h, f) = entry(i as u8);
             c.put(url, &h, &f).unwrap();
@@ -254,8 +277,8 @@ mod tests {
     #[test]
     fn salt_separates_entries() {
         let dir = tempdir("salt");
-        let a = ArtCache::new(dir.clone(), 1 << 20, "2.2".into(), false);
-        let b = ArtCache::new(dir, 1 << 20, "1.0".into(), false);
+        let a = ArtCache::new(dir.clone(), 1 << 20, "2.2".into(), false, HUB);
+        let b = ArtCache::new(dir, 1 << 20, "1.0".into(), false, HUB);
         let (h, f) = entry(3);
         a.put("a", &h, &f).unwrap();
         assert!(a.get("a").is_some());
@@ -263,11 +286,26 @@ mod tests {
     }
 
     #[test]
+    fn hub_size_separates_entries() {
+        let dir = tempdir("hub");
+        let small = ArtCache::new(dir.clone(), 1 << 20, "g".into(), false, HUB);
+        let big = ArtCache::new(dir, 1 << 20, "g".into(), false, Size::new(30, 20));
+        let (h, f) = entry(5);
+        small.put("a", &h, &f).unwrap();
+        assert!(big.get("a").is_none(), "a different hub misses");
+        let h2 = vec![6; 30 * 20 * 3];
+        big.put("a", &h2, &f).unwrap();
+        assert_eq!(small.get("a").map(|e| e.0), Some(h), "and does not evict the other size");
+        assert_eq!(big.get("a").map(|e| e.0), Some(h2));
+        assert_eq!(big.entries(8).iter().filter(|e| e.hub.len() == 30 * 20 * 3).count(), 1);
+    }
+
+    #[test]
     fn originals_kept_only_when_asked() {
-        let off = ArtCache::new(tempdir("orig-off"), 1 << 20, "g".into(), false);
+        let off = ArtCache::new(tempdir("orig-off"), 1 << 20, "g".into(), false, HUB);
         off.put_original("a", b"jpeg bytes", None).unwrap();
         assert!(!off.dir.exists());
-        let on = ArtCache::new(tempdir("orig-on"), 1 << 20, "g".into(), true);
+        let on = ArtCache::new(tempdir("orig-on"), 1 << 20, "g".into(), true, HUB);
         let (h, f) = entry(4);
         on.put("a", &h, &f).unwrap();
         let png = {
@@ -286,7 +324,7 @@ mod tests {
 
     #[test]
     fn zero_cap_disables() {
-        let c = ArtCache::new(tempdir("off"), 0, "g".into(), false);
+        let c = ArtCache::new(tempdir("off"), 0, "g".into(), false, HUB);
         let (h, f) = entry(1);
         c.put("a", &h, &f).unwrap();
         assert!(c.get("a").is_none());
@@ -295,7 +333,7 @@ mod tests {
 
     #[test]
     fn wrong_size_is_dropped() {
-        let c = ArtCache::new(tempdir("bad"), 1 << 20, "g".into(), false);
+        let c = ArtCache::new(tempdir("bad"), 1 << 20, "g".into(), false, HUB);
         fs::create_dir_all(&c.dir).unwrap();
         fs::write(c.path_for("a"), b"short").unwrap();
         assert!(c.get("a").is_none());

@@ -1,43 +1,15 @@
-//! The mask in front of the panel, and the areas the screen is split into.
+//! The mask in front of the panel, for previews.
 //!
 //! `2d-gaps.json` (WLED's gap-file format) marks the pixels the mask shows (1)
 //! and hides (0). WLED drops the hidden ones itself, so a frame may draw
-//! anywhere; the mask here is for previews. The screen is split into areas:
-//! four 24x24 tiles at the corners and a 22x22 hub in the middle.
+//! anywhere; the mask here only greys the hidden ones out in a preview. The
+//! regions the screen is split into are in the config (`[regions]`).
 
 use crate::canvas::{Canvas, HEIGHT, WIDTH};
 use anyhow::{bail, Context, Result};
 use crate::palette::Rgba;
-use embedded_graphics::{prelude::*, primitives::Rectangle};
+use embedded_graphics::prelude::*;
 use std::path::Path;
-
-pub const TILE: Size = Size::new(24, 24);
-pub const HUB: Size = Size::new(22, 22);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Tile {
-    TopLeft,
-    TopRight,
-    BottomLeft,
-    BottomRight,
-}
-
-impl Tile {
-
-    pub fn rect(self) -> Rectangle {
-        let origin = match self {
-            Tile::TopLeft => Point::new(2, 2),
-            Tile::TopRight => Point::new(38, 2),
-            Tile::BottomLeft => Point::new(2, 38),
-            Tile::BottomRight => Point::new(38, 38),
-        };
-        Rectangle::new(origin, TILE)
-    }
-}
-
-pub fn hub() -> Rectangle {
-    Rectangle::new(Point::new(21, 21), HUB)
-}
 
 /// Which pixels the mask shows, row-major.
 pub struct Mask {
