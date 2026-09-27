@@ -23,8 +23,8 @@ Context for Claude Code sessions working on panel-ddp.
   width, height, `z`) and the background become layers; `src/config.rs`
   holds the building blocks any format shares. Layers have no background,
   so overlaps composite. Drawing code must take its size from the area it
-  is given, never a constant; hub art is decoded at the hub's size
-  (`Model::hub_size`, `ArtCache::hub`).
+  is given, never a constant. Album art and pictures are decoded once per
+  size they show at (`picture::Scaled`, `Model::art_sizes`).
 
 ## Layout
 

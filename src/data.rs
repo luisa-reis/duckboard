@@ -4,8 +4,8 @@
 //! so a slow or dead service never stalls a frame.
 
 use crate::artcache::ArtCache;
-use crate::canvas::{HEIGHT, WIDTH};
 use crate::model::Model;
+use crate::picture::Scaled;
 use crate::ha::{self, Art, Media, Sensor};
 use crate::spotify;
 use crate::weather::{self, Weather};
@@ -51,9 +51,7 @@ impl Snapshot {
             }
             rgb
         };
-        let hub = cfg.hub_size();
-        let rgb = gradient(hub.width, hub.height);
-        let full = gradient(WIDTH, HEIGHT);
+        let scaled = Scaled::from_fn(&cfg.art_sizes(), gradient);
         Self {
             weather: Some(Weather { temperature: 21.4, code: 61, is_day: true }),
             sensors,
@@ -61,7 +59,7 @@ impl Snapshot {
                 playing: true,
                 title: "Sample Song Title".into(),
                 artist: "Sample Artist".into(),
-                art: Some(Art { url: String::new(), rgb, full, original: None }),
+                art: Some(Art { url: String::new(), scaled, original: None }),
             }),
         }
     }

@@ -19,13 +19,17 @@ pub fn draw(spec: &HubSpec, c: &mut Canvas, area: Rectangle, data: &Snapshot, fr
     let size = area.size;
     match spec {
         HubSpec::Blank => {}
-        HubSpec::Media { spin, shape, paused_alpha, corner_alpha } => match data.media.as_ref().and_then(|m| m.art.as_ref().map(|a| (m, a))) {
-            // Art is decoded at the hub's size; anything else is a stale
-            // picture from before a change of region, so wait for the next.
-            Some((m, a)) if a.rgb.len() == (size.width * size.height * 3) as usize => art(
+        HubSpec::Media { spin, shape, paused_alpha, corner_alpha } => match data
+            .media
+            .as_ref()
+            .and_then(|m| Some((m, m.art.as_ref()?.scaled.at(size)?)))
+        {
+            // Art is decoded at every size it shows at; a picture without
+            // this one is from before a change of layout, so wait for the next.
+            Some((m, rgb)) => art(
                 &mut t,
                 area,
-                &a.rgb,
+                rgb,
                 m.playing,
                 *spin,
                 *shape,

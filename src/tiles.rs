@@ -8,6 +8,7 @@ use crate::config::{Seconds, TileSpec, Units};
 use crate::data::Snapshot;
 use crate::icons;
 use crate::palette::{Palette, Rgba};
+use crate::picture::Scaled;
 use crate::weather::Sky;
 use chrono::{DateTime, Datelike, Local, Timelike};
 use embedded_graphics::{
@@ -27,7 +28,7 @@ pub struct Ctx<'a> {
     /// Frames per second, for anything timed in seconds.
     pub fps: u32,
     /// The `[frame]` picture due now, for a `frame` background.
-    pub picture: Option<&'a [u8]>,
+    pub picture: Option<&'a Scaled>,
 }
 
 pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Palette) {

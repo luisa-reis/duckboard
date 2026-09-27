@@ -3,6 +3,7 @@
 //! loader looks names up and fills defaults in, so everything that draws or
 //! fetches works from this alone.
 
+use crate::canvas::{HEIGHT, WIDTH};
 use crate::config::{
     Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, HubSpec, PageData, SpotifyConfig, TileSpec, Units,
     WeatherConfig,
@@ -103,9 +104,20 @@ impl Model {
         v
     }
 
+    /// The sizes album art is decoded at: the hub's, then the whole panel's
+    /// for a background.
+    pub fn art_sizes(&self) -> Vec<Size> {
+        vec![self.hub_size(), Size::new(WIDTH, HEIGHT)]
+    }
+
+    /// The sizes the `[frame]` pictures are decoded at: the whole panel's.
+    pub fn picture_sizes(&self) -> Vec<Size> {
+        vec![Size::new(WIDTH, HEIGHT)]
+    }
+
     /// The size album art is decoded at for the hub: the first hub's, or
     /// 22x22 when there is none.
-    pub fn hub_size(&self) -> Size {
+    fn hub_size(&self) -> Size {
         self.pages
             .iter()
             .flat_map(|p| &p.layers)

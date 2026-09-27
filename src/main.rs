@@ -33,6 +33,7 @@ mod mask;
 mod model;
 mod pages;
 mod palette;
+mod picture;
 mod spotify;
 mod testframe;
 mod tiles;

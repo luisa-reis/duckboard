@@ -58,12 +58,13 @@ pub fn draw(page: &Page, alerts: &[Alert], alert_area: Rectangle, c: &mut Canvas
 /// The panel-sized picture over the area, blended over black at `alpha`
 /// and written in place of what was there, nothing else done to it.
 fn backdrop(source: Backdrop, alpha: f32, area: Rectangle, c: &mut Canvas, ctx: &Ctx) {
+    let panel = Size::new(WIDTH, HEIGHT);
     let full: Option<&[u8]> = match source {
-        Backdrop::Media => ctx.data.media.as_ref().and_then(|m| m.art.as_ref()).map(|a| a.full.as_slice()),
-        Backdrop::Frame => ctx.picture,
+        Backdrop::Media => ctx.data.media.as_ref().and_then(|m| m.art.as_ref()).and_then(|a| a.scaled.at(panel)),
+        Backdrop::Frame => ctx.picture.and_then(|p| p.at(panel)),
     };
     let Some(full) = full else { return };
-    let area = area.intersection(&Rectangle::new(Point::zero(), Size::new(WIDTH, HEIGHT)));
+    let area = area.intersection(&Rectangle::new(Point::zero(), panel));
     let Some(bottom_right) = area.bottom_right() else { return };
     for y in area.top_left.y..=bottom_right.y {
         for x in area.top_left.x..=bottom_right.x {

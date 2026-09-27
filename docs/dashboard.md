@@ -457,7 +457,7 @@ logged once, when its message changes. Album art is fetched only when the
 picture URL changes.
 
 Decoded album art is cached on disk under `[art_cache].dir`, one file per
-picture URL, gamma and hub size holding the hub-sized and panel-sized pixels, about 14 KB each,
+picture URL, gamma and the sizes it shows at, holding the pixels at each size (the hub and the panel), about 14 KB each,
 so the default 4 MB cap holds a few hundred covers. A hit costs no download
 and no decoding and makes the entry the newest; past the cap the oldest
 files are deleted first. The directory is git-ignored under the crate.

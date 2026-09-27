@@ -3,11 +3,9 @@
 //! access token covers all of it.
 
 use crate::artcache::ArtCache;
-use crate::canvas::{HEIGHT, WIDTH};
 use crate::config::HomeAssistantConfig;
-use anyhow::{anyhow, Context, Result};
-use embedded_graphics::prelude::Size;
-use image::imageops::FilterType;
+use crate::picture::{self, Scaled};
+use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::io::Read;
 use std::time::Duration;
@@ -25,40 +23,19 @@ pub struct Media {
     pub playing: bool,
     pub title: String,
     pub artist: String,
-    /// The art, resized to the hub, with the URL it came from so a repeat
-    /// of the same track does not fetch it again.
+    /// The art, scaled to where it shows, with the URL it came from so a
+    /// repeat of the same track does not fetch it again.
     pub art: Option<Art>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Art {
     pub url: String,
-    /// Scaled to the hub.
-    pub rgb: Vec<u8>,
-    /// Scaled to the whole panel, for the background.
-    pub full: Vec<u8>,
+    /// At every size the art shows at.
+    pub scaled: Scaled,
     /// The picture as downloaded, for the art file; shared, since the
     /// snapshot is copied every frame.
     pub original: Option<std::sync::Arc<Vec<u8>>>,
-}
-
-/// Decodes a picture, scales it to fill a hub of `hub`'s size and the panel
-/// (cropping to their shapes) and applies `gamma`, so the bytes are what the
-/// LEDs should show.
-pub fn decode_art(bytes: &[u8], gamma: f32, hub: Size) -> Result<(Vec<u8>, Vec<u8>)> {
-    let img = image::load_from_memory(bytes).map_err(|e| anyhow!("decoding picture: {e}"))?;
-    let lut: Vec<u8> = (0..=255u32)
-        .map(|v| ((v as f32 / 255.0).powf(gamma) * 255.0).round() as u8)
-        .collect();
-    let convert = |w: u32, h: u32| -> Vec<u8> {
-        img.resize_to_fill(w, h, FilterType::Lanczos3)
-            .to_rgb8()
-            .into_raw()
-            .into_iter()
-            .map(|v| lut[v as usize])
-            .collect()
-    };
-    Ok((convert(hub.width, hub.height), convert(WIDTH, HEIGHT)))
 }
 
 #[derive(Deserialize)]
@@ -118,9 +95,9 @@ impl Client {
                 match previous.and_then(|m| m.art.as_ref()).filter(|a| a.url == url) {
                     Some(kept) => Some(kept.clone()),
                     None => {
-                        let (rgb, full, original) =
+                        let (scaled, original) =
                             self.fetch_art(&url, &name_for(&text("media_artist"), &text("media_album_name")))?;
-                        Some(Art { rgb, full, url, original: original.map(std::sync::Arc::new) })
+                        Some(Art { scaled, url, original: original.map(std::sync::Arc::new) })
                     }
                 }
             }
@@ -149,11 +126,11 @@ impl Client {
         std::io::Read::take(resp.into_reader(), 8 << 20)
             .read_to_end(&mut bytes)
             .context("reading entity_picture")?;
-        let (hub, full) = decode_art(&bytes, self.gamma, self.cache.hub).context("entity_picture")?;
-        if let Err(e) = self.cache.put(url, &hub, &full).and_then(|()| self.cache.put_original(url, &bytes, name.as_deref())) {
+        let scaled = picture::decode(&bytes, self.gamma, &self.cache.sizes).context("entity_picture")?;
+        if let Err(e) = self.cache.put(url, &scaled).and_then(|()| self.cache.put_original(url, &bytes, name.as_deref())) {
             eprintln!("panel-ddp: art cache: {e:#}");
         }
-        Ok((hub, full, Some(bytes)))
+        Ok((scaled, Some(bytes)))
     }
 }
 

@@ -5,12 +5,13 @@
 
 use crate::canvas::{Canvas, HEIGHT, WIDTH};
 use crate::model::Model;
-use crate::ha::decode_art;
+use crate::picture::{self, Scaled};
+use embedded_graphics::prelude::Size;
 use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};
 
 pub struct Frame {
-    pictures: Vec<(PathBuf, Vec<u8>)>,
+    pictures: Vec<(PathBuf, Scaled)>,
     frames_each: u32,
     alpha: f32,
 }
@@ -31,8 +32,8 @@ impl Frame {
         let mut pictures = Vec::new();
         for p in paths {
             let bytes = std::fs::read(&p).with_context(|| format!("reading {}", p.display()))?;
-            match decode_art(&bytes, cfg.gamma, cfg.hub_size()) {
-                Ok((_, full)) => pictures.push((p, full)),
+            match picture::decode(&bytes, cfg.gamma, &cfg.picture_sizes()) {
+                Ok(scaled) => pictures.push((p, scaled)),
                 Err(e) => eprintln!("panel-ddp: frame: skipping {}: {e:#}", p.display()),
             }
         }
@@ -47,8 +48,8 @@ impl Frame {
         self.pictures.len()
     }
 
-    /// The panel-sized pixels of picture `i`.
-    pub fn picture_at(&self, i: usize) -> &[u8] {
+    /// Picture `i`.
+    pub fn picture_at(&self, i: usize) -> &Scaled {
         &self.pictures[i % self.pictures.len()].1
     }
 
@@ -56,14 +57,14 @@ impl Frame {
         self.frames_each * self.pictures.len() as u32
     }
 
-    /// The panel-sized pixels of the picture due at `frame`.
-    pub fn picture(&self, frame: u32) -> &[u8] {
+    /// The picture due at `frame`.
+    pub fn picture(&self, frame: u32) -> &Scaled {
         let i = (frame / self.frames_each) as usize % self.pictures.len();
         &self.pictures[i].1
     }
 
     pub fn draw(&self, c: &mut Canvas, frame: u32) {
-        let full = self.picture(frame);
+        let Some(full) = self.picture(frame).at(Size::new(WIDTH, HEIGHT)) else { return };
         for j in 0..(WIDTH * HEIGHT) as usize {
             let p = &full[j * 3..j * 3 + 3];
             c.px[j * 3] = (p[0] as f32 * self.alpha) as u8;

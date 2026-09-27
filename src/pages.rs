@@ -47,8 +47,7 @@ impl Pages {
                 .enumerate()
                 .map(|(i, e)| Art {
                     url: format!("cache:{i}"),
-                    rgb: e.hub,
-                    full: e.full,
+                    scaled: e.scaled,
                     original: e.original.map(Arc::new),
                 })
                 .collect()
