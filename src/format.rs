@@ -744,6 +744,18 @@ pages:
     }
 
     #[test]
+    fn the_committed_configs_load_and_follow_the_schema() {
+        let v = validator();
+        for name in ["demo.yaml", "dashboard.example.yaml"] {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(name);
+            super::load(&path).unwrap_or_else(|e| panic!("{name}: {e:#}"));
+            let text = std::fs::read_to_string(&path).unwrap();
+            let errors: Vec<String> = v.iter_errors(&as_json(&text)).map(|e| e.to_string()).collect();
+            assert!(errors.is_empty(), "{name}: {errors:?}");
+        }
+    }
+
+    #[test]
     fn page_data_stands_in_for_sources() {
         let yaml = BASE.replace("{kind: date}", "{kind: weather}").replace(
             "tiles: {top_left: clock, back: cover, hub: {kind: weather}}",

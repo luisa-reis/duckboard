@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=panel-ddp.schema.json
+#
+# A live dashboard. Copy to dashboard.yaml (git-ignored) and edit; every
+# setting is described in panel-ddp.schema.json, and
+#
+#   target/release/panel-ddp check dashboard.yaml
+#
+# says what is wrong, if anything. A running panel picks up a saved change
+# within a second. Secrets live in secrets.yaml (see secrets.example.yaml).
+
+target: "4.3.2.1"          # the board: WLED's own access point by default
+fps: 10
+temperature: fahrenheit    # or celsius
+
+# Where the data comes from. A tile needing a source that is not here is
+# refused, unless its page brings the data itself (see demo.yaml).
+sources:
+  weather: {latitude: 37.77, longitude: -122.42}
+  spotify: {client_id: PASTE-CLIENT-ID}   # then: panel-ddp spotify-login --config dashboard.yaml
+  # home_assistant:
+  #   url: "http://homeassistant.local:8123"
+  #   token: {secret: home_assistant_token}
+  #   media_player: media_player.living_room   # when there is no Spotify
+  # pictures: {dir: frame, seconds: 10}        # for picture tiles
+
+# Colour schemes by name; `default` applies to every tile, and a page or a
+# tile can name another over it.
+schemes:
+  dim: {text: "#606060", label: "#303030", accent: "#604000", secondary: "#203050"}
+
+# Layouts: named regions of the 64x64 panel. Regions are drawn in ascending
+# z (default 0), so a higher one draws over a lower one where it draws.
+layouts:
+  classic:
+    background: {x: 0, y: 0, width: 64, height: 64, z: -1}
+    top_left: {x: 2, y: 2, width: 24, height: 24}
+    top_right: {x: 38, y: 2, width: 24, height: 24}
+    bottom_left: {x: 2, y: 38, width: 24, height: 24}
+    bottom_right: {x: 38, y: 38, width: 24, height: 24}
+    hub: {x: 21, y: 21, width: 22, height: 22, z: 1}
+  big-clock:
+    clock: {x: 8, y: 8, width: 48, height: 48}
+
+# Tiles by name. Kinds: clock, date, weather, sensor, progress, now_playing,
+# art, picture, blank; each may add a `scheme` and its own `colors`.
+tiles:
+  clock: {kind: clock}
+  date: {kind: date}
+  weather: {kind: weather}
+  now-playing: {kind: now_playing}
+  cover: {kind: art, shape: disc, spin: true}
+  faint-cover: {kind: art, shape: square, alpha: 0.12, paused_alpha: 1.0, idle: none}
+
+page_seconds: 20           # how long a page shows unless it says
+
+pages:
+  home:
+    layout: classic
+    tiles:
+      background: faint-cover
+      top_left: clock
+      top_right: date
+      bottom_left: weather
+      bottom_right: now-playing
+  music:
+    layout: classic
+    seconds: 10
+    tiles: {top_left: clock, bottom_right: now-playing, hub: cover}
+  night:
+    layout: big-clock
+    scheme: dim
+    tiles: {clock: clock}
+
+# Playlists loop their pages; the schedule's first matching rule picks the
+# playlist at the end of each page. Without a rule that matches, nothing is
+# sent and the board falls back to its presets.
+playlists:
+  day: [home, music]
+  night: [night]
+
+schedule:
+  - playlist: night
+    when: {from: "23:00", to: "07:00"}
+  - playlist: day
+
+# While an entity is in its state, the panel pulses with the label (needs
+# Home Assistant).
+# alerts:
+#   - {entity: binary_sensor.water_leak, state: "on", label: WATER LEAK}

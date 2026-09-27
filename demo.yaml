@@ -1,0 +1,304 @@
+# yaml-language-server: $schema=panel-ddp.schema.json
+#
+# The demo: a crescendo from one tile to the whole dashboard on made-up
+# data, then album art and pictures. It needs no accounts: every page brings
+# its own data, the covers come from the art cache (pages naming a cover
+# that is not there are left out) and the pictures from frame/.
+#
+#   target/release/panel-ddp run --config demo.yaml --target <board> --once
+
+target: "4.3.2.1"
+
+sources: {pictures: {}}
+
+art_cache: {keep_originals: true}
+
+art_file: demo-art.jpg
+
+# The regions: four tiles and a hub over them, and a background under all.
+layouts:
+  classic:
+    background: {x: 0, y: 0, width: 64, height: 64, z: -1}
+    top_left: {x: 2, y: 2, width: 24, height: 24}
+    top_right: {x: 38, y: 2, width: 24, height: 24}
+    bottom_left: {x: 2, y: 38, width: 24, height: 24}
+    bottom_right: {x: 38, y: 38, width: 24, height: 24}
+    hub: {x: 21, y: 21, width: 22, height: 22}
+
+# The tiles the pages place, by name.
+tiles:
+  date: {kind: date}
+  clock: {kind: clock}
+  weather: {kind: weather}
+  print: {kind: progress, entity: sensor.demo_print_progress, label: PRINT}
+  laundry: {kind: sensor, entity: sensor.demo_laundry_temperature, label: LNDRY}
+  cover: {kind: art}
+  faint-cover: {kind: art, shape: square, paused_alpha: 1.0, alpha: 0.12, idle: none}
+  full-cover: {kind: art, shape: square, paused_alpha: 1.0, idle: none}
+  pictures: {kind: picture}
+  faint-pictures: {kind: picture, alpha: 0.12}
+
+page_seconds: 4.0
+
+pages:
+  # The date alone, touring the tiles.
+  date-top-left: {layout: classic, seconds: 2.0, tiles: {top_left: date}}
+  date-bottom-left: {layout: classic, seconds: 2.0, tiles: {bottom_left: date}}
+  date-bottom-right: {layout: classic, seconds: 2.0, tiles: {bottom_right: date}}
+  date-top-right: {layout: classic, seconds: 2.0, tiles: {top_right: date}}
+  # The clock joins it.
+  clock-joins: {layout: classic, seconds: 5.0, tiles: {top_left: clock, top_right: date}}
+  # Every kind of sky, by day and by night.
+  sky-clear:
+    layout: classic
+    seconds: 2.0
+    tiles: {top_left: clock, top_right: date, bottom_right: weather}
+    data: {weather: {code: 0, temperature: 72.0}}
+  sky-clear-night:
+    layout: classic
+    seconds: 2.0
+    tiles: {top_left: clock, top_right: date, bottom_right: weather}
+    data: {weather: {code: 0, is_day: false, temperature: 72.0}}
+  sky-mainly-clear:
+    layout: classic
+    seconds: 2.0
+    tiles: {top_left: clock, top_right: date, bottom_right: weather}
+    data: {weather: {code: 1, temperature: 72.0}}
+  sky-mainly-clear-night:
+    layout: classic
+    seconds: 2.0
+    tiles: {top_left: clock, top_right: date, bottom_right: weather}
+    data: {weather: {code: 1, is_day: false, temperature: 72.0}}
+  sky-overcast:
+    layout: classic
+    seconds: 2.0
+    tiles: {top_left: clock, top_right: date, bottom_right: weather}
+    data: {weather: {code: 3, temperature: 72.0}}
+  sky-fog:
+    layout: classic
+    seconds: 2.0
+    tiles: {top_left: clock, top_right: date, bottom_right: weather}
+    data: {weather: {code: 45, temperature: 72.0}}
+  sky-rain:
+    layout: classic
+    seconds: 2.0
+    tiles: {top_left: clock, top_right: date, bottom_right: weather}
+    data: {weather: {code: 61, temperature: 72.0}}
+  sky-snow:
+    layout: classic
+    seconds: 2.0
+    tiles: {top_left: clock, top_right: date, bottom_right: weather}
+    data: {weather: {code: 71, temperature: 72.0}}
+  sky-storm:
+    layout: classic
+    seconds: 2.0
+    tiles: {top_left: clock, top_right: date, bottom_right: weather}
+    data: {weather: {code: 95, temperature: 72.0}}
+  # A print filling its progress bar, then the laundry's temperature.
+  print-progress:
+    layout: classic
+    seconds: 10.0
+    tiles: {top_left: clock, top_right: date, bottom_left: print, bottom_right: weather}
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_print_progress: {sweep: [0.0, 100.0], unit: "%"}}
+  laundry:
+    layout: classic
+    tiles: {top_left: clock, top_right: date, bottom_left: laundry, bottom_right: weather}
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+  # A water leak raises the alert.
+  water-leak:
+    layout: classic
+    seconds: 5.0
+    tiles: {top_left: clock, top_right: date, bottom_left: laundry, bottom_right: weather}
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors:
+        binary_sensor.demo_water_leak: {state: "on"}
+        sensor.demo_laundry_temperature: {state: "29", unit: "°C"}
+  # The whole dashboard, plain.
+  dashboard:
+    layout: classic
+    seconds: 5.0
+    tiles: {top_left: clock, top_right: date, bottom_left: laundry, bottom_right: weather}
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+  # A cover in the hub.
+  cover-in-hub:
+    layout: classic
+    seconds: 5.0
+    tiles:
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+      hub: cover
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      cover: 0
+  # The dashboard over the eight newest cached covers.
+  dashboard-over-cover-1:
+    layout: classic
+    tiles:
+      background: faint-cover
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      cover: 0
+  dashboard-over-cover-2:
+    layout: classic
+    tiles:
+      background: faint-cover
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      cover: 1
+  dashboard-over-cover-3:
+    layout: classic
+    tiles:
+      background: faint-cover
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      cover: 2
+  dashboard-over-cover-4:
+    layout: classic
+    tiles:
+      background: faint-cover
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      cover: 3
+  dashboard-over-cover-5:
+    layout: classic
+    tiles:
+      background: faint-cover
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      cover: 4
+  dashboard-over-cover-6:
+    layout: classic
+    tiles:
+      background: faint-cover
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      cover: 5
+  dashboard-over-cover-7:
+    layout: classic
+    tiles:
+      background: faint-cover
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      cover: 6
+  dashboard-over-cover-8:
+    layout: classic
+    tiles:
+      background: faint-cover
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      cover: 7
+  # The covers alone, full strength.
+  cover-1: {layout: classic, tiles: {background: full-cover}, data: {cover: 0}}
+  cover-2: {layout: classic, tiles: {background: full-cover}, data: {cover: 1}}
+  cover-3: {layout: classic, tiles: {background: full-cover}, data: {cover: 2}}
+  cover-4: {layout: classic, tiles: {background: full-cover}, data: {cover: 3}}
+  cover-5: {layout: classic, tiles: {background: full-cover}, data: {cover: 4}}
+  cover-6: {layout: classic, tiles: {background: full-cover}, data: {cover: 5}}
+  cover-7: {layout: classic, tiles: {background: full-cover}, data: {cover: 6}}
+  cover-8: {layout: classic, tiles: {background: full-cover}, data: {cover: 7}}
+  # The picture frame: the pictures alone.
+  picture-1: {layout: classic, tiles: {background: pictures}, data: {picture: 0}}
+  picture-2: {layout: classic, tiles: {background: pictures}, data: {picture: 1}}
+  picture-3: {layout: classic, tiles: {background: pictures}, data: {picture: 2}}
+  picture-4: {layout: classic, tiles: {background: pictures}, data: {picture: 3}}
+  # The dashboard over the pictures.
+  dashboard-over-picture-1:
+    layout: classic
+    tiles:
+      background: faint-pictures
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      picture: 0
+  dashboard-over-picture-2:
+    layout: classic
+    tiles:
+      background: faint-pictures
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      picture: 1
+  dashboard-over-picture-3:
+    layout: classic
+    tiles:
+      background: faint-pictures
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      picture: 2
+  dashboard-over-picture-4:
+    layout: classic
+    tiles:
+      background: faint-pictures
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      picture: 3
+
+alerts: [{entity: binary_sensor.demo_water_leak, label: WATER LEAK}]
