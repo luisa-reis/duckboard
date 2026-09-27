@@ -20,7 +20,10 @@ Context for Claude Code sessions working on panel-ddp.
   pages, each a list of layers (an area, a tile, its palette) in drawing
   order; playlists of pages; and a schedule whose first matching rule picks
   the playlist at each page's end (none matching: nothing is sent, so the
-  board falls back to its presets). `src/pages.rs` plays it. The
+  board falls back to its presets). `src/pages.rs` plays it. A running
+  `run` reloads the model when `Model::files` change and the new one loads
+  (`Live::reload` in `src/main.rs`); sources restart only when their
+  settings change. The
   drawing code and the sources only see the model. Today's TOML/JSON files
   go through `src/legacy.rs`, where the five regions of `[regions]` (x, y,
   width, height, `z`) and the background become layers (the hub an `art`

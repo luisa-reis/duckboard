@@ -450,6 +450,12 @@ target/release/panel-ddp run --config demo.json --target <board> --once && \
 pkill -f "panel-ddp run"
 ```
 
+`run` checks about once a second whether its config file (or the secrets
+file a YAML config reads) has changed. A changed file that loads is
+switched to at once, keeping the data sources running when their settings
+did not change; one that does not load is reported, with why, and the
+running config stays. `target` and `fps` take effect at the next start.
+
 Only one sender at a time: two streams to the same board fight over the
 panel, so stop the running one before starting another.
 

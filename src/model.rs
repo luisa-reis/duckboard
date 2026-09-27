@@ -47,6 +47,8 @@ pub struct Model {
     pub schedule: Vec<Rule>,
     pub art_file: Option<PathBuf>,
     pub art_open: bool,
+    /// The files it was read from, watched for changes while running.
+    pub files: Vec<PathBuf>,
 }
 
 #[derive(Debug, Clone)]

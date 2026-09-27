@@ -197,9 +197,10 @@ mod tests {
     use chrono::{DateTime, Local, TimeZone};
 
     fn model(schedule: Vec<Rule>) -> crate::model::Model {
+        static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let dir = std::env::temp_dir().join(format!("panel-ddp-pages-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("p.toml");
+        let path = dir.join(format!("p{}.toml", N.fetch_add(1, std::sync::atomic::Ordering::SeqCst)));
         let page = "[[pages]]\nseconds = 1\n";
         std::fs::write(&path, format!("target = \"x\"\nfps = 10\n{page}{page}{page}")).unwrap();
         let mut m = crate::legacy::load(&path).unwrap();

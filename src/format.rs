@@ -334,7 +334,11 @@ pub fn load(path: &Path) -> Result<Model> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading config {}", path.display()))?;
     let file: File =
         serde_yaml_ng::from_str(&text).with_context(|| format!("parsing config {}", path.display()))?;
-    file.into_model(path.parent().unwrap_or(Path::new(""))).with_context(|| format!("config {}", path.display()))
+    let dir = path.parent().unwrap_or(Path::new(""));
+    let secrets = if file.secrets.is_relative() { dir.join(&file.secrets) } else { file.secrets.clone() };
+    let mut model = file.into_model(dir).with_context(|| format!("config {}", path.display()))?;
+    model.files = vec![path.to_path_buf(), secrets];
+    Ok(model)
 }
 
 impl File {
@@ -387,6 +391,7 @@ impl File {
             schedule,
             art_file: self.art_file.map(rel),
             art_open: self.art_open,
+            files: Vec::new(),
         })
     }
 

@@ -183,18 +183,18 @@ fn frame_pictures(cfg: &Model) -> Result<Option<frame::Frame>> {
     }
 }
 
-/// What a run draws from, set up once: the pages and the `[frame]`
-/// pictures.
-struct Show<'a> {
-    cfg: &'a Model,
+/// What a run draws from, set up once: the model, its pages and the
+/// `[frame]` pictures.
+struct Show {
+    cfg: Model,
     pages: pages::Pages,
     pictures: Option<frame::Frame>,
 }
 
-impl<'a> Show<'a> {
-    fn new(cfg: &'a Model) -> Result<Self> {
-        let pictures = frame_pictures(cfg)?;
-        let pages = pages::Pages::new(cfg, pictures.as_ref().map_or(0, |f| f.len()))?;
+impl Show {
+    fn new(cfg: Model) -> Result<Self> {
+        let pictures = frame_pictures(&cfg)?;
+        let pages = pages::Pages::new(&cfg, pictures.as_ref().map_or(0, |f| f.len()))?;
         Ok(Self { cfg, pages, pictures })
     }
 
@@ -229,6 +229,88 @@ impl<'a> Show<'a> {
     }
 }
 
+/// What the sources depend on: while it stays the same across a reload,
+/// the running sources and what they fetched are kept.
+fn sources_key(m: &Model) -> String {
+    format!(
+        "{:?}",
+        (&m.weather, &m.spotify, &m.home_assistant, &m.art_cache, m.gamma, m.art_sizes(), m.sensor_entities())
+    )
+}
+
+/// A running show and the sources feeding it, replaced as a whole when the
+/// configuration changes.
+struct Live {
+    show: Show,
+    shared: data::Shared,
+    /// None with made-up data.
+    sources: Option<data::Sources>,
+    art_file: Option<artfile::ArtFile>,
+}
+
+impl Live {
+    fn new(cfg: Model, sample: bool) -> Result<Self> {
+        let shared: data::Shared = Default::default();
+        let sources = (!sample).then(|| data::spawn_sources(&cfg, &shared));
+        let art_file = cfg.art_file.clone().map(|p| artfile::ArtFile::new(p, cfg.art_open));
+        Ok(Self { show: Show::new(cfg)?, shared, sources, art_file })
+    }
+
+    /// Switches to `cfg`, keeping the sources when nothing they depend on
+    /// changed. The target and the frame rate stay those of the start.
+    fn reload(&mut self, cfg: Model, sample: bool) -> Result<()> {
+        let old = &self.show.cfg;
+        if cfg.target != old.target || cfg.fps != old.fps {
+            eprintln!("panel-ddp: target and fps apply at the next start");
+        }
+        let same_sources = sources_key(&cfg) == sources_key(old);
+        let same_art_file = (&cfg.art_file, cfg.art_open) == (&old.art_file, old.art_open);
+        let show = Show::new(cfg)?;
+        if !same_sources && !sample {
+            let shared: data::Shared = Default::default();
+            // The old sources stop as their handle goes.
+            self.sources = Some(data::spawn_sources(&show.cfg, &shared));
+            self.shared = shared;
+        }
+        if !same_art_file {
+            if let Some(a) = &self.art_file {
+                a.remove();
+            }
+            self.art_file = show.cfg.art_file.clone().map(|p| artfile::ArtFile::new(p, show.cfg.art_open));
+        }
+        self.show = show;
+        Ok(())
+    }
+}
+
+/// The modification times of a model's files, to notice a change.
+struct Watch {
+    files: Vec<(PathBuf, Option<std::time::SystemTime>)>,
+}
+
+impl Watch {
+    fn new(files: &[PathBuf]) -> Self {
+        Self { files: files.iter().map(|f| (f.clone(), modified(f))).collect() }
+    }
+
+    /// Whether any file changed (or appeared, or went) since last asked.
+    fn changed(&mut self) -> bool {
+        let mut changed = false;
+        for (f, seen) in &mut self.files {
+            let now = modified(f);
+            if now != *seen {
+                *seen = now;
+                changed = true;
+            }
+        }
+        changed
+    }
+}
+
+fn modified(f: &std::path::Path) -> Option<std::time::SystemTime> {
+    std::fs::metadata(f).and_then(|m| m.modified()).ok()
+}
+
 fn cmd_run(args: &[String]) -> Result<()> {
     let mut config = PathBuf::from(DEFAULT_CONFIG);
     let mut frames = None;
@@ -252,31 +334,47 @@ fn cmd_run(args: &[String]) -> Result<()> {
     }
     let cfg = model::load(&config)?;
     if cfg.spotify.is_some() && cfg.home_assistant.as_ref().is_some_and(|h| h.media_player.is_some()) {
-        eprintln!("panel-ddp: both [spotify] and [home_assistant].media_player are set; Spotify feeds the hub");
+        eprintln!("panel-ddp: both Spotify and a Home Assistant media player are set; Spotify feeds the art");
     }
-    let show = Show::new(&cfg)?;
-    if once {
-        let pass = show.pass_frames(&chrono::Local::now());
-        frames = Some(pass.context("--once plays the playlist on now through once; this config has a page shown for good, or nothing on now")?);
-    }
-    let target = target.unwrap_or_else(|| cfg.target.clone());
-    let s = Stream { target: ddp::target_with_default_port(&target), fps: cfg.fps, frames };
-    let shared: data::Shared = Default::default();
     if sample {
         eprintln!("panel-ddp: --sample: made-up data, no source is contacted");
-    } else {
-        data::spawn_sources(&cfg, &shared);
     }
-    let mut art_file = cfg.art_file.clone().map(|p| artfile::ArtFile::new(p, cfg.art_open));
+    let target = target.unwrap_or_else(|| cfg.target.clone());
+    let fps = cfg.fps;
+    let mut watch = Watch::new(&cfg.files);
+    let mut live = Live::new(cfg, sample)?;
+    if once {
+        let pass = live.show.pass_frames(&chrono::Local::now());
+        frames = Some(pass.context("--once plays the playlist on now through once; this config has a page shown for good, or nothing on now")?);
+    }
+    let s = Stream { target: ddp::target_with_default_port(&target), fps, frames };
     let result = stream(&s, |c, frame| {
-        let mut data = if sample { data::Snapshot::sample(&cfg, frame) } else { shared.lock().unwrap().clone() };
-        let Some(page) = show.draw(c, frame, chrono::Local::now(), &mut data) else { return false };
-        if let Some(a) = art_file.as_mut() {
+        // About once a second, a changed configuration that loads is
+        // switched to; one that does not is reported and waited out.
+        if frame % fps == 0 && frame > 0 && watch.changed() {
+            match model::load(&config) {
+                Ok(cfg) => {
+                    let files = cfg.files.clone();
+                    match live.reload(cfg, sample) {
+                        Ok(()) => {
+                            eprintln!("panel-ddp: reloaded {}", config.display());
+                            watch = Watch::new(&files);
+                        }
+                        Err(e) => eprintln!("panel-ddp: {} not reloaded: {e:#}", config.display()),
+                    }
+                }
+                Err(e) => eprintln!("panel-ddp: {} not reloaded: {e:#}", config.display()),
+            }
+        }
+        let mut data =
+            if sample { data::Snapshot::sample(&live.show.cfg, frame) } else { live.shared.lock().unwrap().clone() };
+        let Some(page) = live.show.draw(c, frame, chrono::Local::now(), &mut data) else { return false };
+        if let Some(a) = live.art_file.as_mut() {
             a.update(page, &data);
         }
         true
     });
-    if let Some(a) = &art_file {
+    if let Some(a) = &live.art_file {
         a.remove();
     }
     result
@@ -346,7 +444,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
             w.code %= 1000;
         }
         // The first page scheduled now, at its first frame.
-        if Show::new(&cfg)?.draw(&mut canvas, 0, chrono::Local::now(), &mut data).is_none() {
+        if Show::new(cfg)?.draw(&mut canvas, 0, chrono::Local::now(), &mut data).is_none() {
             eprintln!("panel-ddp: nothing is scheduled now; the preview is dark");
         }
     }
@@ -382,7 +480,8 @@ fn cmd_render(args: &[String]) -> Result<()> {
     }
     let out = out.context("render needs --out DIR")?;
     let cfg = model::load(&config)?;
-    let show = Show::new(&cfg)?;
+    let fps = cfg.fps;
+    let show = Show::new(cfg)?;
     let start = chrono::DateTime::from_timestamp(at, 0).context("--at is out of range")?;
     let frames = frames
         .or_else(|| show.pass_frames(&start.with_timezone(&chrono::Local)))
@@ -391,8 +490,8 @@ fn cmd_render(args: &[String]) -> Result<()> {
     let mut list = String::new();
     let mut canvas = Canvas::new();
     for frame in 0..frames {
-        let now = start + Duration::from_secs_f64(frame as f64 / cfg.fps as f64);
-        let mut data = if sample { data::Snapshot::sample(&cfg, frame) } else { data::Snapshot::default() };
+        let now = start + Duration::from_secs_f64(frame as f64 / fps as f64);
+        let mut data = if sample { data::Snapshot::sample(&show.cfg, frame) } else { data::Snapshot::default() };
         if show.draw(&mut canvas, frame, now.with_timezone(&chrono::Local), &mut data).is_none() {
             list.push_str(&format!("{frame} dark\n"));
             continue;

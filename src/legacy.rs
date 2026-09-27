@@ -18,7 +18,9 @@ use std::path::{Path, PathBuf};
 
 /// Reads a TOML file, or JSON for a `.json` one, and resolves it.
 pub fn load(path: &Path) -> Result<Model> {
-    Ok(Config::read(path)?.into_model())
+    let mut model = Config::read(path)?.into_model();
+    model.files = vec![path.to_path_buf()];
+    Ok(model)
 }
 
 #[derive(Debug, Deserialize)]
@@ -581,6 +583,7 @@ impl Config {
             schedule,
             art_file: self.art_file,
             art_open: self.art_open,
+            files: Vec::new(),
         }
     }
 }

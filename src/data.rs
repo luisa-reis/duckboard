@@ -10,6 +10,7 @@ use crate::ha::{self, Art, Media, Sensor};
 use crate::spotify;
 use crate::weather::{self, Weather};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -70,11 +71,39 @@ pub type Shared = Arc<Mutex<Snapshot>>;
 /// Starts one thread per configured source. Each keeps the last good value
 /// and logs a failure only when its message changes, so a service that is
 /// down does not fill the log at every retry.
-pub fn spawn_sources(cfg: &Model, shared: &Shared) {
+/// The running sources; dropping it stops them, each within a second.
+#[must_use = "the sources stop when this is dropped"]
+pub struct Sources {
+    stop: Arc<AtomicBool>,
+}
+
+impl Drop for Sources {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::SeqCst);
+    }
+}
+
+/// Sleeps for `d`, a second at a time; false once `stop` is set.
+fn nap(stop: &AtomicBool, d: Duration) -> bool {
+    let mut left = d;
+    while !left.is_zero() {
+        if stop.load(Ordering::SeqCst) {
+            return false;
+        }
+        let step = left.min(Duration::from_secs(1));
+        thread::sleep(step);
+        left -= step;
+    }
+    !stop.load(Ordering::SeqCst)
+}
+
+pub fn spawn_sources(cfg: &Model, shared: &Shared) -> Sources {
+    let stop = Arc::new(AtomicBool::new(false));
     let cache = ArtCache::for_model(cfg);
     let gamma = cfg.gamma;
     if let Some(w) = cfg.weather.clone() {
         let shared = Arc::clone(shared);
+        let stop = Arc::clone(&stop);
         thread::spawn(move || {
             let agent = ureq::AgentBuilder::new().build();
             let mut last_err = None;
@@ -86,7 +115,9 @@ pub fn spawn_sources(cfg: &Model, shared: &Shared) {
                     }
                     Err(e) => log_changed(&mut last_err, "weather", e),
                 }
-                thread::sleep(Duration::from_secs(60 * w.refresh_minutes.max(1)));
+                if !nap(&stop, Duration::from_secs(60 * w.refresh_minutes.max(1))) {
+                    break;
+                }
             }
         });
     }
@@ -94,6 +125,7 @@ pub fn spawn_sources(cfg: &Model, shared: &Shared) {
     if let Some(sp) = cfg.spotify.clone() {
         let shared = Arc::clone(shared);
         let cache = cache.clone();
+        let stop = Arc::clone(&stop);
         thread::spawn(move || {
             let mut last_err = None;
             let mut client = None;
@@ -114,7 +146,9 @@ pub fn spawn_sources(cfg: &Model, shared: &Shared) {
                         Err(e) => log_changed(&mut last_err, "spotify", e),
                     }
                 }
-                thread::sleep(Duration::from_secs(sp.refresh_seconds.max(1)));
+                if !nap(&stop, Duration::from_secs(sp.refresh_seconds.max(1))) {
+                    break;
+                }
             }
         });
     }
@@ -125,6 +159,7 @@ pub fn spawn_sources(cfg: &Model, shared: &Shared) {
         // With Spotify configured, the media player here is left alone.
         let player = if cfg.spotify.is_some() { None } else { h.media_player.clone() };
         let cache = cache.clone();
+        let stop = Arc::clone(&stop);
         thread::spawn(move || {
             let client = ha::Client::new(&h, cache, gamma);
             // One error slot per request, so a missing entity is reported
@@ -151,10 +186,13 @@ pub fn spawn_sources(cfg: &Model, shared: &Shared) {
                         Err(e) => log_changed(last_err, "home assistant", e),
                     }
                 }
-                thread::sleep(Duration::from_secs(h.refresh_seconds.max(1)));
+                if !nap(&stop, Duration::from_secs(h.refresh_seconds.max(1))) {
+                    break;
+                }
             }
         });
     }
+    Sources { stop }
 }
 
 pub fn log_changed(last: &mut Option<String>, what: &str, e: anyhow::Error) {
