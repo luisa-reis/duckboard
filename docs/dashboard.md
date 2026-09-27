@@ -1,12 +1,13 @@
 # Dashboard over DDP
 
-`panel-ddp` is a Rust program that draws a dashboard for the panel and streams it
-to the board over DDP (Distributed Display Protocol, UDP port 4048), which
+`panel-ddp` is a Rust program that draws a dashboard for a 64×64 WLED matrix
+and streams it to the board over DDP (Distributed Display Protocol, UDP port 4048), which
 WLED listens on out of the box. Nothing is installed on the board: WLED shows
 what arrives as realtime input and drops back to its presets a couple of
 seconds after the stream stops, so the GIF playlist is the fallback whenever
 the sender is off. The gap file applies to streamed frames too.
-The screen is split into areas, laid out below.
+The screen is split into areas, laid out below. How DDP works and what it
+cannot do is in [ddp.md](ddp.md).
 
 ## Layout
 
@@ -105,6 +106,109 @@ current crates.
 ```sh
 cargo build --release
 ```
+
+## Installing
+
+The sender needs only the network: it can live on a Raspberry Pi next to
+the panel or run in the background on a laptop. Relative paths in a config
+(`gaps`, the token file, `art-cache`, `frame`) resolve against the config's
+own folder, so a service only has to pass `--config` with an absolute path.
+
+### Raspberry Pi
+
+Cross-compile on the laptop rather than building on the Pi. `ring` (under
+`rustls`) compiles C, so the target needs a C cross-compiler;
+[cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild) uses Zig for
+that and needs no Docker. For 64-bit Raspberry Pi OS:
+
+```sh
+brew install zig
+cargo install --locked cargo-zigbuild
+rustup target add aarch64-unknown-linux-gnu   # inside the repo: adds it to the pinned toolchain
+cargo zigbuild --release --target aarch64-unknown-linux-gnu.2.31
+# -> target/aarch64-unknown-linux-gnu/release/panel-ddp
+```
+
+The `.2.31` suffix links against glibc 2.31, so the binary runs on Bullseye
+and later. On 32-bit Raspberry Pi OS use `armv7-unknown-linux-gnueabihf`
+instead. [cross](https://github.com/cross-rs/cross)
+(`cross build --release --target aarch64-unknown-linux-gnu`) does the same
+through Docker.
+
+Copy the binary, the config and any token file over (the gap file is only
+for previews):
+
+```sh
+ssh pi mkdir -p panel-ddp
+scp target/aarch64-unknown-linux-gnu/release/panel-ddp \
+    dashboard.toml spotify-token.json pi:panel-ddp/
+```
+
+Do `spotify-login` on the laptop, where a browser can reach the redirect,
+and copy the token file; from then on the Pi rewrites it as Spotify rotates
+it. Run it as a systemd service, `/etc/systemd/system/panel-ddp.service`:
+
+```ini
+[Unit]
+Description=panel-ddp dashboard
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=pi
+ExecStart=/home/pi/panel-ddp/panel-ddp run --config /home/pi/panel-ddp/dashboard.toml
+KillSignal=SIGINT
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now panel-ddp
+journalctl -u panel-ddp -f          # the log
+```
+
+`KillSignal=SIGINT` makes `systemctl stop` end the run the way Ctrl-C does,
+so it tidies up.
+
+### In the background on a laptop
+
+On macOS a launchd agent keeps it running while logged in,
+`~/Library/LaunchAgents/panel-ddp.plist` (use absolute paths; launchd does
+not expand `~`):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>panel-ddp</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/path/to/panel-ddp/target/release/panel-ddp</string>
+    <string>run</string>
+    <string>--config</string>
+    <string>/path/to/panel-ddp/dashboard.toml</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardErrorPath</key><string>/tmp/panel-ddp.log</string>
+</dict>
+</plist>
+```
+
+```sh
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/panel-ddp.plist
+launchctl bootout gui/$(id -u)/panel-ddp     # stop it
+```
+
+On a Linux laptop, the systemd unit above works as a user service
+(`~/.config/systemd/user/`, without `User=`, `WantedBy=default.target`,
+managed with `systemctl --user`). For a one-off, `nohup
+target/release/panel-ddp run > panel-ddp.log 2>&1 &` is enough.
 
 ## Configuration
 

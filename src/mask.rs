@@ -1,9 +1,9 @@
 //! The mask in front of the panel, and the areas the screen is split into.
 //!
-//! `2d-gaps.json` marks the pixels the mask shows (1) and hides (0).
-//! WLED drops the hidden ones itself, so a frame may draw anywhere; the mask
-//! here is for previews. The screen is split into areas: four 24x24 tiles at
-//! the corners and a 22x22 hub in the middle.
+//! `2d-gaps.json` (WLED's gap-file format) marks the pixels the mask shows (1)
+//! and hides (0). WLED drops the hidden ones itself, so a frame may draw
+//! anywhere; the mask here is for previews. The screen is split into areas:
+//! four 24x24 tiles at the corners and a 22x22 hub in the middle.
 
 use crate::canvas::{Canvas, HEIGHT, WIDTH};
 use anyhow::{bail, Context, Result};
@@ -61,7 +61,6 @@ impl Mask {
     pub fn none() -> Self {
         Self { lit: vec![true; (WIDTH * HEIGHT) as usize] }
     }
-
 
     pub fn is_lit(&self, x: u32, y: u32) -> bool {
         self.lit[(y * WIDTH + x) as usize]
