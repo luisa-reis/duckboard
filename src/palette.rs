@@ -43,6 +43,13 @@ impl Rgba {
     }
 }
 
+impl serde::Serialize for Rgba {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let rgb = format!("#{:02x}{:02x}{:02x}", self.r, self.g, self.b);
+        s.serialize_str(&if self.a == 255 { rgb } else { format!("{rgb}{:02x}", self.a) })
+    }
+}
+
 impl<'de> Deserialize<'de> for Rgba {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let s = String::deserialize(d)?;
@@ -111,21 +118,34 @@ impl Default for Palette {
 }
 
 /// The same roles, each optional: what a config table sets.
-#[derive(Clone, Copy, Debug, Default, Deserialize, schemars::JsonSchema)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Overrides {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<Rgba>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<Rgba>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<Rgba>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub accent: Option<Rgba>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub secondary: Option<Rgba>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub full: Option<Rgba>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sun: Option<Rgba>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub moon: Option<Rgba>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cloud: Option<Rgba>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub storm_cloud: Option<Rgba>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub rain: Option<Rgba>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub snow: Option<Rgba>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub fog: Option<Rgba>,
 }
 

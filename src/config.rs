@@ -5,12 +5,12 @@
 
 use crate::palette::Rgba;
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Values a page lays over the live data, for demos and for pinning a page
 /// to something the sources do not report.
-#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PageData {
     pub weather: Option<WeatherData>,
@@ -24,7 +24,7 @@ pub struct PageData {
     pub picture: Option<usize>,
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct WeatherData {
     /// WMO weather code.
@@ -39,7 +39,7 @@ fn yes() -> bool {
     true
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SensorData {
     pub state: Option<String>,
@@ -49,7 +49,7 @@ pub struct SensorData {
 }
 
 /// A folder of pictures shown in turn by picture tiles.
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FrameConfig {
     /// Relative to the config file.
@@ -78,7 +78,7 @@ impl Default for FrameConfig {
 }
 
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Alert {
     pub entity: String,
@@ -108,7 +108,7 @@ fn default_pulse_seconds() -> f32 {
 }
 
 /// Where decoded album art is kept between runs, and how much of it.
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ArtCacheConfig {
     /// Relative to the config file.
@@ -144,7 +144,7 @@ impl ArtCacheConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SpotifyConfig {
     /// The Client ID of an app from developer.spotify.com/dashboard.
@@ -165,7 +165,7 @@ fn default_spotify_refresh() -> u64 {
     5
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct HomeAssistantConfig {
     /// e.g. "http://homeassistant.local:8123"
@@ -186,7 +186,7 @@ fn default_max() -> f64 {
     100.0
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct WeatherConfig {
     pub latitude: f64,
@@ -202,7 +202,7 @@ fn default_refresh_minutes() -> u64 {
     10
 }
 
-#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Units {
     Celsius,
@@ -234,7 +234,7 @@ pub(crate) fn default_dot_size() -> u32 {
 }
 
 /// How the clock shows the seconds on its ring.
-#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Seconds {
     /// The ring fills clockwise from twelve.
@@ -244,7 +244,7 @@ pub enum Seconds {
     Dot,
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum TileSpec {
     /// Hours over minutes inside a seconds ring.
@@ -338,7 +338,7 @@ impl TileSpec {
 }
 
 /// What an art tile shows while there is no art.
-#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Idle {
     /// A slow ripple from the middle.
@@ -356,7 +356,7 @@ pub(crate) fn default_corner_alpha() -> f32 {
     0.3
 }
 
-#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtShape {
     /// A record: circular, with a spindle hole.
@@ -372,7 +372,7 @@ pub enum ArtShape {
 /// Left out, a part does not limit: no `days` is every day, no `from` is
 /// from midnight, no `to` is until midnight. A `to` earlier than `from`
 /// runs past midnight. Days are those of the moment, local time.
-#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct When {
     #[serde(default)]
@@ -381,7 +381,7 @@ pub struct When {
     pub to: Option<TimeOfDay>,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Day {
     Mon,
@@ -441,6 +441,12 @@ impl JsonSchema for TimeOfDay {
             "type": "string",
             "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
         })
+    }
+}
+
+impl Serialize for TimeOfDay {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&format!("{:02}:{:02}", self.minutes / 60, self.minutes % 60))
     }
 }
 

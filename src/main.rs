@@ -6,6 +6,7 @@
 //!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
 //!     panel-ddp spotify-login [--config FILE] [--port N]
 //!     panel-ddp check FILE...
+//!     panel-ddp migrate OLD [--out NEW.yaml] [--secrets FILE]
 //!     panel-ddp schema
 //!
 //! The config file defaults to dashboard.toml in the current directory; a
@@ -32,6 +33,7 @@ mod ha;
 mod icons;
 mod legacy;
 mod mask;
+mod migrate;
 mod model;
 mod pages;
 mod palette;
@@ -69,6 +71,7 @@ const USAGE: &str = "usage:
   panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
   panel-ddp spotify-login [--config FILE] [--port N]
   panel-ddp check FILE...
+  panel-ddp migrate OLD [--out NEW.yaml] [--secrets FILE]
   panel-ddp schema";
 
 const DEFAULT_CONFIG: &str = "dashboard.toml";
@@ -510,6 +513,77 @@ fn cmd_check(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+/// Rewrites a TOML or JSON config as YAML beside it (or at `--out`), the
+/// Home Assistant token going to the secrets file (`secrets.yaml` beside
+/// the new file, or `--secrets`), then loads the result and checks that it
+/// draws what the original does.
+fn cmd_migrate(args: &[String]) -> Result<()> {
+    let mut old = None;
+    let mut out = None;
+    let mut secrets = None;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--out" => out = Some(PathBuf::from(it.next().context("--out needs a file")?)),
+            "--secrets" => secrets = Some(PathBuf::from(it.next().context("--secrets needs a file")?)),
+            o if o.starts_with('-') => bail!("unknown option {o}"),
+            f => old = Some(PathBuf::from(f)),
+        }
+    }
+    let old = old.context("migrate needs the file to migrate")?;
+    let out = out.unwrap_or_else(|| old.with_extension("yaml"));
+    if out.exists() {
+        bail!("{} exists; move it or name another with --out", out.display());
+    }
+    let dir = out.parent().filter(|d| !d.as_os_str().is_empty()).unwrap_or(std::path::Path::new("."));
+    let m = migrate::migrate(&old, dir)?;
+    let mut yaml = m.yaml;
+    let secrets = match secrets {
+        Some(s) => {
+            let shown = s.strip_prefix(dir).unwrap_or(&s);
+            yaml = yaml.replacen("\ntarget:", &format!("\nsecrets: {}\ntarget:", shown.display()), 1);
+            s
+        }
+        None => dir.join("secrets.yaml"),
+    };
+    if let Some(token) = &m.token {
+        add_secret(&secrets, migrate::TOKEN_SECRET, token)?;
+        eprintln!("panel-ddp: the Home Assistant token is in {} as {}", secrets.display(), migrate::TOKEN_SECRET);
+    }
+    std::fs::write(&out, yaml).with_context(|| format!("writing {}", out.display()))?;
+    let original = model::load(&old)?;
+    let migrated = model::load(&out).context("loading the migrated file")?;
+    migrate::same_drawing(&original, &migrated)
+        .with_context(|| format!("{} does not draw what {} does", out.display(), old.display()))?;
+    eprintln!("panel-ddp: wrote {}; it draws every page as {} does", out.display(), old.display());
+    Ok(())
+}
+
+/// Adds a secret to a secrets file, made readable by its owner alone; one
+/// already there under the name must be the same.
+fn add_secret(path: &std::path::Path, name: &str, value: &str) -> Result<()> {
+    let mut values: indexmap::IndexMap<String, String> = match std::fs::read_to_string(path) {
+        Ok(text) => serde_yaml_ng::from_str(&text).with_context(|| format!("parsing {}", path.display()))?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Default::default(),
+        Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
+    };
+    match values.get(name) {
+        Some(v) if v == value => return Ok(()),
+        Some(_) => bail!("{} already has a different {name}", path.display()),
+        None => {
+            values.insert(name.to_string(), value.to_string());
+        }
+    }
+    let text = serde_yaml_ng::to_string(&values)?;
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut opts, 0o600);
+    let mut f = opts.open(path).with_context(|| format!("writing {}", path.display()))?;
+    std::io::Write::write_all(&mut f, text.as_bytes()).with_context(|| format!("writing {}", path.display()))?;
+    Ok(())
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let (cmd, rest) = match args.split_first() {
@@ -526,6 +600,7 @@ fn main() {
         "test" => cmd_test(rest),
         "spotify-login" => cmd_spotify_login(rest),
         "check" => cmd_check(rest),
+        "migrate" => cmd_migrate(rest),
         "schema" => {
             print!("{}", format::schema());
             Ok(())

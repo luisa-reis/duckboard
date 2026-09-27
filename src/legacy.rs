@@ -441,7 +441,7 @@ impl Config {
         self.spotify.is_some() || self.home_assistant.as_ref().is_some_and(|h| h.media_player.is_some())
     }
 
-    fn read(path: &Path) -> Result<Self> {
+    pub(crate) fn read(path: &Path) -> Result<Self> {
         let text = std::fs::read_to_string(path)
             .with_context(|| format!("reading config {}", path.display()))?;
         // TOML, or JSON for a `.json` file; the fields are the same.
@@ -540,7 +540,7 @@ impl Config {
 }
 
 impl Config {
-    fn into_model(self) -> Model {
+    pub(crate) fn into_model(self) -> Model {
         // `[colors]` for every tile, a tile's own `colors` over them.
         let base = Palette::default().with(&self.colors);
         let pages = if self.pages.is_empty() {
@@ -600,7 +600,7 @@ fn layers(tiles: &Tiles, regions: &Regions, base: Palette) -> Vec<Layer> {
             shape: ArtShape::Square,
             spin: false,
             paused_alpha: 1.0,
-            corner_alpha: 1.0,
+            corner_alpha: default_corner_alpha(),
             alpha,
             idle: Idle::None,
         }),
@@ -622,7 +622,7 @@ fn layers(tiles: &Tiles, regions: &Regions, base: Palette) -> Vec<Layer> {
 impl HubSpec {
     /// The hub as a tile: blank, or art at full alpha that ripples while
     /// there is none.
-    fn to_tile(&self) -> TileSpec {
+    pub(crate) fn to_tile(&self) -> TileSpec {
         match *self {
             HubSpec::Blank => TileSpec::Blank,
             HubSpec::Media { spin, shape, paused_alpha, corner_alpha } => {

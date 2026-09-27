@@ -21,6 +21,7 @@
     },
     "temperature": {
       "description": "The unit every temperature is shown in.",
+      "default": "fahrenheit",
       "allOf": [
         {
           "$ref": "#/definitions/Units"
@@ -41,7 +42,16 @@
       "$ref": "#/definitions/Sources"
     },
     "art_cache": {
-      "$ref": "#/definitions/ArtCacheConfig"
+      "default": {
+        "dir": "art-cache",
+        "max_megabytes": 4.0,
+        "keep_originals": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/ArtCacheConfig"
+        }
+      ]
     },
     "art_file": {
       "description": "A JPEG kept at the album cover on show; relative to this file.",
@@ -60,7 +70,8 @@
       "type": "object",
       "additionalProperties": {
         "$ref": "#/definitions/Overrides"
-      }
+      },
+      "default": {}
     },
     "layouts": {
       "description": "Layouts by name: regions of the panel by name.",
@@ -115,7 +126,8 @@
       "type": "array",
       "items": {
         "$ref": "#/definitions/Alert"
-      }
+      },
+      "default": []
     },
     "alert_area": {
       "description": "Where an alert centres its label.",
@@ -527,7 +539,12 @@
           "type": "object",
           "properties": {
             "seconds": {
-              "$ref": "#/definitions/Seconds"
+              "default": "dot",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Seconds"
+                }
+              ]
             },
             "dot_size": {
               "description": "Ring pixels the seconds dot covers.",
@@ -709,7 +726,12 @@
           "type": "object",
           "properties": {
             "shape": {
-              "$ref": "#/definitions/ArtShape"
+              "default": "disc",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ArtShape"
+                }
+              ]
             },
             "spin": {
               "description": "Turn the art while playing.",
@@ -736,6 +758,7 @@
             },
             "idle": {
               "description": "What shows while there is no art.",
+              "default": "ripple",
               "allOf": [
                 {
                   "$ref": "#/definitions/Idle"
@@ -888,6 +911,12 @@
         },
         "data": {
           "description": "Values laid over the live data while the page shows.",
+          "default": {
+            "weather": null,
+            "sensors": {},
+            "cover": null,
+            "picture": null
+          },
           "allOf": [
             {
               "$ref": "#/definitions/PageData"
@@ -930,7 +959,8 @@
           "type": "object",
           "additionalProperties": {
             "$ref": "#/definitions/SensorData"
-          }
+          },
+          "default": {}
         },
         "cover": {
           "description": "A cover from the art cache, newest first (0 is the newest), played.",
@@ -1041,7 +1071,8 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/Day"
-          }
+          },
+          "default": []
         },
         "from": {
           "anyOf": [
@@ -1099,7 +1130,12 @@
           "type": "string"
         },
         "color": {
-          "$ref": "#/definitions/Colour"
+          "default": "#ff1e1e",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Colour"
+            }
+          ]
         },
         "pulse_seconds": {
           "description": "One pulse, in seconds.",

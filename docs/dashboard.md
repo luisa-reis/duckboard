@@ -425,6 +425,7 @@ target/release/panel-ddp test <board-ip>            # colour bars, ramp, counter
 target/release/panel-ddp render --config demo.json --out /tmp/r   # every frame's hash, no network
 target/release/panel-ddp check config.yaml other.toml   # load each, say what it holds or what is wrong
 target/release/panel-ddp schema                         # the YAML file's JSON Schema
+target/release/panel-ddp migrate dashboard.toml         # write dashboard.yaml (token to secrets.yaml), checked to draw the same
 ```
 
 `render` draws what `run` would send, frame by frame, without sending it or
