@@ -5,120 +5,120 @@ and streams it to the board over DDP (Distributed Display Protocol, UDP port 404
 WLED listens on out of the box. Nothing is installed on the board: WLED shows
 what arrives as realtime input and drops back to its presets a couple of
 seconds after the stream stops, so the GIF playlist is the fallback whenever
-the sender is off. The gap file applies to streamed frames too.
-The screen is split into areas, laid out below. How DDP works and what it
-cannot do is in [ddp.md](ddp.md).
+the sender is off. The gap file applies to streamed frames too. How the
+screen is split into regions, and what each shows when, is set by one YAML
+file, below. How DDP works and what it cannot do is in [ddp.md](ddp.md).
 
-## Layout
+## The configuration file
 
-The screen is split into five regions, four tiles and a hub. By default:
+One YAML file drives the panel, `dashboard.yaml` by default: copy
+`dashboard.example.yaml` and edit it. It names its parts and refers to them
+by name:
 
-| Region         | Origin   | Size  |
-|----------------|----------|-------|
-| `top_left`     | (2, 2)   | 24×24 |
-| `top_right`    | (38, 2)  | 24×24 |
-| `bottom_left`  | (2, 38)  | 24×24 |
-| `bottom_right` | (38, 38) | 24×24 |
-| `hub`          | (21, 21) | 22×22 |
+- **layouts** — named regions of the 64×64 panel, each an `x`, `y`,
+  `width` and `height` in pixels and a `z` (default 0);
+- **tiles** — what a region shows: a kind and its settings, and optionally
+  a colour `scheme` and `colors` of its own;
+- **pages** — a layout, the tile for each region it fills (by name, or
+  spelt out inline), how long it shows, and optionally a scheme and
+  made-up `data`;
+- **playlists** and a **schedule** — which pages play when;
+- **schemes** — colour schemes by name.
 
-`[regions]` moves and resizes them. A region given there takes `x`, `y`,
-`width` and `height` in panel pixels, all four, and must fit the 64×64; one
-left out keeps its default:
-
-```toml
-[regions]
-hub = { x = 0, y = 34, width = 64, height = 30, z = -1 }
-top_left = { x = 0, y = 0, width = 34, height = 34 }
+```yaml
+layouts:
+  classic:
+    background: {x: 0, y: 0, width: 64, height: 64, z: -1}
+    top_left: {x: 2, y: 2, width: 24, height: 24}
+    hub: {x: 21, y: 21, width: 22, height: 22, z: 1}
+tiles:
+  clock: {kind: clock}
+  cover: {kind: art, shape: disc}
+pages:
+  home:
+    layout: classic
+    tiles: {top_left: clock, hub: cover, bottom_left: {kind: date}}
 ```
 
-Regions may overlap. They are drawn in ascending `z` (default 0), so a
-higher one draws over a lower one; with the same `z` the order is
-`top_left`, `top_right`, `bottom_left`, `bottom_right`, `hub`, which is how
-the default hub sits over the tiles' inner corners. A region has no
-background of its own, so it covers what is below only where it draws: the
-hub's disc hides the tiles under it, the corners around the disc do not.
+`panel-ddp.schema.json` describes every setting; editors that read the
+`# yaml-language-server: $schema=panel-ddp.schema.json` line at the top of
+the file check it as you type, and `panel-ddp check dashboard.yaml` loads it
+and names what is wrong, page and region included. A running panel picks a
+saved change up within a second.
+
+### Regions and layers
+
+Regions may overlap. They are drawn in ascending `z`, and those with the
+same `z` in the layout's order, so a higher one draws over a lower one. A
+region has no background of its own: it covers what is below only where it
+draws. A full-panel region at the lowest `z` holding an `art` or `picture`
+tile with an `alpha` is a background. Regions left empty on a page draw
+nothing.
 
 A tile lays its content out for 24 pixels of height, centred in a taller or
 shorter region, and takes the region's width: the clock's ring is the
 largest circle that fits, text is centred and fitted to the width, the
 progress bar spans it. Fonts do not scale, and what does not fit is clipped
-to the region. The hub's art is decoded at the hub's size and its disc is
-the largest circle that fits.
+to the region. Album art and pictures are decoded at every size they show
+at, and the disc is the largest circle that fits.
 
-Each corner shows one tile, the hub one of its own kinds. A clock-and-weather
-panel needs no account at all; the rest switch on with a table in the config.
+### Tile kinds
 
 No source needed:
 
 - `clock` — hours over minutes inside a seconds ring, advanced once a
-  second: `seconds = "dot"` (the default) moves a dot of `dot_size` ring
-  pixels (default 2) round it like a second hand, `seconds = "ring"` fills
+  second: `seconds: dot` (the default) moves a dot of `dot_size` ring
+  pixels (default 2) round it like a second hand, `seconds: ring` fills
   it clockwise from twelve.
 - `date` — weekday, day of month, month.
 - `blank`
 
-With `[weather]`, which is just a location:
+With `sources.weather`, which is just a location:
 
 - `weather` — sky icon and temperature from Open-Meteo, no key needed.
 
-With `[spotify]`, or a Home Assistant media player:
+With `sources.spotify`, or a Home Assistant `media_player`:
 
 - `now_playing` — artist and title, scrolling when wider than the tile, blank
   while nothing plays.
-- hub `media` — the album art in the hub instead of the background, dimmed
-  while paused, a faint ripple when nothing plays. `shape` is `disc` (a
-  record with a spindle hole, the default), `square` (the whole cover) or
-  `faded` (the whole cover with the corners outside the circle dimmed);
-  `spin = true` turns it while playing.
+- `art` — the album art. `shape` is `disc` (a record with a spindle hole,
+  the default), `square` (the whole cover) or `faded` (the whole cover with
+  the corners outside the circle dimmed at `corner_alpha`, default 0.3);
+  `spin: true` turns it while playing; `paused_alpha` (default 0.4) dims it
+  while paused; `alpha` (default 1) blends it over what is under it; `idle`
+  is `ripple` (the default, a faint ripple while there is no art) or `none`.
 
-With `[home_assistant]`:
+With `sources.home_assistant`:
 
 - `sensor` — one entity: label, value, unit. A numeric value loses decimals,
   then switches to the small font, to fit four characters.
 - `progress` — one entity as a label, the value with its unit beside it, and
-  a bar along the bottom edge that is full at `max` (default 100), amber on
-  the way and green when full.
+  a bar that is full at `max` (default 100), amber on the way and green when
+  full.
 
-The hub also takes `blank`.
+With `sources.pictures`:
 
-The art shows in one place. By default it is the `background`: the cover
-across the whole panel behind the tiles, blended over black at `alpha`
-(default 0.12) so they stay legible, and nothing else done to it. A hub set
-to `media` moves it there and leaves the background black. Setting both is
-refused; `background = { kind = "none" }` shows no art at all, and
-`background = { kind = "frame", alpha = 0.12 }` puts the `[frame]` pictures
-behind the tiles instead, one after another at `[frame].seconds` each.
+- `picture` — the picture due, at `alpha` (default 1) over what is under it.
+
+A tile whose source is not configured is refused, unless its page brings
+the data itself (see Pages below). When both Spotify and a Home Assistant
+media player are set, Spotify feeds the art.
 
 ![sample dashboard behind the mask](dashboard-preview.png)
 
 ### Just the art
 
-Every tile and the hub `blank`, and the background at full brightness, turn
-the panel into a cover display: the current album fills the center of the
-display and nothing is drawn over it. Paused playback still dims it. As a second config
-next to the dashboard, sharing the same Spotify app and token file:
+A page whose only tile is the art, square, across the panel, turns it into
+a cover display; `paused_alpha: 1.0` keeps it from dimming while paused:
 
-```toml
-target = "wled.local"
-
-[spotify]
-client_id = "..."
-
-[tiles]
-top_left = { kind = "blank" }
-top_right = { kind = "blank" }
-bottom_left = { kind = "blank" }
-bottom_right = { kind = "blank" }
-hub = { kind = "blank" }
-background = { kind = "media", alpha = 1.0 }
+```yaml
+layouts:
+  full: {all: {x: 0, y: 0, width: 64, height: 64}}
+tiles:
+  cover: {kind: art, shape: square, paused_alpha: 1.0, idle: none}
+pages:
+  art: {layout: full, tiles: {all: cover}}
 ```
-
-```sh
-target/release/panel-ddp run --config dashboard-art.toml
-```
-
-The same shape with a Home Assistant media player instead of Spotify: the
-`[home_assistant]` table with `media_player` in place of `[spotify]`.
 
 ## Building
 
@@ -135,8 +135,12 @@ cargo build --release
 
 The sender needs only the network: it can live on a Raspberry Pi next to
 the panel or run in the background on a laptop. Relative paths in a config
-(`gaps`, the token file, `art-cache`, `frame`) resolve against the config's
-own folder, so a service only has to pass `--config` with an absolute path.
+(`gaps`, `secrets`, the token file, `art-cache`, the pictures) resolve
+against the config's own folder, so a service only has to pass `--config`
+with an absolute path. A secret can also come from the service's
+environment, `PANEL_DDP_SECRET_HOME_ASSISTANT_TOKEN` for
+`{secret: home_assistant_token}`, for example from systemd's
+`EnvironmentFile=`.
 
 ### Raspberry Pi
 
@@ -159,13 +163,14 @@ instead. [cross](https://github.com/cross-rs/cross)
 (`cross build --release --target aarch64-unknown-linux-gnu`) does the same
 through Docker.
 
-Copy the binary, the config and any token file over (the gap file is only
-for previews):
+Copy the binary, the config, the secrets file and any Spotify token file
+over (the gap file is only for previews), and keep the secrets private:
 
 ```sh
 ssh pi mkdir -p panel-ddp
 scp target/aarch64-unknown-linux-gnu/release/panel-ddp \
-    dashboard.toml spotify-token.json pi:panel-ddp/
+    dashboard.yaml secrets.yaml spotify-token.json pi:panel-ddp/
+ssh pi chmod 600 panel-ddp/secrets.yaml
 ```
 
 Do `spotify-login` on the laptop, where a browser can reach the redirect,
@@ -180,7 +185,7 @@ After=network-online.target
 
 [Service]
 User=pi
-ExecStart=/home/pi/panel-ddp/panel-ddp run --config /home/pi/panel-ddp/dashboard.toml
+ExecStart=/home/pi/panel-ddp/panel-ddp run --config /home/pi/panel-ddp/dashboard.yaml
 KillSignal=SIGINT
 Restart=on-failure
 RestartSec=10
@@ -215,7 +220,7 @@ not expand `~`):
     <string>/path/to/panel-ddp/target/release/panel-ddp</string>
     <string>run</string>
     <string>--config</string>
-    <string>/path/to/panel-ddp/dashboard.toml</string>
+    <string>/path/to/panel-ddp/dashboard.yaml</string>
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
@@ -234,12 +239,11 @@ On a Linux laptop, the systemd unit above works as a user service
 managed with `systemctl --user`). For a one-off, `nohup
 target/release/panel-ddp run > panel-ddp.log 2>&1 &` is enough.
 
-## Configuration
+## Settings
 
-Copy `dashboard.example.toml` to `dashboard.toml` (git-ignored; it
-holds the Home Assistant token) and edit. `target` is the board, the rest is
-optional:
+`target` is the board; the rest is optional:
 
+- `fps` (default 10) — frames per second.
 - `gamma` (default 2.2) — applied to pictures before they are sent. WLED
   gamma-corrects its own effects and GIFs but not streamed frames, and the
   HUB75 build defines `NO_CIE1931` so the driver is linear too, so an sRGB
@@ -254,22 +258,37 @@ optional:
   pixels the panel hides. Without it the preview shows the whole 64×64.
   `2d-gaps.json` is git-ignored; `2d-gaps.example.json` is a sample that
   hides the four corners.
-- `[weather]` — latitude, longitude, `refresh_minutes`, and `units` to
-  override `temperature` for the weather tile alone.
-- `[spotify]` — `client_id`, and optionally `token_file` (default
+- `secrets` (default `secrets.yaml`) — the secrets file, below.
+- `sources.weather` — `latitude`, `longitude`, `refresh_minutes`, and
+  `units` to override `temperature` for the weather tile alone.
+- `sources.spotify` — `client_id`, and optionally `token_file` (default
   `spotify-token.json` next to the config) and `refresh_seconds`. See below.
-- `[art_cache]` — `dir` (default `art-cache` next to the config),
+- `sources.home_assistant` — `url`, the long-lived access `token` (profile
+  page, Security tab) as a secret, the `media_player` entity to use as the
+  media source when there is no Spotify, `refresh_seconds`.
+- `sources.pictures` — `dir` (default `frame`), `seconds` each picture
+  shows (default 10) and `shuffle`; see Picture frame.
+- `art_cache` — `dir` (default `art-cache` next to the config),
   `max_megabytes` (default 4; 0 disables) and `keep_originals` (default
-  false). See below.
-- `[home_assistant]` — `url`, a long-lived access `token` (profile page,
-  Security tab), the `media_player` entity to use as the media source when
-  there is no `[spotify]`, `refresh_seconds`.
-- `[tiles]` — a tile per corner, one for the hub, and the `background`. A `sensor` tile names its
-  `entity` and `label`, and may set `unit` (`""` hides it) and `decimals`. A
-  `progress` tile names `entity` and `label`, and may set `max` and `decimals`.
+  false). See Running.
+- `page_seconds` (default 10) — how long a page shows unless it says.
+- `alert_area` — where an alert centres its label (default the 22×22 middle).
 
-Loading refuses a config whose tiles need a table it lacks. When both
-`[spotify]` and a Home Assistant media player are set, Spotify feeds the hub.
+### Secrets
+
+The config never holds a secret: it names one, `token: {secret:
+home_assistant_token}`, and the value comes from the environment variable
+`PANEL_DDP_SECRET_HOME_ASSISTANT_TOKEN` when that is set, and otherwise from
+the secrets file, a map of names to values:
+
+```yaml
+home_assistant_token: "eyJhbGciOi..."
+```
+
+`secrets.yaml` is git-ignored; keep it readable by its owner alone (`chmod
+600`), which loading checks. `secrets.example.yaml` shows the shape. So the
+config itself can be committed, shared and edited without exposing
+anything.
 
 ## Colours
 
@@ -295,100 +314,118 @@ roles and their defaults, which are the values the tiles were tuned with:
 | `snow`        | `#ffffff` | snow                                               |
 | `fog`         | `#6e6e6e` | fog                                                |
 
-`[colors]` sets a role for every tile; a tile's own `colors` sets it for
-that tile alone and wins. The seconds ring's track at a quarter alpha, and
-green minutes, on the clock only:
+`schemes` sets roles by name. The `default` scheme applies to every tile;
+a page's `scheme` goes over it for that page, a tile's `scheme` over that,
+and a tile's own `colors` last. A red accent everywhere, a dim night page,
+and the clock's ring at a quarter alpha with green minutes:
 
-```toml
-[colors]
-accent = "#ff4060"
-
-[tiles]
-top_left = { kind = "clock", colors = { track = "#ffffff40", secondary = "#80ff80" } }
+```yaml
+schemes:
+  default: {accent: "#ff4060"}
+  dim: {text: "#606060", label: "#303030"}
+tiles:
+  clock: {kind: clock, colors: {track: "#ffffff40", secondary: "#80ff80"}}
+pages:
+  night: {layout: big-clock, scheme: dim, tiles: {clock: clock}}
 ```
-
-The hub's `media` kind has two alphas of its own, `paused_alpha` (default
-0.4) for the art while paused and `corner_alpha` (default 0.3) for the
-corners of the faded shape; the background has its `alpha`.
 
 ## Picture frame
 
 The pictures in a folder, one after another, each cropped to its area,
-scaled and gamma-corrected like album art. A picture frame is a page that
-shows them across the panel with nothing over them: the background set to
-`{ kind = "frame", alpha = 1.0 }` and every tile blank, or, in a YAML
-config, a `picture` tile in a region covering the panel. The folder and
-pacing are in `[frame]`, with these defaults:
+scaled and gamma-corrected like album art. A picture frame is a page with a
+`picture` tile across the panel and nothing over it; at a low `alpha` under
+other tiles, the pictures are a background. The folder and pacing are in
+`sources.pictures`, with these defaults:
 
-```toml
-[frame]
-dir = "frame"        # relative to the config; .jpg, .jpeg and .png files
-seconds = 10.0       # each picture
-shuffle = false      # random order, reshuffled at each start; else by file name
+```yaml
+sources:
+  pictures:
+    dir: frame        # relative to the config; .jpg, .jpeg and .png files
+    seconds: 10       # each picture
+    shuffle: false    # random order, reshuffled at each start; else by file name
 ```
 
 Pictures with a bright subject on black suit the panel best. `frame/` is
 git-ignored; keep a note of where each picture came from and its licence
 beside them, as the `SOURCES.md` written there does.
 
-## Pages and the demo
+## Pages, playlists and the schedule
 
-A config can hold `pages`: layouts shown one after another, each for its
-own `seconds`, looping. With any pages, `run` shows them instead of
-`[tiles]`, and `--once` plays them through a single time. A page takes the
-same `top_left` … `bottom_right`, `hub` and `background` as `[tiles]`, except
-that unnamed tiles are blank and the background is none unless given.
+Pages show one after another, each for its `seconds` (or `page_seconds`).
+`playlists` group them by name, and the `schedule` picks which playlist
+plays: its rules are checked in order at the end of every page, and the
+first that matches wins. A rule's `when` limits it to `days` (`mon` …
+`sun`) and a window `from` … `to` (`"HH:MM"`, local time; `to` earlier than
+`from` runs past midnight); a rule without `when` always matches. A change
+of playlist starts the new one at its first page. When no rule matches,
+nothing is sent and the board falls back to its presets. Without
+`playlists`, every page plays in file order; without a `schedule`, the first
+playlist always plays.
+
+```yaml
+playlists:
+  day: [home, music]
+  night: [night-clock]
+schedule:
+  - playlist: night
+    when: {from: "23:00", to: "07:00"}
+  - playlist: day
+```
+
+`--once` plays the playlist on at the start through a single time.
 
 A page's `data` lays made-up values over whatever the sources report, for
-demos and for pinning a page to something no source provides:
+demos and for pinning a page to something no source provides; a tile whose
+source is missing is allowed when its page brings the data:
 
-- `weather = { code, is_day, temperature }` — a WMO code, in the configured
+- `weather: {code, is_day, temperature}` — a WMO code, in the configured
   temperature unit.
-- `sensors = { "sensor.x" = { state = "29", unit = "°C" } }`, or
-  `{ sweep = [0, 100] }` to move the value linearly across the page. An
-  alert's entity set to its state raises the alert.
-- `cover = N` — the Nth newest cover in the art cache, playing. With
+- `sensors: {sensor.x: {state: "29", unit: "°C"}}`, or `{sweep: [0, 100]}`
+  to move the value linearly across the page. An alert's entity set to its
+  state raises the alert.
+- `cover: N` — the Nth newest cover in the art cache, playing. With
   `keep_originals`, only covers with an original count.
-- `picture = N` — the Nth `[frame]` picture, for a `frame` background.
+- `picture: N` — the Nth picture, for a picture tile.
 
 A page naming a cover or picture that is not there is left out, with a note.
 
-`demo.json` is the demo built this way, in JSON, which loads like TOML:
-the date alone touring the tiles, the clock joining, every kind of sky, the
-print progress filling, the laundry temperature in its place, the water leak
-alert, the whole dashboard plain, a cover in the hub, the dashboard over
-each cover, the covers alone, frame pictures full screen, and the dashboard
-over them. Its timings, labels and order are all in the file. Its `target`
-is the WLED-AP address; point it at a board with `--target`:
+`demo.yaml` is the demo built this way: the date alone touring the tiles,
+the clock joining, every kind of sky, the print progress filling, the
+laundry temperature in its place, the water leak alert, the whole dashboard
+plain, a cover in the hub, the dashboard over each cover, the covers alone,
+the pictures full screen, and the dashboard over them. Its timings, labels
+and order are all in the file. Its `target` is the WLED-AP address; point
+it at a board with `--target`:
 
 ```sh
-target/release/panel-ddp run --config demo.json --target wled.local          # loops
-target/release/panel-ddp run --config demo.json --target wled.local --once   # one pass
+target/release/panel-ddp run --config demo.yaml --target wled.local          # loops
+target/release/panel-ddp run --config demo.yaml --target wled.local --once   # one pass
 ```
 
 `art_file`, a top-level setting, keeps a JPEG at the album cover on show,
 the original as downloaded, black when no cover is on, and removes it when
-the run ends; `demo.json` sets it to `demo-art.jpg`. `art_open = true` runs
+the run ends; `demo.yaml` sets it to `demo-art.jpg`. `art_open: true` runs
 `open` on it after each change for macOS Preview. `tools/DemoArtViewer` is
 a Processing sketch that follows the file without that.
 
 ## Alerts
 
 An alert is a Home Assistant entity and the state that raises it. While
-any alert is raised, the panel drops the tiles, pulses in the alert's colour
-and shows its label in the middle, then returns to the dashboard when the
-state clears. Any number of `[[alerts]]` tables; the first raised one wins:
+any alert is raised, the panel drops the page, pulses in the alert's colour
+and shows its label on `alert_area`, then returns to the page when the
+state clears. Any number of alerts; the first raised one wins:
 
-```toml
-[[alerts]]
-entity = "binary_sensor.bathroom_water_leak"
-state = "on"                # the default
-label = "WATER LEAK"        # up to four characters large in the hub, up to eleven small above it
-color = "#ff1e1e"           # the default
-pulse_seconds = 1.5         # the default
+```yaml
+alerts:
+  - entity: binary_sensor.bathroom_water_leak
+    state: "on"             # the default; quoted, as YAML reads a bare on as true
+    label: WATER LEAK       # up to four characters large, up to eleven small along the top of the area
+    color: "#ff1e1e"        # the default
+    pulse_seconds: 1.5      # the default
 ```
 
-Alerts need `[home_assistant]`; their entities are polled with the sensors.
+Alerts need `sources.home_assistant`, unless a page gives their entity's
+state; their entities are polled with the sensors.
 `preview --alert` renders one, and `run --sample` raises them for five
 seconds of every thirty.
 
@@ -397,8 +434,8 @@ seconds of every thirty.
 Spotify's API needs an app of your own, which takes a minute: at
 developer.spotify.com/dashboard create an app: any name and description, the
 redirect URI `http://127.0.0.1:8888/callback`, and under "Which API/SDKs are
-you planning to use?" tick Web API only. Copy its Client ID into `[spotify]`.
-Then log in once:
+you planning to use?" tick Web API only. Copy its Client ID into
+`sources.spotify.client_id` (it is not a secret). Then log in once:
 
 ```sh
 target/release/panel-ddp spotify-login        # --port N if 8888 is taken; register that URI instead
@@ -414,16 +451,16 @@ default name). If it is lost, log in again.
 ## Running
 
 ```sh
-target/release/panel-ddp run                        # dashboard.toml, until Ctrl-C
-target/release/panel-ddp run --config other.toml --frames 100
+target/release/panel-ddp run                        # dashboard.yaml, until Ctrl-C
+target/release/panel-ddp run --config other.yaml --frames 100
 target/release/panel-ddp run --sample                 # made-up data, sensors sweep 0..100: a demo of the layout
-target/release/panel-ddp run --config demo.json --target <board>   # the demo; --once for a single pass
-target/release/panel-ddp preview --out preview.png  # one frame from sample data, mask applied
+target/release/panel-ddp run --config demo.yaml --target <board>   # the demo; --once for a single pass
+target/release/panel-ddp preview --out preview.png  # the first page from sample data, mask applied
 target/release/panel-ddp preview --weather-code 95  # check an icon (add 1000 for night)
 target/release/panel-ddp preview --alert            # the alert view
 target/release/panel-ddp test <board-ip>            # colour bars, ramp, counter, bouncing dot
-target/release/panel-ddp render --config demo.json --out /tmp/r   # every frame's hash, no network
-target/release/panel-ddp check config.yaml other.toml   # load each, say what it holds or what is wrong
+target/release/panel-ddp render --config demo.yaml --out /tmp/r   # every frame's hash, no network
+target/release/panel-ddp check dashboard.yaml demo.yaml   # load each, say what it holds or what is wrong
 target/release/panel-ddp schema                         # the YAML file's JSON Schema
 target/release/panel-ddp migrate dashboard.toml         # write dashboard.yaml (token to secrets.yaml), checked to draw the same
 ```
@@ -431,7 +468,8 @@ target/release/panel-ddp migrate dashboard.toml         # write dashboard.yaml (
 `render` draws what `run` would send, frame by frame, without sending it or
 fetching anything: the clock starts at a fixed time (`--at`, seconds since
 1970) and the data is empty, so pages bring their own, or made up with
-`--sample`. A config without pages needs `--frames N`. It writes
+`--sample`. Without `--frames N` it renders one pass of the playlist on at
+that time. It writes
 `frames.txt`, one SHA-256 per frame, and a PNG of each frame named with
 `--png N`. Rendering before and after a change and comparing the two lists
 shows whether the change moved a single pixel.
@@ -441,8 +479,8 @@ Common patterns:
 ```sh
 # One demo pass, then back to the live dashboard: --once makes the first
 # command end, so the second takes over.
-target/release/panel-ddp run --config demo.json --target <board> --once && \
-  target/release/panel-ddp run --config dashboard.toml
+target/release/panel-ddp run --config demo.yaml --target <board> --once && \
+  target/release/panel-ddp run --config dashboard.yaml
 
 # Stop whatever is streaming, from another terminal. Ctrl-C does the same in
 # its own; either way the run ends cleanly and removes its art_file. The
@@ -450,8 +488,8 @@ target/release/panel-ddp run --config demo.json --target <board> --once && \
 pkill -f "panel-ddp run"
 ```
 
-`run` checks about once a second whether its config file (or the secrets
-file a YAML config reads) has changed. A changed file that loads is
+`run` checks about once a second whether its config file (or its secrets
+file) has changed. A changed file that loads is
 switched to at once, keeping the data sources running when their settings
 did not change; one that does not load is reported, with why, and the
 running config stays. `target` and `fps` take effect at the next start.
@@ -464,7 +502,7 @@ last good reading, so a slow or dead service never stalls a frame. A failure is
 logged once, when its message changes. Album art is fetched only when the
 picture URL changes.
 
-Decoded album art is cached on disk under `[art_cache].dir`, one file per
+Decoded album art is cached on disk under `art_cache.dir`, one file per
 picture URL, gamma and the sizes it shows at, holding the pixels at each size (the hub and the panel), about 14 KB each,
 so the default 4 MB cap holds a few hundred covers. A hit costs no download
 and no decoding and makes the entry the newest; past the cap the oldest
@@ -479,6 +517,23 @@ against the cap, a few tens of kilobytes each.
 The sender uses an unconnected UDP socket on purpose: a connected one turns
 the ICMP unreachable from a rebooting board into a send error, which would end
 the stream. Unconnected, the frames are lost until the board is back.
+
+## Migrating an older config
+
+Configs used to be TOML (`dashboard.toml`) or the same in JSON
+(`demo.json`). `run` and the other commands now refuse them and name the
+command that converts one:
+
+```sh
+target/release/panel-ddp migrate dashboard.toml   # writes dashboard.yaml; --out FILE, --secrets FILE
+```
+
+The five `[regions]` become a layout named `classic`, with a `background`
+region under them when a page has a background; each distinct tile gets a
+name (its label for sensors and progress bars, else its kind); pages are
+named `page-1` and on; settings left at their defaults are left out; and
+the Home Assistant token moves to the secrets file. Before it finishes it
+loads both files and checks that every page draws the same, and says so.
 
 ## What to check on the panel
 

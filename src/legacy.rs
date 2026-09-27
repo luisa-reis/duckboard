@@ -1,6 +1,6 @@
-//! Today's configuration files: `dashboard.toml` and the same in JSON
-//! (`demo.json`), read as they always were and resolved into the model the
-//! drawing code works from. `[tiles]` alone makes a single page shown for
+//! The configuration files before the YAML one: TOML, or the same in JSON.
+//! Only `panel-ddp migrate` reads them now, to convert them; they resolve
+//! into the model as they always did, so the conversion can be checked. `[tiles]` alone makes a single page shown for
 //! good; `pages` a loop of timed ones. On every page the background comes
 //! first, then the five regions in ascending `z`.
 

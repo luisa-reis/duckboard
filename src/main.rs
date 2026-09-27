@@ -9,15 +9,17 @@
 //!     panel-ddp migrate OLD [--out NEW.yaml] [--secrets FILE]
 //!     panel-ddp schema
 //!
-//! The config file defaults to dashboard.toml in the current directory; a
-//! `.json` file works the same. A config with `pages` loops through them,
-//! and `--once` plays them through a single time: `run --config demo.json`
-//! is the demo.
-//! `preview` renders the first page's first frame from sample data into a
-//! PNG with the mask applied; `--test` renders the test frame instead. `render` draws what
+//! The config file, YAML, defaults to dashboard.yaml in the current
+//! directory. `run` plays the playlist its schedule picks, reloading the
+//! file when it changes; `--once` plays that playlist through a single
+//! time: `run --config demo.yaml --once` is the demo. `preview` renders the
+//! first page's first frame from sample data into a PNG with the mask
+//! applied; `--test` renders the test frame instead. `render` draws what
 //! `run` would send, frame by frame, at a fixed time and without the
 //! network, and writes a hash per frame, for checking that a change leaves
-//! the output alone. HOST defaults to 4.3.2.1 (WLED-AP), PORT to 4048.
+//! the output alone. `check` loads configs, `schema` prints their JSON
+//! Schema, and `migrate` converts an older TOML or JSON config. HOST
+//! defaults to 4.3.2.1 (WLED-AP), PORT to 4048.
 
 mod art;
 mod artcache;
@@ -74,7 +76,7 @@ const USAGE: &str = "usage:
   panel-ddp migrate OLD [--out NEW.yaml] [--secrets FILE]
   panel-ddp schema";
 
-const DEFAULT_CONFIG: &str = "dashboard.toml";
+const DEFAULT_CONFIG: &str = "dashboard.yaml";
 
 struct Stream {
     target: String,
@@ -551,7 +553,7 @@ fn cmd_migrate(args: &[String]) -> Result<()> {
         eprintln!("panel-ddp: the Home Assistant token is in {} as {}", secrets.display(), migrate::TOKEN_SECRET);
     }
     std::fs::write(&out, yaml).with_context(|| format!("writing {}", out.display()))?;
-    let original = model::load(&old)?;
+    let original = legacy::load(&old)?;
     let migrated = model::load(&out).context("loading the migrated file")?;
     migrate::same_drawing(&original, &migrated)
         .with_context(|| format!("{} does not draw what {} does", out.display(), old.display()))?;

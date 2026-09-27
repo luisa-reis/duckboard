@@ -11,12 +11,16 @@ use crate::palette::Palette;
 use embedded_graphics::{prelude::*, primitives::Rectangle};
 use std::path::PathBuf;
 
-/// Reads a configuration file: YAML for `.yaml` or `.yml`, else one of
-/// today's TOML or JSON files.
+/// Reads a YAML configuration file. An older TOML or JSON one is refused,
+/// with the command that converts it.
 pub fn load(path: &std::path::Path) -> anyhow::Result<Model> {
     match path.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).as_deref() {
-        Some("yaml" | "yml") => crate::format::load(path),
-        _ => crate::legacy::load(path),
+        Some("toml" | "json") => anyhow::bail!(
+            "{} is an older TOML or JSON config; convert it with: panel-ddp migrate {}",
+            path.display(),
+            path.display()
+        ),
+        _ => crate::format::load(path),
     }
 }
 

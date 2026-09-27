@@ -1,7 +1,7 @@
-//! The building blocks of a configuration, whatever the file's format: the
-//! sources, the alerts, the tile kinds and the made-up data a page may lay
-//! over the live one. `legacy` reads them from today's TOML and JSON files,
-//! and `model` is what a file resolves into.
+//! The building blocks of a configuration: the sources, the alerts, the
+//! tile kinds, the schedule's rules and the made-up data a page may lay
+//! over the live one. `format` reads them from the YAML file (and `legacy`
+//! from older ones, to migrate them); `model` is what a file resolves into.
 
 use crate::palette::Rgba;
 use schemars::JsonSchema;
@@ -20,7 +20,7 @@ pub struct PageData {
     pub sensors: std::collections::BTreeMap<String, SensorData>,
     /// A cover from the art cache, newest first (0 is the newest), played.
     pub cover: Option<usize>,
-    /// The `[frame]` picture, by position, for a `frame` background.
+    /// The picture from `sources.pictures`, by position, for picture tiles.
     pub picture: Option<usize>,
 }
 
@@ -85,8 +85,8 @@ pub struct Alert {
     /// The state that raises the alert.
     #[serde(default = "default_alert_state")]
     pub state: String,
-    /// Shown in the middle of the panel: up to four characters large in
-    /// the hub, up to eleven small on the band above it.
+    /// Shown on the alert area: up to four characters large in its middle,
+    /// up to eleven small along its top.
     pub label: String,
     #[serde(default = "default_alert_color")]
     pub color: Rgba,
@@ -172,7 +172,7 @@ pub struct HomeAssistantConfig {
     pub url: String,
     /// A long-lived access token (profile page, bottom).
     pub token: String,
-    /// The media_player entity for the now_playing tile and media hub.
+    /// The media_player entity for now_playing and art tiles.
     pub media_player: Option<String>,
     #[serde(default = "default_refresh_seconds")]
     pub refresh_seconds: u64,
@@ -257,9 +257,9 @@ pub enum TileSpec {
     },
     /// Weekday, day of month, month.
     Date,
-    /// Sky icon and temperature; needs the [weather] table.
+    /// Sky icon and temperature; needs sources.weather.
     Weather,
-    /// A Home Assistant entity's state under a label; needs [home_assistant].
+    /// A Home Assistant entity's state under a label; needs sources.home_assistant.
     Sensor {
         entity: String,
         label: String,
@@ -269,7 +269,7 @@ pub enum TileSpec {
         decimals: Option<u8>,
     },
     /// A Home Assistant entity's numeric state as a bar under the value,
-    /// full at `max`; needs [home_assistant].
+    /// full at `max`; needs sources.home_assistant.
     Progress {
         entity: String,
         label: String,
@@ -279,9 +279,9 @@ pub enum TileSpec {
         #[serde(default)]
         decimals: u8,
     },
-    /// Artist and title scrolling; needs [home_assistant].media_player.
+    /// Artist and title scrolling; needs sources.spotify or a Home Assistant media_player.
     NowPlaying,
-    /// The album art; needs [spotify] or [home_assistant].media_player.
+    /// The album art; needs sources.spotify or a Home Assistant media_player.
     Art {
         #[serde(default)]
         shape: ArtShape,
@@ -301,7 +301,8 @@ pub enum TileSpec {
         #[serde(default)]
         idle: Idle,
     },
-    /// The `[frame]` picture due, at `alpha` over what is drawn under it.
+    /// The picture from `sources.pictures` due now, at `alpha` over what is
+    /// drawn under it.
     Picture {
         #[serde(default = "one")]
         alpha: f32,

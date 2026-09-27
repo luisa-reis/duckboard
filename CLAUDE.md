@@ -4,60 +4,60 @@ Context for Claude Code sessions working on panel-ddp.
 
 ## What it is
 
-- A standalone Rust program that draws a dashboard for a 64×64 WLED matrix and
-  streams it to the board over DDP (UDP 4048). Nothing runs on the board; WLED falls back to its presets a
-  couple of seconds after the stream stops.
+- A standalone Rust program that draws a dashboard for a 64×64 WLED matrix
+  and streams it to the board over DDP (UDP 4048). Nothing runs on the
+  board; WLED falls back to its presets a couple of seconds after the stream
+  stops.
 - It runs either on a Raspberry Pi near the panel (cross-compiled, as a
-  systemd service) or in the background on a laptop (launchd agent on macOS).
-  It needs only network access to the board and its data sources.
+  systemd service) or in the background on a laptop (launchd agent on
+  macOS). It needs only network access to the board and its data sources.
+- One YAML file drives it (`dashboard.yaml` by default; `demo.yaml` is the
+  demo, `dashboard.example.yaml` the starting point): named colour schemes,
+  layouts (regions with x, y, width, height, `z`), tiles, pages, playlists
+  and a schedule. It is validated by `panel-ddp.schema.json` and
+  `panel-ddp check`, and a running `run` reloads it when it changes.
+- `src/format.rs` resolves the file into `Model` (`src/model.rs`): named
+  pages, each a list of layers (an area, a tile, its palette) in drawing
+  order; playlists of pages; and a schedule whose first matching rule picks
+  the playlist at each page's end (none matching: nothing is sent, so the
+  board falls back to its presets). `src/pages.rs` plays it. The drawing
+  code and the sources only see the model. Layers have no background, so
+  overlaps composite. Drawing code must take its size from the area it is
+  given, never a constant. Album art and pictures are decoded once per size
+  they show at (`picture::Scaled`, `Model::art_sizes`).
+- A running `run` reloads the model when `Model::files` change and the new
+  one loads (`Live::reload` in `src/main.rs`); sources restart only when
+  their settings change.
 - `gaps` (default `2d-gaps.json`, relative to the config file) is a copy of
   the board's WLED gap file (1 = lit), used only by `preview` to grey out
   hidden pixels; without it the preview shows the whole panel. The real
   `2d-gaps.json` is git-ignored; `2d-gaps.example.json` (four corners
-  hidden) is the committed sample. The gap file does not shape the
-  layout.
-- Config files are read by a loader into `Model` (`src/model.rs`): named
-  pages, each a list of layers (an area, a tile, its palette) in drawing
-  order; playlists of pages; and a schedule whose first matching rule picks
-  the playlist at each page's end (none matching: nothing is sent, so the
-  board falls back to its presets). `src/pages.rs` plays it. A running
-  `run` reloads the model when `Model::files` change and the new one loads
-  (`Live::reload` in `src/main.rs`); sources restart only when their
-  settings change. The
-  drawing code and the sources only see the model. Today's TOML/JSON files
-  go through `src/legacy.rs`, where the five regions of `[regions]` (x, y,
-  width, height, `z`) and the background become layers (the hub an `art`
-  tile, the background an `art` or `picture` tile with an alpha); `src/config.rs`
-  holds the building blocks any format shares. Layers have no background,
-  so overlaps composite. Drawing code must take its size from the area it
-  is given, never a constant. Album art and pictures are decoded once per
-  size they show at (`picture::Scaled`, `Model::art_sizes`).
+  hidden) is the committed sample. The gap file does not shape the layout.
 
 ## Layout
 
-- `src/main.rs` — CLI (`run`, `frame`, `preview`, `test`, `spotify-login`).
+- `src/main.rs` — CLI (`run`, `preview`, `render`, `test`, `spotify-login`,
+  `check`, `schema`, `migrate`).
+- `src/format.rs` — the YAML configuration file, resolved into the model
+  with errors that name the page and region.
 - `src/model.rs` — the resolved configuration everything works from.
-- `src/format.rs` — the YAML configuration file (`.yaml`/`.yml`): named
-  schemes, layouts, tiles, pages, playlists and a schedule, resolved into
-  the model with errors that name the page and region.
-- `src/legacy.rs` — today's TOML/JSON files, read into the model.
-- `src/migrate.rs` — `panel-ddp migrate`: an old file rewritten as YAML
-  (token to the secrets file), checked by `same_drawing` against the
-  original.
-- `panel-ddp.schema.json` — the YAML file's JSON Schema, generated from the
+- `src/config.rs` — building blocks the file is made of (sources, alerts,
+  tile kinds, page data, schedule rules).
+- `src/secrets.rs` — `{secret: name}` references.
+- `panel-ddp.schema.json` — the file's JSON Schema, generated from the
   format's types (their doc comments are its descriptions). After changing
   them: `target/release/panel-ddp schema > panel-ddp.schema.json`; a test
-  fails until it is current. Check a config with `panel-ddp check FILE`.
-- `src/config.rs` — building blocks shared by any format (sources, alerts,
-  tile kinds, page data).
+  fails until it is current.
+- `src/legacy.rs`, `src/migrate.rs` — the older TOML/JSON configs, read only
+  by `panel-ddp migrate`, which rewrites one as YAML (token to the secrets
+  file) and checks with `same_drawing` that it draws the same.
 - `src/ddp.rs` — the sender (an unconnected UDP socket, on purpose).
 - `src/dashboard.rs` — draws a page's layers in order; `src/tiles.rs`
   draws any tile kind into a given area, `art.rs` the art and picture
-  kinds; `pages.rs` times the pages.
+  kinds; `pages.rs` plays the playlists.
 - `src/mask.rs` — the gap file, for previews only.
 - `src/ha.rs`, `spotify.rs`, `weather.rs`, `data.rs` — data sources, each on
   its own thread keeping the last good reading.
-- `demo.json` — the demo, a config with `pages`.
 - `tools/DemoArtViewer/` — a Processing sketch for the demo art.
 
 ## Building
@@ -67,9 +67,11 @@ the first `cargo` run here.
 
 ```sh
 cargo build --release
-cargo clippy
+cargo clippy --all-targets
+cargo test
+target/release/panel-ddp check dashboard.example.yaml demo.yaml
 target/release/panel-ddp preview --out preview.png   # check a change without the board
-target/release/panel-ddp render --config demo.json --out /tmp/before   # frame hashes; diff before/after a refactor
+target/release/panel-ddp render --config demo.yaml --out /tmp/before   # frame hashes; diff before/after a refactor
 ```
 
 Cross-compiling for a Raspberry Pi (64-bit OS) from the Mac. `ring` needs a
@@ -89,17 +91,19 @@ and the launchd plist are in `docs/dashboard.md` under "Installing".
 ## Conventions
 
 - `docs/dashboard.md` owns the documentation, `docs/ddp.md` the protocol and
-  what WLED does with it; the README only points at them.
-  Update the docs alongside behaviour or config changes, and
-  `dashboard.example.toml` alongside new settings.
-- `dashboard.toml` (and `dashboard-*.toml`) hold the Home Assistant token,
-  `spotify-token.json` the Spotify refresh token; both are git-ignored, as
-  are `art-cache/`, `frame/`, `demo-art.jpg`, `2d-gaps.json` and
-  `secrets.yaml`. Never commit them.
-- In YAML configs secrets are references, `token: {secret: name}`, resolved
-  from `PANEL_DDP_SECRET_<NAME>` or `secrets.yaml` beside the config
-  (`src/secrets.rs`; `secrets.example.yaml` shows the shape). Never read or
-  print `secrets.yaml`; a config never holds a secret itself.
+  what WLED does with it; the README only points at them. Update the docs
+  alongside behaviour or config changes, the schema alongside the format's
+  types, and `dashboard.example.yaml` alongside new settings.
+- When editing a config, run `panel-ddp check` on it; refactors of the
+  drawing should leave `render` output of `demo.yaml` unchanged.
+- In configs secrets are references, `token: {secret: name}`, resolved from
+  `PANEL_DDP_SECRET_<NAME>` or `secrets.yaml` beside the config
+  (`secrets.example.yaml` shows the shape). Never read or print
+  `secrets.yaml`; a config never holds a secret itself.
+- Git-ignored, never committed: `dashboard.yaml` (and `dashboard-*.yaml`),
+  `secrets.yaml`, `spotify-token.json` (the Spotify refresh token),
+  `art-cache/`, `frame/`, `demo-art.jpg`, `2d-gaps.json`, and older
+  `dashboard*.toml` files, which hold a token.
 - Stopping: Ctrl-C/SIGINT ends a run cleanly; services should send SIGINT
   (`KillSignal=SIGINT` in the systemd unit).
 - The repo uses jujutsu (colocated with git).

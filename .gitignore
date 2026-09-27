@@ -1,4 +1,6 @@
 target/
+dashboard.yaml
+dashboard-*.yaml
 dashboard.toml
 dashboard-*.toml
 spotify-token.json

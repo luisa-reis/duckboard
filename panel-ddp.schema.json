@@ -592,7 +592,7 @@
           "additionalProperties": false
         },
         {
-          "description": "Sky icon and temperature; needs the [weather] table.",
+          "description": "Sky icon and temperature; needs sources.weather.",
           "type": "object",
           "properties": {
             "kind": {
@@ -613,7 +613,7 @@
           "additionalProperties": false
         },
         {
-          "description": "A Home Assistant entity's state under a label; needs [home_assistant].",
+          "description": "A Home Assistant entity's state under a label; needs sources.home_assistant.",
           "type": "object",
           "properties": {
             "entity": {
@@ -659,7 +659,7 @@
           ]
         },
         {
-          "description": "A Home Assistant entity's numeric state as a bar under the value,\nfull at `max`; needs [home_assistant].",
+          "description": "A Home Assistant entity's numeric state as a bar under the value,\nfull at `max`; needs sources.home_assistant.",
           "type": "object",
           "properties": {
             "entity": {
@@ -701,7 +701,7 @@
           ]
         },
         {
-          "description": "Artist and title scrolling; needs [home_assistant].media_player.",
+          "description": "Artist and title scrolling; needs sources.spotify or a Home Assistant media_player.",
           "type": "object",
           "properties": {
             "kind": {
@@ -722,7 +722,7 @@
           "additionalProperties": false
         },
         {
-          "description": "The album art; needs [spotify] or [home_assistant].media_player.",
+          "description": "The album art; needs sources.spotify or a Home Assistant media_player.",
           "type": "object",
           "properties": {
             "shape": {
@@ -783,7 +783,7 @@
           ]
         },
         {
-          "description": "The `[frame]` picture due, at `alpha` over what is drawn under it.",
+          "description": "The picture from `sources.pictures` due now, at `alpha` over what is\ndrawn under it.",
           "type": "object",
           "properties": {
             "alpha": {
@@ -972,7 +972,7 @@
           "minimum": 0
         },
         "picture": {
-          "description": "The `[frame]` picture, by position, for a `frame` background.",
+          "description": "The picture from `sources.pictures`, by position, for picture tiles.",
           "type": [
             "integer",
             "null"
@@ -1126,7 +1126,7 @@
           "default": "on"
         },
         "label": {
-          "description": "Shown in the middle of the panel: up to four characters large in\nthe hub, up to eleven small on the band above it.",
+          "description": "Shown on the alert area: up to four characters large in its middle,\nup to eleven small along its top.",
           "type": "string"
         },
         "color": {
