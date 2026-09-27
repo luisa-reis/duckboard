@@ -88,8 +88,12 @@ and the launchd plist are in `docs/dashboard.md` under "Installing".
   `dashboard.example.toml` alongside new settings.
 - `dashboard.toml` (and `dashboard-*.toml`) hold the Home Assistant token,
   `spotify-token.json` the Spotify refresh token; both are git-ignored, as
-  are `art-cache/`, `frame/`, `demo-art.jpg` and `2d-gaps.json`. Never commit
-  them.
+  are `art-cache/`, `frame/`, `demo-art.jpg`, `2d-gaps.json` and
+  `secrets.yaml`. Never commit them.
+- In YAML configs secrets are references, `token: {secret: name}`, resolved
+  from `PANEL_DDP_SECRET_<NAME>` or `secrets.yaml` beside the config
+  (`src/secrets.rs`; `secrets.example.yaml` shows the shape). Never read or
+  print `secrets.yaml`; a config never holds a secret itself.
 - Stopping: Ctrl-C/SIGINT ends a run cleanly; services should send SIGINT
   (`KillSignal=SIGINT` in the systemd unit).
 - The repo uses jujutsu (colocated with git).

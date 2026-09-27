@@ -37,6 +37,7 @@ mod model;
 mod pages;
 mod palette;
 mod picture;
+mod secrets;
 mod spotify;
 mod testframe;
 mod tiles;

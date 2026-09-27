@@ -32,6 +32,11 @@
       "type": "string",
       "default": "2d-gaps.json"
     },
+    "secrets": {
+      "description": "The secrets file, names to values, relative to this file.",
+      "type": "string",
+      "default": "secrets.yaml"
+    },
     "sources": {
       "$ref": "#/definitions/Sources"
     },
@@ -150,7 +155,7 @@
         "home_assistant": {
           "anyOf": [
             {
-              "$ref": "#/definitions/HomeAssistantConfig"
+              "$ref": "#/definitions/HomeAssistant"
             },
             {
               "type": "null"
@@ -217,7 +222,7 @@
         "longitude"
       ]
     },
-    "HomeAssistantConfig": {
+    "HomeAssistant": {
       "type": "object",
       "properties": {
         "url": {
@@ -225,11 +230,15 @@
           "type": "string"
         },
         "token": {
-          "description": "A long-lived access token (profile page, bottom).",
-          "type": "string"
+          "description": "A long-lived access token (profile page, Security tab), kept in the\nsecrets file.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SecretRef"
+            }
+          ]
         },
         "media_player": {
-          "description": "The media_player entity for the now_playing tile and media hub.",
+          "description": "The media_player entity for now_playing and art tiles, when there\nis no Spotify.",
           "type": [
             "string",
             "null"
@@ -246,6 +255,20 @@
       "required": [
         "url",
         "token"
+      ]
+    },
+    "SecretRef": {
+      "description": "A reference to a secret by name.",
+      "type": "object",
+      "properties": {
+        "secret": {
+          "description": "The secret's name in the secrets file; the environment variable\nPANEL_DDP_SECRET_<NAME> overrides it.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "secret"
       ]
     },
     "SpotifyConfig": {

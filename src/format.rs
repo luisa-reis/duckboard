@@ -15,6 +15,7 @@ use crate::config::{
 };
 use crate::model::{self, Layer, Model};
 use crate::palette::{Overrides, Palette};
+use crate::secrets::{SecretRef, Secrets};
 use anyhow::{bail, Context, Result};
 use embedded_graphics::{prelude::*, primitives::Rectangle};
 use indexmap::IndexMap;
@@ -40,6 +41,9 @@ pub struct File {
     /// A copy of the board's gap file, for previews; relative to this file.
     #[serde(default = "default_gaps")]
     pub gaps: PathBuf,
+    /// The secrets file, names to values, relative to this file.
+    #[serde(default = "default_secrets")]
+    pub secrets: PathBuf,
     #[serde(default)]
     pub sources: Sources,
     #[serde(default)]
@@ -90,6 +94,10 @@ fn default_gaps() -> PathBuf {
     "2d-gaps.json".into()
 }
 
+fn default_secrets() -> PathBuf {
+    "secrets.yaml".into()
+}
+
 fn default_page_seconds() -> f32 {
     10.0
 }
@@ -102,11 +110,30 @@ fn default_alert_area() -> Area {
 #[serde(deny_unknown_fields)]
 pub struct Sources {
     pub weather: Option<WeatherConfig>,
-    pub home_assistant: Option<HomeAssistantConfig>,
+    pub home_assistant: Option<HomeAssistant>,
     /// Takes precedence over a Home Assistant media player.
     pub spotify: Option<SpotifyConfig>,
     /// A folder of pictures for picture tiles.
     pub pictures: Option<Pictures>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct HomeAssistant {
+    /// e.g. "http://homeassistant.local:8123"
+    pub url: String,
+    /// A long-lived access token (profile page, Security tab), kept in the
+    /// secrets file.
+    pub token: SecretRef,
+    /// The media_player entity for now_playing and art tiles, when there
+    /// is no Spotify.
+    pub media_player: Option<String>,
+    #[serde(default = "default_ha_refresh")]
+    pub refresh_seconds: u64,
+}
+
+fn default_ha_refresh() -> u64 {
+    10
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -323,6 +350,16 @@ impl File {
         if let Some(sp) = self.sources.spotify.as_mut() {
             sp.token_file = rel(std::mem::take(&mut sp.token_file));
         }
+        let mut secrets = Secrets::new(rel(self.secrets.clone()));
+        let home_assistant = match self.sources.home_assistant.take() {
+            Some(h) => Some(HomeAssistantConfig {
+                token: secrets.get(&h.token).context("sources.home_assistant.token")?,
+                url: h.url,
+                media_player: h.media_player,
+                refresh_seconds: h.refresh_seconds,
+            }),
+            None => None,
+        };
         let pictures = self.sources.pictures.take();
         let frame = FrameConfig {
             dir: rel(pictures.as_ref().map_or_else(default_pictures_dir, |p| p.dir.clone())),
@@ -340,7 +377,7 @@ impl File {
             gaps: rel(self.gaps),
             weather: self.sources.weather,
             spotify: self.sources.spotify,
-            home_assistant: self.sources.home_assistant,
+            home_assistant,
             art_cache,
             frame,
             alerts: self.alerts,
@@ -686,6 +723,20 @@ pages:
         ] {
             assert!(!v.is_valid(&as_json(&bad)), "accepted: {bad}");
         }
+    }
+
+    #[test]
+    fn the_token_comes_from_the_secrets_file() {
+        let yaml = BASE.replace(
+            "sources:\n",
+            "secrets: test-secrets.yaml\nsources:\n  home_assistant: {url: \"http://ha\", token: {secret: ha_token}}\n",
+        );
+        let dir = std::env::temp_dir().join(format!("panel-ddp-format-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(format!("{:#}", load(&yaml).unwrap_err()).contains("test-secrets.yaml"));
+        std::fs::write(dir.join("test-secrets.yaml"), "ha_token: abc123\n").unwrap();
+        assert_eq!(load(&yaml).unwrap().home_assistant.unwrap().token, "abc123");
+        assert!(load(&BASE.replace("sources:\n", "sources:\n  home_assistant: {url: x, token: abc}\n")).is_err(), "no literal tokens");
     }
 
     #[test]
