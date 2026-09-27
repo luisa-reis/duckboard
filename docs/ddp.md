@@ -18,7 +18,7 @@ cleared between frames, so a controller may send only what changed. A
 *push* tells the display to show what the buffer holds.
 
 That is all DDP knows: a flat run of bytes. It has no idea of rows, of a
-64×64 matrix, of regions or of anything drawn in them. Everything visual
+matrix and its size, of regions or of anything drawn in them. Everything visual
 is decided by the sender before the bytes leave.
 
 ## Packet format
@@ -109,9 +109,10 @@ branch, September 2026):
 
 `src/ddp.rs` sends every frame whole:
 
-- The canvas is 64×64 RGB, 12,288 bytes, in row-major order: pixel
-  (x, y) is at byte `(y × 64 + x) × 3`. The board's 2D settings map that
-  to the physical LEDs.
+- The canvas is the panel's size, 64×64 unless the config says otherwise,
+  in RGB (12,288 bytes at 64×64) and row-major order: pixel (x, y) is at
+  byte `(y × width + x) × 3`. The board's 2D settings map that to the
+  physical LEDs, so they must be set up for the same width and height.
 - A frame goes out as nine packets, the fewest the 1,440-byte limit
   allows, sharing it evenly and split between pixels: eight of 1,368 bytes
   and one of 1,344, rather than eight full ones and a short last one. The

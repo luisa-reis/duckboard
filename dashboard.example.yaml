@@ -10,6 +10,8 @@
 
 target: "4.3.2.1"          # the board: WLED's own access point by default
 fps: 10
+# width: 64               # the panel, in pixels; WLED must be set up as a
+# height: 64              # matrix of the same size
 temperature: fahrenheit    # or celsius
 
 # Where the data comes from. A tile needing a source that is not here is
@@ -28,7 +30,7 @@ sources:
 schemes:
   dim: {text: "#606060", label: "#303030", accent: "#604000", secondary: "#203050"}
 
-# Layouts: named regions of the 64x64 panel. Regions are drawn in ascending
+# Layouts: named regions of the panel. Regions are drawn in ascending
 # z (default 0), so a higher one draws over a lower one where it draws.
 layouts:
   classic:

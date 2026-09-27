@@ -1,32 +1,35 @@
-//! The 64x64 canvas that embedded-graphics draws into. Its bytes are
-//! row-major RGB, which is already the DDP wire format; a pixel drawn with
-//! alpha is blended over what is there.
+//! The canvas that embedded-graphics draws into, the panel's size. Its bytes
+//! are row-major RGB, which is already the DDP wire format; a pixel drawn
+//! with alpha is blended over what is there.
 
 use crate::palette::Rgba;
 use embedded_graphics::{pixelcolor::Rgb888, prelude::*};
 use std::convert::Infallible;
 
-pub const WIDTH: u32 = 64;
-pub const HEIGHT: u32 = 64;
+/// The panel's size unless the configuration says otherwise.
+pub const DEFAULT_WIDTH: u32 = 64;
+pub const DEFAULT_HEIGHT: u32 = 64;
 
 pub struct Canvas {
     pub px: Vec<u8>,
+    width: u32,
+    height: u32,
 }
 
 impl Canvas {
-    pub fn new() -> Self {
-        Self { px: vec![0; (WIDTH * HEIGHT * 3) as usize] }
+    pub fn new(size: Size) -> Self {
+        Self { px: vec![0; (size.width * size.height * 3) as usize], width: size.width, height: size.height }
     }
 
     pub fn get(&self, x: u32, y: u32) -> Rgb888 {
-        let i = ((y * WIDTH + x) * 3) as usize;
+        let i = ((y * self.width + x) * 3) as usize;
         Rgb888::new(self.px[i], self.px[i + 1], self.px[i + 2])
     }
 }
 
 impl OriginDimensions for Canvas {
     fn size(&self) -> Size {
-        Size::new(WIDTH, HEIGHT)
+        Size::new(self.width, self.height)
     }
 }
 
@@ -38,11 +41,12 @@ impl DrawTarget for Canvas {
     where
         I: IntoIterator<Item = Pixel<Self::Color>>,
     {
+        let (w, h) = (self.width, self.height);
         for Pixel(p, c) in pixels {
-            if p.x < 0 || p.y < 0 || p.x >= WIDTH as i32 || p.y >= HEIGHT as i32 || c.a == 0 {
+            if p.x < 0 || p.y < 0 || p.x >= w as i32 || p.y >= h as i32 || c.a == 0 {
                 continue;
             }
-            let i = ((p.y as u32 * WIDTH + p.x as u32) * 3) as usize;
+            let i = ((p.y as u32 * w + p.x as u32) * 3) as usize;
             if c.a == 255 {
                 self.px[i] = c.r;
                 self.px[i + 1] = c.g;

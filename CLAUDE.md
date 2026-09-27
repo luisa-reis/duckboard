@@ -4,7 +4,8 @@ Context for Claude Code sessions working on panel-ddp.
 
 ## What it is
 
-- A standalone Rust program that draws a dashboard for a 64×64 WLED matrix
+- A standalone Rust program that draws a dashboard for a WLED matrix (64×64
+  unless the config's `width` and `height` say otherwise)
   and streams it to the board over DDP (UDP 4048). Nothing runs on the
   board; WLED falls back to its presets a couple of seconds after the stream
   stops.

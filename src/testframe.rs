@@ -2,7 +2,7 @@
 //! check colour order and brightness, a grey ramp, a frame counter and a
 //! bouncing dot so a stuck stream is obvious.
 
-use crate::canvas::{Canvas, HEIGHT, WIDTH};
+use crate::canvas::Canvas;
 use crate::palette::{Rgba, BLACK};
 use embedded_graphics::{
     mono_font::{ascii::FONT_4X6, ascii::FONT_6X10, MonoTextStyle},
@@ -13,8 +13,10 @@ use embedded_graphics::{
 
 pub fn draw(c: &mut Canvas, frame: u32) {
     c.clear(BLACK).unwrap();
+    let size = c.size();
+    let cx = size.width as i32 / 2;
 
-    Rectangle::new(Point::zero(), Size::new(WIDTH, HEIGHT))
+    Rectangle::new(Point::zero(), size)
         .into_styled(PrimitiveStyle::with_stroke(Rgba::rgb(64, 64, 64), 1))
         .draw(c)
         .unwrap();
@@ -36,16 +38,16 @@ pub fn draw(c: &mut Canvas, frame: u32) {
     }
 
     let big = MonoTextStyle::new(&FONT_6X10, Rgba::rgb(255, 200, 0));
-    Text::with_alignment("DDP", Point::new(32, 31), big, Alignment::Center)
+    Text::with_alignment("DDP", Point::new(cx, 31), big, Alignment::Center)
         .draw(c)
         .unwrap();
 
     let small = MonoTextStyle::new(&FONT_4X6, Rgba::rgb(0, 200, 255));
-    Text::with_alignment(&format!("{:05}", frame), Point::new(32, 41), small, Alignment::Center)
+    Text::with_alignment(&format!("{:05}", frame), Point::new(cx, 41), small, Alignment::Center)
         .draw(c)
         .unwrap();
 
-    let lane = (WIDTH - 12) as i32;
+    let lane = (size.width as i32 - 12).max(1);
     let t = frame as i32 % (2 * lane);
     let x = if t < lane { t } else { 2 * lane - t };
     Circle::new(Point::new(4 + x, 50), 5)

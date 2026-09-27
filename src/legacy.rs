@@ -4,7 +4,8 @@
 //! good; `pages` a loop of timed ones. On every page the background comes
 //! first, then the five regions in ascending `z`.
 
-use crate::canvas::{HEIGHT, WIDTH};
+// Older configs were for a 64x64 panel only.
+use crate::canvas::{DEFAULT_HEIGHT as HEIGHT, DEFAULT_WIDTH as WIDTH};
 use crate::config::{
     default_corner_alpha, default_dot_size, default_paused_alpha, Alert, ArtCacheConfig, ArtShape, FrameConfig,
     HomeAssistantConfig, Idle, PageData, Seconds, SpotifyConfig, TileSpec, Units, WeatherConfig,
@@ -567,6 +568,8 @@ impl Config {
         let schedule = vec![model::Rule { playlist: 0, when: None }];
         Model {
             target: self.target,
+            width: WIDTH,
+            height: HEIGHT,
             fps: self.fps,
             gamma: self.gamma,
             temperature: self.temperature,

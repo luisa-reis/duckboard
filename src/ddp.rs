@@ -107,5 +107,8 @@ mod tests {
             assert_eq!(c.iter().map(|&(_, l)| l).sum::<usize>(), len);
         }
         assert!(chunks(0).is_empty());
+        let wide = chunks(128 * 64 * 3);
+        assert_eq!(wide.len(), 18, "a 128x64 frame");
+        assert!(wide.iter().all(|&(_, l)| l <= 1368));
     }
 }

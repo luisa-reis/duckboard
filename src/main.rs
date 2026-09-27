@@ -3,7 +3,7 @@
 //!     panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
 //!     panel-ddp preview [--config FILE] [--out FILE] [--test | --alert]
 //!     panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
-//!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
+//!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N] [--size WxH]
 //!     panel-ddp spotify-login [--config FILE] [--port N]
 //!     panel-ddp check FILE...
 //!     panel-ddp migrate OLD [--out NEW.yaml] [--secrets FILE]
@@ -70,7 +70,7 @@ const USAGE: &str = "usage:
   panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
   panel-ddp preview [--config FILE] [--out FILE] [--test | --weather-code N | --alert]
   panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
-  panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
+  panel-ddp test [HOST[:PORT]] [--fps N] [--frames N] [--size WxH]
   panel-ddp spotify-login [--config FILE] [--port N]
   panel-ddp check FILE...
   panel-ddp migrate OLD [--out NEW.yaml] [--secrets FILE]
@@ -82,10 +82,24 @@ struct Stream {
     target: String,
     fps: u32,
     frames: Option<u32>,
+    /// The panel, in pixels.
+    size: embedded_graphics::prelude::Size,
+}
+
+/// "WxH", e.g. "128x64".
+fn parse_size(v: &str) -> Option<embedded_graphics::prelude::Size> {
+    let (w, h) = v.split_once('x')?;
+    let (w, h): (u32, u32) = (w.parse().ok()?, h.parse().ok()?);
+    ((1..=1024).contains(&w) && (1..=1024).contains(&h)).then(|| embedded_graphics::prelude::Size::new(w, h))
 }
 
 fn parse_stream(args: &[String]) -> Result<Stream> {
-    let mut s = Stream { target: "4.3.2.1:4048".into(), fps: 10, frames: None };
+    let mut s = Stream {
+        target: "4.3.2.1:4048".into(),
+        fps: 10,
+        frames: None,
+        size: embedded_graphics::prelude::Size::new(canvas::DEFAULT_WIDTH, canvas::DEFAULT_HEIGHT),
+    };
     let mut it = args.iter();
     while let Some(a) = it.next() {
         match a.as_str() {
@@ -101,6 +115,7 @@ fn parse_stream(args: &[String]) -> Result<Stream> {
                     it.next().and_then(|v| v.parse().ok()).context("--frames needs a number")?,
                 )
             }
+            "--size" => s.size = it.next().and_then(|v| parse_size(v)).context("--size needs WxH, e.g. 128x64")?,
             o if o.starts_with('-') => bail!("unknown option {o}"),
             host => s.target = ddp::target_with_default_port(host),
         }
@@ -125,7 +140,7 @@ fn stream(s: &Stream, mut draw: impl FnMut(&mut Canvas, u32) -> bool) -> Result<
         }
     );
     let period = Duration::from_secs_f64(1.0 / s.fps as f64);
-    let mut canvas = Canvas::new();
+    let mut canvas = Canvas::new(s.size);
     let start = Instant::now();
     let mut frame = 0u32;
     let stop = stop_flag();
@@ -263,8 +278,8 @@ impl Live {
     /// changed. The target and the frame rate stay those of the start.
     fn reload(&mut self, cfg: Model, sample: bool) -> Result<()> {
         let old = &self.show.cfg;
-        if cfg.target != old.target || cfg.fps != old.fps {
-            eprintln!("panel-ddp: target and fps apply at the next start");
+        if cfg.target != old.target || cfg.fps != old.fps || cfg.size() != old.size() {
+            eprintln!("panel-ddp: target, fps, width and height apply at the next start");
         }
         let same_sources = sources_key(&cfg) == sources_key(old);
         let same_art_file = (&cfg.art_file, cfg.art_open) == (&old.art_file, old.art_open);
@@ -343,14 +358,14 @@ fn cmd_run(args: &[String]) -> Result<()> {
         eprintln!("panel-ddp: --sample: made-up data, no source is contacted");
     }
     let target = target.unwrap_or_else(|| cfg.target.clone());
-    let fps = cfg.fps;
+    let (fps, size) = (cfg.fps, cfg.size());
     let mut watch = Watch::new(&cfg.files);
     let mut live = Live::new(cfg, sample)?;
     if once {
         let pass = live.show.pass_frames(&chrono::Local::now());
         frames = Some(pass.context("--once plays the playlist on now through once; this config has a page shown for good, or nothing on now")?);
     }
-    let s = Stream { target: ddp::target_with_default_port(&target), fps, frames };
+    let s = Stream { target: ddp::target_with_default_port(&target), fps, frames, size };
     let result = stream(&s, |c, frame| {
         // About once a second, a changed configuration that loads is
         // switched to; one that does not is reported and waited out.
@@ -406,12 +421,12 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     }
     let cfg = model::load(&config)?;
     let mask = if cfg.gaps.exists() {
-        Mask::load(&cfg.gaps)?
+        Mask::load(&cfg.gaps, cfg.size())?
     } else {
         eprintln!("panel-ddp: no gap file at {}; the preview shows the whole panel", cfg.gaps.display());
-        Mask::none()
+        Mask::none(cfg.size())
     };
-    let mut canvas = Canvas::new();
+    let mut canvas = Canvas::new(cfg.size());
     mask::draw_outline(&mut canvas, &mask, Rgba::rgb(20, 20, 20));
     if test {
         testframe::draw(&mut canvas, 0);
@@ -468,7 +483,7 @@ fn cmd_render(args: &[String]) -> Result<()> {
         .context("without a pass to play (a page shown for good, or nothing on at --at), render needs --frames")?;
     std::fs::create_dir_all(&out).with_context(|| format!("creating {}", out.display()))?;
     let mut list = String::new();
-    let mut canvas = Canvas::new();
+    let mut canvas = Canvas::new(show.cfg.size());
     for frame in 0..frames {
         let now = start + Duration::from_secs_f64(frame as f64 / fps as f64);
         let mut data = if sample { data::Snapshot::sample(&show.cfg, frame) } else { data::Snapshot::default() };
@@ -479,7 +494,7 @@ fn cmd_render(args: &[String]) -> Result<()> {
         list.push_str(&format!("{frame} {:x}\n", Sha256::digest(&canvas.px)));
         if pngs.contains(&frame) {
             let png = out.join(format!("frame-{frame:05}.png"));
-            Mask::none().preview_png(&canvas, 4, &png)?;
+            Mask::none(show.cfg.size()).preview_png(&canvas, 4, &png)?;
         }
     }
     let path = out.join("frames.txt");

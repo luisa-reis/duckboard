@@ -2,7 +2,7 @@
 name = "panel-ddp"
 version = "0.2.0"
 edition = "2021"
-description = "Dashboard for a 64x64 WLED matrix: draws with embedded-graphics, streams over DDP"
+description = "Dashboard for a WLED matrix: draws with embedded-graphics, streams over DDP"
 
 [[bin]]
 name = "panel-ddp"

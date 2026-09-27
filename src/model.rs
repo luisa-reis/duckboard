@@ -28,6 +28,9 @@ pub fn load(path: &std::path::Path) -> anyhow::Result<Model> {
 pub struct Model {
     /// WLED host, "host" or "host:port".
     pub target: String,
+    /// The panel, in pixels.
+    pub width: u32,
+    pub height: u32,
     pub fps: u32,
     /// Applied to pictures before they are sent.
     pub gamma: f32,
@@ -102,6 +105,10 @@ impl Page {
 }
 
 impl Model {
+    pub fn size(&self) -> Size {
+        Size::new(self.width, self.height)
+    }
+
     /// Every entity a tile or an alert reads.
     pub fn sensor_entities(&self) -> Vec<String> {
         let mut v: Vec<String> = self

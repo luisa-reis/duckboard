@@ -8,7 +8,7 @@
 //! no playlists, every page plays in file order; with no schedule, the first
 //! playlist always plays.
 
-use crate::canvas::{HEIGHT, WIDTH};
+use crate::canvas::{DEFAULT_HEIGHT, DEFAULT_WIDTH};
 use crate::config::{
     Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, PageData, SpotifyConfig, TileSpec, Units, WeatherConfig,
     When,
@@ -29,6 +29,13 @@ use std::path::{Path, PathBuf};
 pub struct File {
     /// WLED host, "host" or "host:port".
     pub target: String,
+    /// The panel's width in pixels; WLED must be set up as a matrix of the
+    /// same size.
+    #[serde(default = "default_width")]
+    pub width: u32,
+    /// The panel's height in pixels.
+    #[serde(default = "default_height")]
+    pub height: u32,
     #[serde(default = "default_fps")]
     pub fps: u32,
     /// Gamma applied to pictures before they are sent: WLED does not
@@ -77,9 +84,17 @@ pub struct File {
     /// While an entity is in its state, the panel pulses with its label.
     #[serde(default)]
     pub alerts: Vec<Alert>,
-    /// Where an alert centres its label.
-    #[serde(default = "default_alert_area")]
-    pub alert_area: Area,
+    /// Where an alert centres its label; a 22x22 square in the middle of
+    /// the panel when left out.
+    pub alert_area: Option<Area>,
+}
+
+fn default_width() -> u32 {
+    DEFAULT_WIDTH
+}
+
+fn default_height() -> u32 {
+    DEFAULT_HEIGHT
 }
 
 fn default_fps() -> u32 {
@@ -102,8 +117,20 @@ fn default_page_seconds() -> f32 {
     10.0
 }
 
-fn default_alert_area() -> Area {
-    Area { x: 21, y: 21, width: 22, height: 22 }
+impl File {
+    fn size(&self) -> Size {
+        Size::new(self.width, self.height)
+    }
+
+    /// The alert area: as given, or 22x22 in the middle of the panel.
+    fn alert_area(&self) -> Area {
+        self.alert_area.unwrap_or(Area {
+            x: self.width.saturating_sub(22) / 2,
+            y: self.height.saturating_sub(22) / 2,
+            width: self.width.min(22),
+            height: self.height.min(22),
+        })
+    }
 }
 
 #[derive(Debug, Default, Deserialize, JsonSchema)]
@@ -186,13 +213,13 @@ impl Area {
         Rectangle::new(Point::new(self.x as i32, self.y as i32), Size::new(self.width, self.height))
     }
 
-    fn check(&self) -> Result<()> {
+    fn check(&self, panel: Size) -> Result<()> {
         if self.width == 0 || self.height == 0 {
             bail!("width and height must be positive");
         }
         let past = |at: u32, len: u32, max: u32| at.checked_add(len).is_none_or(|end| end > max);
-        if past(self.x, self.width, WIDTH) || past(self.y, self.height, HEIGHT) {
-            bail!("must fit the {WIDTH}x{HEIGHT} panel");
+        if past(self.x, self.width, panel.width) || past(self.y, self.height, panel.height) {
+            bail!("must fit the {}x{} panel", panel.width, panel.height);
         }
         Ok(())
     }
@@ -347,6 +374,7 @@ impl File {
         let pages = self.pages()?;
         let (playlists, schedule) = self.playlists(&pages)?;
         self.check_sources(&pages)?;
+        let alert_area = self.alert_area().rect();
         let rel = |p: PathBuf| if p.is_relative() { dir.join(p) } else { p };
         if let Some(w) = self.sources.weather.as_mut() {
             w.units.get_or_insert(self.temperature);
@@ -374,6 +402,8 @@ impl File {
         art_cache.dir = rel(art_cache.dir);
         Ok(Model {
             target: self.target,
+            width: self.width,
+            height: self.height,
             fps: self.fps,
             gamma: self.gamma,
             temperature: self.temperature,
@@ -384,7 +414,7 @@ impl File {
             art_cache,
             frame,
             alerts: self.alerts,
-            alert_area: self.alert_area.rect(),
+            alert_area,
             pages,
             playlists,
             schedule,
@@ -396,6 +426,9 @@ impl File {
 
     /// The checks on single settings.
     fn check_settings(&self) -> Result<()> {
+        if !(1..=1024).contains(&self.width) || !(1..=1024).contains(&self.height) {
+            bail!("width and height must be between 1 and 1024");
+        }
         if self.fps == 0 {
             bail!("fps must be positive");
         }
@@ -413,7 +446,7 @@ impl File {
                 bail!("sources.pictures.seconds must be positive");
             }
         }
-        self.alert_area.check().context("alert_area")?;
+        self.alert_area().check(self.size()).context("alert_area")?;
         for a in &self.alerts {
             if a.label.chars().count() > 11 || a.label.is_empty() {
                 bail!("alert {}: the label is one to eleven characters", a.entity);
@@ -424,7 +457,7 @@ impl File {
         }
         for (name, layout) in &self.layouts {
             for (region, r) in layout {
-                r.area().check().with_context(|| format!("layout {name}, region {region}"))?;
+                r.area().check(self.size()).with_context(|| format!("layout {name}, region {region}"))?;
             }
         }
         for (name, t) in &self.tiles {
@@ -753,6 +786,18 @@ pages:
             let errors: Vec<String> = v.iter_errors(&as_json(&text)).map(|e| e.to_string()).collect();
             assert!(errors.is_empty(), "{name}: {errors:?}");
         }
+    }
+
+    #[test]
+    fn the_panel_size_is_configurable() {
+        let wide = BASE.replace("target: wled.local\n", "target: wled.local\nwidth: 128\nheight: 64\n");
+        let m = load(&wide.replace("width: 64, height: 64", "width: 128, height: 64")).unwrap();
+        assert_eq!((m.width, m.height), (128, 64));
+        assert_eq!(m.alert_area.top_left, embedded_graphics::prelude::Point::new(53, 21), "centred on the panel");
+        assert_eq!(load(BASE).unwrap().alert_area.top_left, embedded_graphics::prelude::Point::new(21, 21));
+        let err = format!("{:#}", load(&wide.replace("width: 64, height: 64", "width: 129, height: 64")).unwrap_err());
+        assert!(err.contains("must fit the 128x64 panel"), "{err}");
+        assert!(load(&BASE.replace("target: wled.local\n", "target: wled.local\nwidth: 0\n")).is_err());
     }
 
     #[test]

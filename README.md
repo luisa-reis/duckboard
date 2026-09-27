@@ -1,7 +1,8 @@
 # panel-ddp
 
 Streams a dashboard (clock, date, weather, Home Assistant sensors, album art,
-picture frames) over DDP to a 64×64 WLED matrix.
+picture frames) over DDP to a WLED matrix, 64×64 unless the config says
+otherwise.
 
 ```sh
 cargo build --release

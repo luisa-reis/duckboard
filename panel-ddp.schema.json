@@ -7,6 +7,20 @@
       "description": "WLED host, \"host\" or \"host:port\".",
       "type": "string"
     },
+    "width": {
+      "description": "The panel's width in pixels; WLED must be set up as a matrix of the\nsame size.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0,
+      "default": 64
+    },
+    "height": {
+      "description": "The panel's height in pixels.",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0,
+      "default": 64
+    },
     "fps": {
       "type": "integer",
       "format": "uint32",
@@ -130,10 +144,13 @@
       "default": []
     },
     "alert_area": {
-      "description": "Where an alert centres its label.",
-      "allOf": [
+      "description": "Where an alert centres its label; a 22x22 square in the middle of\nthe panel when left out.",
+      "anyOf": [
         {
           "$ref": "#/definitions/Area"
+        },
+        {
+          "type": "null"
         }
       ]
     }

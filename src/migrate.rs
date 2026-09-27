@@ -5,7 +5,8 @@
 //! settings left at their defaults are left out. `same_drawing` checks the
 //! result against the original.
 
-use crate::canvas::{HEIGHT, WIDTH};
+// Older configs were for a 64x64 panel only.
+use crate::canvas::{DEFAULT_HEIGHT as HEIGHT, DEFAULT_WIDTH as WIDTH};
 use crate::config::{ArtCacheConfig, PageData, TileSpec, Units};
 use crate::legacy::{Background, Config, Regions, Slot, Tiles};
 use crate::model::Model;

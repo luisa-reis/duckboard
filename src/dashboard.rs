@@ -1,7 +1,7 @@
 //! Draws a page: its layers first to last, each over those before it where
 //! it draws, unless an alert takes the panel over.
 
-use crate::canvas::{Canvas, HEIGHT, WIDTH};
+use crate::canvas::Canvas;
 use crate::config::Alert;
 use crate::model::Page;
 use crate::palette::{Rgba, BLACK};
@@ -24,7 +24,7 @@ fn alert(a: &Alert, area: Rectangle, c: &mut Canvas, ctx: &Ctx) {
     let period = (a.pulse_seconds * ctx.fps as f32).max(1.0);
     let phase = (ctx.frame as f32 % period) / period * std::f32::consts::TAU;
     let alpha = 0.35 + 0.35 * (0.5 + 0.5 * phase.cos());
-    let _ = Rectangle::new(Point::zero(), Size::new(WIDTH, HEIGHT))
+    let _ = Rectangle::new(Point::zero(), c.size())
         .into_styled(PrimitiveStyle::with_fill(a.color.scaled(alpha)))
         .draw(c);
     let cx = area.top_left.x + area.size.width as i32 / 2;

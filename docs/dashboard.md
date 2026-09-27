@@ -1,6 +1,7 @@
 # Dashboard over DDP
 
-`panel-ddp` is a Rust program that draws a dashboard for a 64×64 WLED matrix
+`panel-ddp` is a Rust program that draws a dashboard for a WLED matrix (64×64
+unless the config says otherwise)
 and streams it to the board over DDP (Distributed Display Protocol, UDP port 4048), which
 WLED listens on out of the box. Nothing is installed on the board: WLED shows
 what arrives as realtime input and drops back to its presets a couple of
@@ -15,7 +16,7 @@ One YAML file drives the panel, `dashboard.yaml` by default: copy
 `dashboard.example.yaml` and edit it. It names its parts and refers to them
 by name:
 
-- **layouts** — named regions of the 64×64 panel, each an `x`, `y`,
+- **layouts** — named regions of the panel, each an `x`, `y`,
   `width` and `height` in pixels and a `z` (default 0);
 - **tiles** — what a region shows: a kind and its settings, and optionally
   a colour `scheme` and `colors` of its own;
@@ -249,6 +250,12 @@ target/release/panel-ddp run > panel-ddp.log 2>&1 &` is enough.
 
 `target` is the board; the rest is optional:
 
+- `width` and `height` (default 64 each, up to 1024) — the panel, in
+  pixels. WLED on the board must be set up as a 2D matrix of the same size:
+  DDP has no way to tell the sender the board's size, so a mismatch comes
+  out scrambled or cut off. Every region must fit, and a frame takes more
+  packets on a bigger panel (18 for 128×64). Changed while running, they
+  take effect at the next start.
 - `fps` (default 10) — frames per second.
 - `gamma` (default 2.2) — applied to pictures before they are sent. WLED
   gamma-corrects its own effects and GIFs but not streamed frames, and the
@@ -261,7 +268,8 @@ target/release/panel-ddp run > panel-ddp.log 2>&1 &` is enough.
   degrees, converted when Home Assistant reports the other unit.
 - `gaps` (default `2d-gaps.json`) — a copy of the board's WLED gap file (one
   value per pixel, 1 for shown), used only by `preview` to grey out the
-  pixels the panel hides. Without it the preview shows the whole 64×64.
+  pixels the panel hides; it must have a value for every pixel. Without it
+  the preview shows the whole panel.
   `2d-gaps.json` is git-ignored; `2d-gaps.example.json` is a sample that
   hides the four corners.
 - `secrets` (default `secrets.yaml`) — the secrets file, below.
@@ -278,7 +286,8 @@ target/release/panel-ddp run > panel-ddp.log 2>&1 &` is enough.
   `max_megabytes` (default 4; 0 disables) and `keep_originals` (default
   false). See Running.
 - `page_seconds` (default 10) — how long a page shows unless it says.
-- `alert_area` — where an alert centres its label (default the 22×22 middle).
+- `alert_area` — where an alert centres its label (default a 22×22 square
+  in the middle of the panel).
 
 ### Secrets
 
@@ -464,7 +473,7 @@ target/release/panel-ddp run --config demo.yaml --target <board>   # the demo; -
 target/release/panel-ddp preview --out preview.png  # the first page from sample data, mask applied
 target/release/panel-ddp preview --weather-code 95  # check an icon (add 1000 for night)
 target/release/panel-ddp preview --alert            # the alert view
-target/release/panel-ddp test <board-ip>            # colour bars, ramp, counter, bouncing dot
+target/release/panel-ddp test <board-ip>            # colour bars, ramp, counter, bouncing dot; --size 128x64 for another panel
 target/release/panel-ddp render --config demo.yaml --out /tmp/r   # every frame's hash, no network
 target/release/panel-ddp check dashboard.yaml demo.yaml   # load each, say what it holds or what is wrong
 target/release/panel-ddp schema                         # the YAML file's JSON Schema
