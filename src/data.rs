@@ -25,15 +25,19 @@ pub struct Snapshot {
 
 impl Snapshot {
     /// Made-up data for previews and demos that must not touch the network:
-    /// every sensor the config names sweeps 0..100 over `SWEEP_FRAMES` and
-    /// holds full for a moment, and a gradient plays as album art.
+    /// every sensor the config names sweeps 0..100 over `SWEEP_SECONDS` and
+    /// holds full for `HOLD_SECONDS`, alerts raise for five seconds of every
+    /// thirty, and a gradient plays as album art. Timed in seconds, so it
+    /// runs the same at any frame rate.
     pub fn sample(cfg: &Model, frame: u32) -> Self {
-        const SWEEP_FRAMES: u32 = 150;
-        const HOLD_FRAMES: u32 = 30;
-        let t = frame % (SWEEP_FRAMES + HOLD_FRAMES);
-        let value = (t.min(SWEEP_FRAMES) as f64 * 100.0 / SWEEP_FRAMES as f64 * 10.0).round() / 10.0;
-        // Alerts raise for five seconds of every thirty, at 10 fps.
-        let alert_on = (frame % 300) >= 50 && (frame % 300) < 100;
+        const SWEEP_SECONDS: u32 = 15;
+        const HOLD_SECONDS: u32 = 3;
+        let fps = cfg.fps.max(1);
+        let (sweep, hold) = (SWEEP_SECONDS * fps, HOLD_SECONDS * fps);
+        let t = frame % (sweep + hold);
+        let value = (t.min(sweep) as f64 * 100.0 / sweep as f64 * 10.0).round() / 10.0;
+        let s = frame % (30 * fps);
+        let alert_on = s >= 5 * fps && s < 10 * fps;
         let mut sensors: HashMap<String, Sensor> = cfg
             .sensor_entities()
             .into_iter()

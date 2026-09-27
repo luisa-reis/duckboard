@@ -79,14 +79,20 @@ With `sources.weather`, which is just a location:
 
 With `sources.spotify`, or a Home Assistant `media_player`:
 
-- `now_playing` — artist and title, scrolling when wider than the tile, blank
-  while nothing plays.
+- `now_playing` — artist and title, scrolling at 5 pixels a second when
+  wider than the tile, blank while nothing plays.
 - `art` — the album art. `shape` is `disc` (a record with a spindle hole,
   the default), `square` (the whole cover) or `faded` (the whole cover with
   the corners outside the circle dimmed at `corner_alpha`, default 0.3);
-  `spin: true` turns it while playing; `paused_alpha` (default 0.4) dims it
-  while paused; `alpha` (default 1) blends it over what is under it; `idle`
-  is `ripple` (the default, a faint ripple while there is no art) or `none`.
+  `spin: true` turns it while playing, once every 8 seconds;
+  `paused_alpha` (default 0.4) dims it while paused; `alpha` (default 1)
+  blends it over what is under it; `idle` is `ripple` (the default, a faint
+  ripple from the middle, a step every 0.4 seconds, while there is no art)
+  or `none`.
+
+Every animation keeps its speed at any `fps`: the scrolling, the spin, the
+ripple, the seconds ring, sweeping page values and the alert pulse all go by
+the time, so a higher frame rate only makes them smoother.
 
 With `sources.home_assistant`:
 

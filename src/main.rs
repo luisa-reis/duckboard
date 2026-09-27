@@ -416,7 +416,8 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     if test {
         testframe::draw(&mut canvas, 0);
     } else {
-        let mut data = data::Snapshot::sample(&cfg, if alert_preview { 60 } else { 0 });
+        // Six seconds in, an alert of the made-up data is up.
+        let mut data = data::Snapshot::sample(&cfg, if alert_preview { 6 * cfg.fps } else { 0 });
         if let (Some(code), Some(w)) = (weather_code, data.weather.as_mut()) {
             w.code = code;
             w.is_day = code < 1000;

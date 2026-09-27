@@ -31,11 +31,23 @@ pub struct Ctx<'a> {
     pub picture: Option<&'a Scaled>,
 }
 
+impl Ctx<'_> {
+    /// Time since the run started, in milliseconds, from the frame and the
+    /// frame rate: what animations go by, so they keep their speed at any
+    /// rate.
+    pub fn elapsed_ms(&self) -> u64 {
+        self.frame as u64 * 1000 / self.fps.max(1) as u64
+    }
+}
+
+/// How fast text too wide for its tile scrolls, in pixels a second.
+const SCROLL_PX_PER_SECOND: u64 = 5;
+
 pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Palette) {
     match *spec {
         TileSpec::Art { shape, spin, paused_alpha, corner_alpha, alpha, idle } => {
             let style = art::Style { shape, spin, paused_alpha, corner_alpha, alpha, idle };
-            return art::draw(&style, c, area, ctx.data, ctx.frame, p);
+            return art::draw(&style, c, area, ctx, p);
         }
         TileSpec::Picture { alpha } => return art::picture(c, area, ctx.picture, alpha),
         _ => {}
@@ -247,7 +259,7 @@ fn progress<D: DrawTarget<Color = Rgba>>(
 }
 
 /// Text on one line, scrolling left when wider than the tile.
-fn marquee<D: DrawTarget<Color = Rgba>>(t: &mut D, text: &str, area: Rectangle, top: i32, frame: u32, colour: Rgba) {
+fn marquee<D: DrawTarget<Color = Rgba>>(t: &mut D, text: &str, area: Rectangle, top: i32, ctx: &Ctx, colour: Rgba) {
     let style = MonoTextStyle::new(&FONT_4X6, colour);
     let o = area.top_left;
     let w = text_width(text, 4);
@@ -257,7 +269,7 @@ fn marquee<D: DrawTarget<Color = Rgba>>(t: &mut D, text: &str, area: Rectangle, 
         return;
     }
     let gap = 12;
-    let offset = (frame / 2) as i32 % (w + gap);
+    let offset = (ctx.elapsed_ms() * SCROLL_PX_PER_SECOND / 1000 % (w + gap) as u64) as i32;
     let ts = TextStyleBuilder::new().alignment(Alignment::Left).baseline(Baseline::Top).build();
     for start in [o.x - offset, o.x - offset + w + gap] {
         let _ = Text::with_text_style(text, Point::new(start, top), style, ts).draw(t);
@@ -270,6 +282,6 @@ fn now_playing<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ct
         centred(t, "--", cx, top + 8, MonoTextStyle::new(&FONT_6X10, p.track));
         return;
     };
-    marquee(t, &m.artist, area, top + 4, ctx.frame, p.label);
-    marquee(t, &m.title, area, top + 13, ctx.frame, p.text);
+    marquee(t, &m.artist, area, top + 4, ctx, p.label);
+    marquee(t, &m.title, area, top + 13, ctx, p.text);
 }
