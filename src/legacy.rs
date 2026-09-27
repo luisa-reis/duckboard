@@ -489,8 +489,8 @@ impl Config {
                 anyhow::bail!("sensor and progress tiles, and alerts, need the [home_assistant] table");
             }
         }
-        if cfg.frame.seconds.is_nan() || cfg.frame.seconds <= 0.0 || !(0.0..=1.0).contains(&cfg.frame.alpha) {
-            anyhow::bail!("[frame] seconds must be positive and alpha between 0 and 1");
+        if cfg.frame.seconds.is_nan() || cfg.frame.seconds <= 0.0 {
+            anyhow::bail!("[frame] seconds must be positive");
         }
         for a in &cfg.alerts {
             if a.label.chars().count() > 11 || a.label.is_empty() {

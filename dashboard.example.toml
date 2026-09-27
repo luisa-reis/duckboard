@@ -149,10 +149,10 @@ keep_originals = false
 #                           # sensors = { "sensor.x" = { state = "29", unit = "°C" } }
 #                           # or { sweep = [0, 100] }, cover = 0 (newest cached)
 
-# Picture frame mode, `panel-ddp frame`: the pictures in dir, each for
-# seconds, filling the panel. These are the defaults.
+# The pictures in dir, each for seconds, for a background of kind "frame"
+# (a picture frame: that background at alpha 1.0, every tile blank). These
+# are the defaults.
 # [frame]
 # dir = "frame"
 # seconds = 10.0
 # shuffle = false
-# alpha = 1.0

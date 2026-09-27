@@ -369,7 +369,6 @@ impl File {
             dir: rel(pictures.as_ref().map_or_else(default_pictures_dir, |p| p.dir.clone())),
             seconds: pictures.as_ref().map_or_else(default_pictures_seconds, |p| p.seconds),
             shuffle: pictures.as_ref().is_some_and(|p| p.shuffle),
-            alpha: 1.0,
         };
         let mut art_cache = self.art_cache;
         art_cache.dir = rel(art_cache.dir);

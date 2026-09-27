@@ -1,7 +1,6 @@
 //! panel-ddp: draws dashboard frames and streams them to a WLED matrix.
 //!
 //!     panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
-//!     panel-ddp frame [--config FILE] [--once]
 //!     panel-ddp preview [--config FILE] [--out FILE] [--test | --alert]
 //!     panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
 //!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
@@ -65,7 +64,6 @@ fn stop_flag() -> Arc<AtomicBool> {
 
 const USAGE: &str = "usage:
   panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
-  panel-ddp frame [--config FILE] [--once]
   panel-ddp preview [--config FILE] [--out FILE] [--test | --weather-code N | --alert]
   panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
   panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
@@ -380,30 +378,6 @@ fn cmd_run(args: &[String]) -> Result<()> {
     result
 }
 
-fn cmd_frame(args: &[String]) -> Result<()> {
-    let mut config = PathBuf::from(DEFAULT_CONFIG);
-    let mut once = false;
-    let mut it = args.iter();
-    while let Some(a) = it.next() {
-        match a.as_str() {
-            "--config" => config = it.next().context("--config needs a file")?.into(),
-            "--once" => once = true,
-            o => bail!("unknown option {o}"),
-        }
-    }
-    let cfg = model::load(&config)?;
-    let frame = frame::Frame::new(&cfg, &[embedded_graphics::prelude::Size::new(canvas::WIDTH, canvas::HEIGHT)])?;
-    let s = Stream {
-        target: ddp::target_with_default_port(&cfg.target),
-        fps: cfg.fps,
-        frames: once.then_some(frame.total_frames()),
-    };
-    stream(&s, |c, f| {
-        frame.draw(c, f);
-        true
-    })
-}
-
 fn cmd_preview(args: &[String]) -> Result<()> {
     let mut config = PathBuf::from(DEFAULT_CONFIG);
     let mut out = PathBuf::from("preview.png");
@@ -547,7 +521,6 @@ fn main() {
     };
     let result = match cmd {
         "run" => cmd_run(rest),
-        "frame" => cmd_frame(rest),
         "preview" => cmd_preview(rest),
         "render" => cmd_render(rest),
         "test" => cmd_test(rest),

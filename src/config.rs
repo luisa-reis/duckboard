@@ -48,7 +48,7 @@ pub struct SensorData {
     pub unit: Option<String>,
 }
 
-/// Picture frame mode: a folder of pictures shown in turn.
+/// A folder of pictures shown in turn by picture tiles.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FrameConfig {
@@ -61,8 +61,6 @@ pub struct FrameConfig {
     /// Random order, reshuffled at each start; else by file name.
     #[serde(default)]
     pub shuffle: bool,
-    #[serde(default = "default_frame_alpha")]
-    pub alpha: f32,
 }
 
 fn default_frame_dir() -> PathBuf {
@@ -73,13 +71,9 @@ fn default_frame_seconds() -> f32 {
     10.0
 }
 
-fn default_frame_alpha() -> f32 {
-    1.0
-}
-
 impl Default for FrameConfig {
     fn default() -> Self {
-        Self { dir: default_frame_dir(), seconds: default_frame_seconds(), shuffle: false, alpha: default_frame_alpha() }
+        Self { dir: default_frame_dir(), seconds: default_frame_seconds(), shuffle: false }
     }
 }
 

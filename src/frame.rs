@@ -1,9 +1,7 @@
-//! Picture frame mode: the pictures in a folder, one after another, filling
-//! the panel, nothing else drawn. Each is decoded once,
-//! cropped to square, scaled to the panel and gamma-corrected like album
-//! art.
+//! The `[frame]` pictures: a folder of pictures shown one after another by
+//! picture tiles. Each is decoded once, at every size a picture tile shows
+//! it at, cropped to that shape and gamma-corrected like album art.
 
-use crate::canvas::{Canvas, HEIGHT, WIDTH};
 use crate::model::Model;
 use crate::picture::{self, Scaled};
 use embedded_graphics::prelude::Size;
@@ -13,7 +11,6 @@ use std::path::{Path, PathBuf};
 pub struct Frame {
     pictures: Vec<(PathBuf, Scaled)>,
     frames_each: u32,
-    alpha: f32,
 }
 
 impl Frame {
@@ -42,7 +39,7 @@ impl Frame {
             bail!("no pictures in {}", f.dir.display());
         }
         eprintln!("panel-ddp: frame: {} pictures from {}", pictures.len(), f.dir.display());
-        Ok(Self { pictures, frames_each: ((f.seconds * cfg.fps as f32).round() as u32).max(1), alpha: f.alpha })
+        Ok(Self { pictures, frames_each: ((f.seconds * cfg.fps as f32).round() as u32).max(1) })
     }
 
     pub fn len(&self) -> usize {
@@ -54,9 +51,6 @@ impl Frame {
         &self.pictures[i % self.pictures.len()].1
     }
 
-    pub fn total_frames(&self) -> u32 {
-        self.frames_each * self.pictures.len() as u32
-    }
 
     /// The picture due at `frame`.
     pub fn picture(&self, frame: u32) -> &Scaled {
@@ -64,15 +58,6 @@ impl Frame {
         &self.pictures[i].1
     }
 
-    pub fn draw(&self, c: &mut Canvas, frame: u32) {
-        let Some(full) = self.picture(frame).at(Size::new(WIDTH, HEIGHT)) else { return };
-        for j in 0..(WIDTH * HEIGHT) as usize {
-            let p = &full[j * 3..j * 3 + 3];
-            c.px[j * 3] = (p[0] as f32 * self.alpha) as u8;
-            c.px[j * 3 + 1] = (p[1] as f32 * self.alpha) as u8;
-            c.px[j * 3 + 2] = (p[2] as f32 * self.alpha) as u8;
-        }
-    }
 }
 
 fn is_picture(p: &Path) -> bool {

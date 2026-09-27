@@ -313,10 +313,11 @@ corners of the faded shape; the background has its `alpha`.
 
 ## Picture frame
 
-`panel-ddp frame` shows the pictures in a folder one after another, filling
-the panel with nothing drawn over them, each cropped to
-square, scaled to the panel and gamma-corrected like album art. It loops
-until Ctrl-C, or `--once` plays the folder through once. The folder and
+The pictures in a folder, one after another, each cropped to its area,
+scaled and gamma-corrected like album art. A picture frame is a page that
+shows them across the panel with nothing over them: the background set to
+`{ kind = "frame", alpha = 1.0 }` and every tile blank, or, in a YAML
+config, a `picture` tile in a region covering the panel. The folder and
 pacing are in `[frame]`, with these defaults:
 
 ```toml
@@ -324,7 +325,6 @@ pacing are in `[frame]`, with these defaults:
 dir = "frame"        # relative to the config; .jpg, .jpeg and .png files
 seconds = 10.0       # each picture
 shuffle = false      # random order, reshuffled at each start; else by file name
-alpha = 1.0
 ```
 
 Pictures with a bright subject on black suit the panel best. `frame/` is
@@ -418,7 +418,6 @@ target/release/panel-ddp run                        # dashboard.toml, until Ctrl
 target/release/panel-ddp run --config other.toml --frames 100
 target/release/panel-ddp run --sample                 # made-up data, sensors sweep 0..100: a demo of the layout
 target/release/panel-ddp run --config demo.json --target <board>   # the demo; --once for a single pass
-target/release/panel-ddp frame                        # the pictures in [frame].dir, looping; --once for one pass
 target/release/panel-ddp preview --out preview.png  # one frame from sample data, mask applied
 target/release/panel-ddp preview --weather-code 95  # check an icon (add 1000 for night)
 target/release/panel-ddp preview --alert            # the alert view
