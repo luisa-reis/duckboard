@@ -319,6 +319,29 @@ fn one() -> f32 {
     1.0
 }
 
+impl TileSpec {
+    /// The checks a tile's own settings must pass, whatever the sources.
+    pub fn check(&self) -> anyhow::Result<()> {
+        match self {
+            TileSpec::Progress { max, label, .. } if max.is_nan() || *max <= 0.0 => {
+                anyhow::bail!("progress tile {label}: max must be positive")
+            }
+            TileSpec::Clock { dot_size, .. } if !(1..=12).contains(dot_size) => {
+                anyhow::bail!("clock dot_size must be between 1 and 12")
+            }
+            TileSpec::Art { paused_alpha, corner_alpha, alpha, .. }
+                if ![paused_alpha, corner_alpha, alpha].iter().all(|a| (0.0..=1.0).contains(*a)) =>
+            {
+                anyhow::bail!("art tile alphas must be between 0 and 1")
+            }
+            TileSpec::Picture { alpha } if !(0.0..=1.0).contains(alpha) => {
+                anyhow::bail!("picture tile alpha must be between 0 and 1")
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
 /// What an art tile shows while there is no art.
 #[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

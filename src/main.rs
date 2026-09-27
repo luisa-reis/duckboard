@@ -25,6 +25,7 @@ mod config;
 mod dashboard;
 mod data;
 mod ddp;
+mod format;
 mod frame;
 mod ha;
 mod icons;
@@ -144,7 +145,7 @@ fn cmd_spotify_login(args: &[String]) -> Result<()> {
             o => bail!("unknown option {o}"),
         }
     }
-    let cfg = legacy::load(&config)?;
+    let cfg = model::load(&config)?;
     let sp = cfg.spotify.as_ref().context("the config has no [spotify] table")?;
     spotify::login(sp, port)
 }
@@ -244,7 +245,7 @@ fn cmd_run(args: &[String]) -> Result<()> {
             o => bail!("unknown option {o}"),
         }
     }
-    let cfg = legacy::load(&config)?;
+    let cfg = model::load(&config)?;
     if cfg.spotify.is_some() && cfg.home_assistant.as_ref().is_some_and(|h| h.media_player.is_some()) {
         eprintln!("panel-ddp: both [spotify] and [home_assistant].media_player are set; Spotify feeds the hub");
     }
@@ -287,7 +288,7 @@ fn cmd_frame(args: &[String]) -> Result<()> {
             o => bail!("unknown option {o}"),
         }
     }
-    let cfg = legacy::load(&config)?;
+    let cfg = model::load(&config)?;
     let frame = frame::Frame::new(&cfg, &[embedded_graphics::prelude::Size::new(canvas::WIDTH, canvas::HEIGHT)])?;
     let s = Stream {
         target: ddp::target_with_default_port(&cfg.target),
@@ -321,7 +322,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
             o => bail!("unknown option {o}"),
         }
     }
-    let cfg = legacy::load(&config)?;
+    let cfg = model::load(&config)?;
     let mask = if cfg.gaps.exists() {
         Mask::load(&cfg.gaps)?
     } else {
@@ -375,7 +376,7 @@ fn cmd_render(args: &[String]) -> Result<()> {
         }
     }
     let out = out.context("render needs --out DIR")?;
-    let cfg = legacy::load(&config)?;
+    let cfg = model::load(&config)?;
     let show = Show::new(&cfg)?;
     let start = chrono::DateTime::from_timestamp(at, 0).context("--at is out of range")?;
     let frames = frames

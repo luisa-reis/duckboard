@@ -632,23 +632,7 @@ impl HubSpec {
 /// The checks that do not depend on which sources are configured.
 fn validate_tiles(t: &Tiles) -> Result<()> {
     for e in [&t.top_left, &t.top_right, &t.bottom_left, &t.bottom_right] {
-        match &e.spec {
-            TileSpec::Progress { max, label, .. } if max.is_nan() || *max <= 0.0 => {
-                anyhow::bail!("progress tile {label}: max must be positive")
-            }
-            TileSpec::Clock { dot_size, .. } if !(1..=12).contains(dot_size) => {
-                anyhow::bail!("clock dot_size must be between 1 and 12")
-            }
-            TileSpec::Art { paused_alpha, corner_alpha, alpha, .. }
-                if ![paused_alpha, corner_alpha, alpha].iter().all(|a| (0.0..=1.0).contains(*a)) =>
-            {
-                anyhow::bail!("art tile alphas must be between 0 and 1")
-            }
-            TileSpec::Picture { alpha } if !(0.0..=1.0).contains(alpha) => {
-                anyhow::bail!("picture tile alpha must be between 0 and 1")
-            }
-            _ => {}
-        }
+        e.spec.check()?;
     }
     let hub_has_art = matches!(t.hub.spec, HubSpec::Media { .. });
     if let HubSpec::Media { paused_alpha, corner_alpha, .. } = t.hub.spec {

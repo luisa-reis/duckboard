@@ -34,6 +34,9 @@ Context for Claude Code sessions working on panel-ddp.
 
 - `src/main.rs` — CLI (`run`, `frame`, `preview`, `test`, `spotify-login`).
 - `src/model.rs` — the resolved configuration everything works from.
+- `src/format.rs` — the YAML configuration file (`.yaml`/`.yml`): named
+  schemes, layouts, tiles, pages, playlists and a schedule, resolved into
+  the model with errors that name the page and region.
 - `src/legacy.rs` — today's TOML/JSON files, read into the model.
 - `src/config.rs` — building blocks shared by any format (sources, alerts,
   tile kinds, page data).

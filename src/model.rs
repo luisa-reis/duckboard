@@ -11,6 +11,15 @@ use crate::palette::Palette;
 use embedded_graphics::{prelude::*, primitives::Rectangle};
 use std::path::PathBuf;
 
+/// Reads a configuration file: YAML for `.yaml` or `.yml`, else one of
+/// today's TOML or JSON files.
+pub fn load(path: &std::path::Path) -> anyhow::Result<Model> {
+    match path.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).as_deref() {
+        Some("yaml" | "yml") => crate::format::load(path),
+        _ => crate::legacy::load(path),
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Model {
     /// WLED host, "host" or "host:port".
