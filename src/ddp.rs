@@ -17,6 +17,8 @@ const DEST_DEFAULT: u8 = 0x01;
 /// Longest data payload a packet may carry (480 pixels): DDP's limit, and it
 /// keeps each datagram under a 1500-byte MTU with the header.
 const MAX_DATA: usize = 1440;
+/// Bytes per pixel; packets split between pixels.
+const PIXEL: usize = 3;
 
 pub struct DdpSender {
     sock: UdpSocket,
@@ -42,9 +44,7 @@ impl DdpSender {
     /// push flag, so WLED shows the frame once all of it has arrived.
     pub fn send_frame(&mut self, rgb: &[u8]) -> std::io::Result<()> {
         let mut packet = Vec::with_capacity(HEADER + MAX_DATA);
-        let mut offset = 0usize;
-        while offset < rgb.len() {
-            let len = (rgb.len() - offset).min(MAX_DATA);
+        for (offset, len) in chunks(rgb.len()) {
             let last = offset + len >= rgb.len();
             packet.clear();
             packet.push(VER1 | if last { PUSH } else { 0 });
@@ -55,12 +55,26 @@ impl DdpSender {
             packet.extend_from_slice(&(len as u16).to_be_bytes());
             packet.extend_from_slice(&rgb[offset..offset + len]);
             self.sock.send_to(&packet, self.target)?;
-            offset += len;
         }
         // Sequence numbers run 1..=15; 0 means "not used".
         self.seq = if self.seq >= 15 { 1 } else { self.seq + 1 };
         Ok(())
     }
+}
+
+/// Where each packet's data starts in a frame of `len` bytes, and how long
+/// it is. As few packets as DDP's limit allows, sharing the frame evenly and
+/// splitting between pixels, rather than full packets and a short last one:
+/// a 64x64 frame is nine packets of 1368 bytes but the last, 1406-byte
+/// datagrams that cross links with an MTU down to that (a VPN tunnel's is
+/// often 1420) without being fragmented.
+fn chunks(len: usize) -> Vec<(usize, usize)> {
+    if len == 0 {
+        return Vec::new();
+    }
+    let packets = len.div_ceil(MAX_DATA);
+    let each = len.div_ceil(packets).div_ceil(PIXEL) * PIXEL;
+    (0..len).step_by(each).map(|offset| (offset, each.min(len - offset))).collect()
 }
 
 /// Resolves "host" or "host:port" into a target string, defaulting the port.
@@ -69,5 +83,29 @@ pub fn target_with_default_port(host: &str) -> String {
         host.to_string()
     } else {
         format!("{host}:4048")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn frames_split_evenly_between_pixels() {
+        let frame = 64 * 64 * 3;
+        let c = chunks(frame);
+        assert_eq!(c.len(), 9, "as many packets as full ones would take");
+        assert!(c.iter().all(|&(o, l)| o % PIXEL == 0 && l % PIXEL == 0 && l <= MAX_DATA));
+        assert_eq!(c[0], (0, 1368));
+        assert_eq!(c[8], (8 * 1368, 1344));
+        assert_eq!(c.iter().map(|&(_, l)| l).sum::<usize>(), frame);
+        assert!(c.windows(2).all(|w| w[0].0 + w[0].1 == w[1].0), "contiguous");
+        assert_eq!(HEADER + 1368 + 8 + 20, 1406, "the largest IP datagram");
+        for len in [3, 1440, 1443, 30000] {
+            let c = chunks(len);
+            assert_eq!(c.len(), len.div_ceil(MAX_DATA));
+            assert_eq!(c.iter().map(|&(_, l)| l).sum::<usize>(), len);
+        }
+        assert!(chunks(0).is_empty());
     }
 }

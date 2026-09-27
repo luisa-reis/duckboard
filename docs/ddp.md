@@ -112,14 +112,19 @@ branch, September 2026):
 - The canvas is 64×64 RGB, 12,288 bytes, in row-major order: pixel
   (x, y) is at byte `(y × 64 + x) × 3`. The board's 2D settings map that
   to the physical LEDs.
-- A frame goes out as nine packets: eight of 1,440 bytes and one of 768.
-  Only the last has the push flag, so WLED shows the frame once all of it
-  is in.
+- A frame goes out as nine packets, the fewest the 1,440-byte limit
+  allows, sharing it evenly and split between pixels: eight of 1,368 bytes
+  and one of 1,344, rather than eight full ones and a short last one. The
+  largest datagram is then 1,406 bytes, which crosses a link with a smaller
+  MTU than Ethernet's, such as a VPN tunnel's 1,420, without being
+  fragmented; a fragmented packet is lost if either half is, and the board
+  has to put it back together. Only the last packet has the push flag, so
+  WLED shows the frame once all of it is in.
 
   | Packet | Offset | Length | Flags         |
   |--------|--------|--------|---------------|
-  | 1–8    | 0, 1440, … 10080 | 1440 | `0x40` |
-  | 9      | 11520  | 768    | `0x41` (push) |
+  | 1–8    | 0, 1368, … 9576 | 1368 | `0x40` |
+  | 9      | 10944  | 1344   | `0x41` (push) |
 
 - Type `0x0B` (RGB, 8 bits), ID 1.
 - The sequence number goes up once per frame, not per packet: all nine
@@ -172,6 +177,12 @@ is 90 packets and about 126 KB a second (1 Mbit/s); 30 fps is about
 - **Payload per packet.** 1,440 bytes, 480 RGB pixels, so a 64×64 frame
   always takes nine packets; a larger matrix takes more, and a 128×128
   panel would need 35 per frame.
+- **Fragmentation.** A datagram bigger than a link's MTU is split into IP
+  fragments, and losing any one loses the packet. A full DDP packet is
+  1,478 bytes on the wire; a VPN tunnel typically carries 1,420 at most.
+  `panel-ddp` keeps under 1,406, but a board reached through a tunnel still
+  gets its latency and jitter: best on the same network, or with the sender
+  beside it.
 
 ## References
 
