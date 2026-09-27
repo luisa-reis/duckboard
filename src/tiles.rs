@@ -1,7 +1,7 @@
 //! The tiles, each drawn into its region (24x24 by default); anything that
 //! would spill over is clipped to it. A tile's content is laid out for 24
 //! pixels of height and centred in taller or shorter regions; widths follow
-//! the region. Colours come from the palette in the context, by role.
+//! the region. Colours come from the layer's palette, by role.
 
 use crate::art;
 use crate::canvas::Canvas;
@@ -24,7 +24,6 @@ pub struct Ctx<'a> {
     pub now: DateTime<Local>,
     pub frame: u32,
     pub data: &'a Snapshot,
-    pub palette: &'a Palette,
     pub temperature: Units,
     /// Frames per second, for anything timed in seconds.
     pub fps: u32,

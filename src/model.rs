@@ -6,7 +6,7 @@
 use crate::config::{
     Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, PageData, SpotifyConfig, TileSpec, Units, WeatherConfig,
 };
-use crate::palette::Overrides;
+use crate::palette::Palette;
 use embedded_graphics::{prelude::*, primitives::Rectangle};
 use std::path::PathBuf;
 
@@ -20,8 +20,6 @@ pub struct Model {
     pub temperature: Units,
     /// Gap file for previews; it need not exist.
     pub gaps: PathBuf,
-    /// Colour roles for every layer; a layer's own `colors` win.
-    pub colors: Overrides,
     pub weather: Option<WeatherConfig>,
     pub spotify: Option<SpotifyConfig>,
     pub home_assistant: Option<HomeAssistantConfig>,
@@ -46,12 +44,12 @@ pub struct Page {
     pub data: PageData,
 }
 
-/// A tile in an area of the panel.
+/// A tile in an area of the panel, with the colours it draws in.
 #[derive(Debug, Clone)]
 pub struct Layer {
     pub area: Rectangle,
     pub tile: TileSpec,
-    pub colors: Overrides,
+    pub palette: Palette,
 }
 
 impl Page {

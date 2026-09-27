@@ -44,7 +44,7 @@ use canvas::Canvas;
 use ddp::DdpSender;
 use mask::Mask;
 use model::Model;
-use palette::{Palette, Rgba};
+use palette::Rgba;
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -171,13 +171,12 @@ fn frame_pictures(cfg: &Model) -> Result<Option<frame::Frame>> {
     }
 }
 
-/// What a run draws from, set up once: the pages, the `[frame]` pictures
-/// and the palette.
+/// What a run draws from, set up once: the pages and the `[frame]`
+/// pictures.
 struct Show<'a> {
     cfg: &'a Model,
     pages: pages::Pages,
     pictures: Option<frame::Frame>,
-    palette: Palette,
 }
 
 impl<'a> Show<'a> {
@@ -187,7 +186,7 @@ impl<'a> Show<'a> {
         if let Some(total) = pages.total_frames() {
             eprintln!("panel-ddp: {} pages, one pass is {:.0} s", cfg.pages.len(), total as f32 / cfg.fps as f32);
         }
-        Ok(Self { cfg, pages, pictures, palette: Palette::default().with(&cfg.colors) })
+        Ok(Self { cfg, pages, pictures })
     }
 
     /// Frames in one pass through the pages, unless a page stays for good.
@@ -209,7 +208,6 @@ impl<'a> Show<'a> {
             now,
             frame,
             data,
-            palette: &self.palette,
             temperature: self.cfg.temperature,
             fps: self.cfg.fps,
             picture,

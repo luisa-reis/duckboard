@@ -10,7 +10,7 @@ use crate::config::{
     HomeAssistantConfig, Idle, PageData, Seconds, SpotifyConfig, TileSpec, Units, WeatherConfig,
 };
 use crate::model::{self, Layer, Model};
-use crate::palette::Overrides;
+use crate::palette::{Overrides, Palette};
 use anyhow::{Context, Result};
 use embedded_graphics::{prelude::*, primitives::Rectangle};
 use serde::Deserialize;
@@ -539,12 +539,14 @@ impl Config {
 
 impl Config {
     fn into_model(self) -> Model {
+        // `[colors]` for every tile, a tile's own `colors` over them.
+        let base = Palette::default().with(&self.colors);
         let pages = if self.pages.is_empty() {
-            vec![model::Page { seconds: None, layers: layers(&self.tiles, &self.regions), data: PageData::default() }]
+            vec![model::Page { seconds: None, layers: layers(&self.tiles, &self.regions, base), data: PageData::default() }]
         } else {
             self.pages
                 .iter()
-                .map(|p| model::Page { seconds: Some(p.seconds), layers: layers(&p.tiles(), &self.regions), data: p.data.clone() })
+                .map(|p| model::Page { seconds: Some(p.seconds), layers: layers(&p.tiles(), &self.regions, base), data: p.data.clone() })
                 .collect()
         };
         Model {
@@ -553,7 +555,6 @@ impl Config {
             gamma: self.gamma,
             temperature: self.temperature,
             gaps: self.gaps,
-            colors: self.colors,
             weather: self.weather,
             spotify: self.spotify,
             home_assistant: self.home_assistant,
@@ -572,7 +573,7 @@ impl Config {
 /// the hub in their regions, in drawing order. The background is a square
 /// art tile at its alpha that neither dims when paused nor ripples, or a
 /// picture tile; the hub is an art tile or blank.
-fn layers(tiles: &Tiles, regions: &Regions) -> Vec<Layer> {
+fn layers(tiles: &Tiles, regions: &Regions, base: Palette) -> Vec<Layer> {
     let panel = Rectangle::new(Point::zero(), Size::new(WIDTH, HEIGHT));
     let mut v = Vec::new();
     let background = match tiles.background {
@@ -588,12 +589,12 @@ fn layers(tiles: &Tiles, regions: &Regions) -> Vec<Layer> {
         Some(Background::None) | None => None,
     };
     if let Some(tile) = background {
-        v.push(Layer { area: panel, tile, colors: Overrides::default() });
+        v.push(Layer { area: panel, tile, palette: base });
     }
     for (slot, region) in regions.in_order() {
         v.push(match tiles.tile(slot) {
-            Some(e) => Layer { area: region.rect(), tile: e.spec.clone(), colors: e.colors },
-            None => Layer { area: region.rect(), tile: tiles.hub.spec.to_tile(), colors: tiles.hub.colors },
+            Some(e) => Layer { area: region.rect(), tile: e.spec.clone(), palette: base.with(&e.colors) },
+            None => Layer { area: region.rect(), tile: tiles.hub.spec.to_tile(), palette: base.with(&tiles.hub.colors) },
         });
     }
     v

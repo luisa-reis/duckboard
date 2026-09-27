@@ -45,7 +45,6 @@ pub fn draw(page: &Page, alerts: &[Alert], alert_area: Rectangle, c: &mut Canvas
     }
     c.clear(BLACK).unwrap();
     for layer in &page.layers {
-        let palette = ctx.palette.with(&layer.colors);
-        tiles::draw(&layer.tile, c, layer.area, ctx, &palette);
+        tiles::draw(&layer.tile, c, layer.area, ctx, &layer.palette);
     }
 }
