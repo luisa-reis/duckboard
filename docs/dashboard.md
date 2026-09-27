@@ -423,7 +423,16 @@ target/release/panel-ddp preview --out preview.png  # one frame from sample data
 target/release/panel-ddp preview --weather-code 95  # check an icon (add 1000 for night)
 target/release/panel-ddp preview --alert            # the alert view
 target/release/panel-ddp test <board-ip>            # colour bars, ramp, counter, bouncing dot
+target/release/panel-ddp render --config demo.json --out /tmp/r   # every frame's hash, no network
 ```
+
+`render` draws what `run` would send, frame by frame, without sending it or
+fetching anything: the clock starts at a fixed time (`--at`, seconds since
+1970) and the data is empty, so pages bring their own, or made up with
+`--sample`. A config without pages needs `--frames N`. It writes
+`frames.txt`, one SHA-256 per frame, and a PNG of each frame named with
+`--png N`. Rendering before and after a change and comparing the two lists
+shows whether the change moved a single pixel.
 
 Common patterns:
 

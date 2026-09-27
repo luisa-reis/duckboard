@@ -3,6 +3,7 @@
 //!     panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
 //!     panel-ddp frame [--config FILE] [--once]
 //!     panel-ddp preview [--config FILE] [--out FILE] [--test | --alert]
+//!     panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
 //!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
 //!     panel-ddp spotify-login [--config FILE] [--port N]
 //!
@@ -11,8 +12,10 @@
 //! and `--once` plays them through a single time: `run --config demo.json`
 //! is the demo.
 //! `preview` renders one frame from sample data into a PNG with the mask
-//! applied; `--test` renders the test frame instead. HOST defaults to
-//! 4.3.2.1 (WLED-AP), PORT to 4048.
+//! applied; `--test` renders the test frame instead. `render` draws what
+//! `run` would send, frame by frame, at a fixed time and without the
+//! network, and writes a hash per frame, for checking that a change leaves
+//! the output alone. HOST defaults to 4.3.2.1 (WLED-AP), PORT to 4048.
 
 mod artcache;
 mod artfile;
@@ -39,6 +42,7 @@ use config::Config;
 use ddp::DdpSender;
 use mask::Mask;
 use palette::{Palette, Rgba};
+use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -56,6 +60,7 @@ const USAGE: &str = "usage:
   panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
   panel-ddp frame [--config FILE] [--once]
   panel-ddp preview [--config FILE] [--out FILE] [--test | --weather-code N | --alert]
+  panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
   panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
   panel-ddp spotify-login [--config FILE] [--port N]";
 
@@ -166,6 +171,67 @@ fn frame_pictures(cfg: &Config) -> Result<Option<frame::Frame>> {
     Ok(None)
 }
 
+/// What a run draws from, set up once: the config's pages or its plain
+/// tiles, the `[frame]` pictures and the palette.
+struct Show<'a> {
+    cfg: &'a Config,
+    pages: Option<pages::Pages>,
+    pictures: Option<frame::Frame>,
+    palette: Palette,
+}
+
+impl<'a> Show<'a> {
+    fn new(cfg: &'a Config) -> Result<Self> {
+        let pictures = frame_pictures(cfg)?;
+        let pages = if cfg.pages.is_empty() {
+            None
+        } else {
+            let p = pages::Pages::new(cfg, pictures.as_ref().map_or(0, |f| f.len()))?;
+            eprintln!(
+                "panel-ddp: {} pages, one pass is {:.0} s",
+                cfg.pages.len(),
+                p.total_frames() as f32 / cfg.fps as f32
+            );
+            Some(p)
+        };
+        Ok(Self { cfg, pages, pictures, palette: Palette::default().with(&cfg.colors) })
+    }
+
+    /// Frames in one pass through the pages, when there are pages.
+    fn pass_frames(&self) -> Option<u32> {
+        self.pages.as_ref().map(|p| p.total_frames())
+    }
+
+    /// Draws `frame`, first laying the page's data over `data`; returns the
+    /// tiles on show.
+    fn draw(&self, c: &mut Canvas, frame: u32, now: chrono::DateTime<chrono::Local>, data: &mut data::Snapshot) -> &config::Tiles {
+        let pictures = self.pictures.as_ref();
+        let (tiles, picture) = match &self.pages {
+            Some(p) => {
+                let at = p.at(frame);
+                p.apply(at.data, at.t, data);
+                let picture = match at.data.picture {
+                    Some(i) => pictures.map(|f| f.picture_at(i)),
+                    None => pictures.map(|f| f.picture(frame)),
+                };
+                (at.tiles, picture)
+            }
+            None => (&self.cfg.tiles, pictures.map(|f| f.picture(frame))),
+        };
+        let ctx = tiles::Ctx {
+            now,
+            frame,
+            data,
+            palette: &self.palette,
+            temperature: self.cfg.temperature,
+            fps: self.cfg.fps,
+            picture,
+        };
+        dashboard::draw(tiles, &self.cfg.regions, &self.cfg.alerts, c, &ctx);
+        tiles
+    }
+}
+
 fn cmd_run(args: &[String]) -> Result<()> {
     let mut config = PathBuf::from(DEFAULT_CONFIG);
     let mut frames = None;
@@ -191,21 +257,9 @@ fn cmd_run(args: &[String]) -> Result<()> {
     if cfg.spotify.is_some() && cfg.home_assistant.as_ref().is_some_and(|h| h.media_player.is_some()) {
         eprintln!("panel-ddp: both [spotify] and [home_assistant].media_player are set; Spotify feeds the hub");
     }
-    let pictures = frame_pictures(&cfg)?;
-    let pages = if cfg.pages.is_empty() {
-        None
-    } else {
-        let p = pages::Pages::new(&cfg, pictures.as_ref().map_or(0, |f| f.len()))?;
-        eprintln!(
-            "panel-ddp: {} pages, one pass is {:.0} s",
-            cfg.pages.len(),
-            p.total_frames() as f32 / cfg.fps as f32
-        );
-        Some(p)
-    };
+    let show = Show::new(&cfg)?;
     if once {
-        let p = pages.as_ref().context("--once plays the pages through once; this config has none")?;
-        frames = Some(p.total_frames());
+        frames = Some(show.pass_frames().context("--once plays the pages through once; this config has none")?);
     }
     let target = target.unwrap_or_else(|| cfg.target.clone());
     let s = Stream { target: ddp::target_with_default_port(&target), fps: cfg.fps, frames };
@@ -215,35 +269,13 @@ fn cmd_run(args: &[String]) -> Result<()> {
     } else {
         data::spawn_sources(&cfg, &shared);
     }
-    let palette = Palette::default().with(&cfg.colors);
     let mut art_file = cfg.art_file.clone().map(|p| artfile::ArtFile::new(p, cfg.art_open));
     let result = stream(&s, |c, frame| {
         let mut data = if sample { data::Snapshot::sample(&cfg, frame) } else { shared.lock().unwrap().clone() };
-        let (tiles, picture) = match &pages {
-            Some(p) => {
-                let at = p.at(frame);
-                p.apply(at.data, at.t, &mut data);
-                let picture = match at.data.picture {
-                    Some(i) => pictures.as_ref().map(|f| f.picture_at(i)),
-                    None => pictures.as_ref().map(|f| f.picture(frame)),
-                };
-                (at.tiles, picture)
-            }
-            None => (&cfg.tiles, pictures.as_ref().map(|f| f.picture(frame))),
-        };
+        let tiles = show.draw(c, frame, chrono::Local::now(), &mut data);
         if let Some(a) = art_file.as_mut() {
             a.update(tiles, &data);
         }
-        let ctx = tiles::Ctx {
-            now: chrono::Local::now(),
-            frame,
-            data: &data,
-            palette: &palette,
-            temperature: cfg.temperature,
-            fps: cfg.fps,
-            picture,
-        };
-        dashboard::draw(tiles, &cfg.regions, &cfg.alerts, c, &ctx);
     });
     if let Some(a) = &art_file {
         a.remove();
@@ -329,6 +361,55 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+/// Draws what `run` would send without sending it: the clock starts at
+/// `--at` (seconds since 1970, a fixed default) and moves on with the
+/// frames, and the data is empty (pages bring their own) or, with
+/// `--sample`, made up. Nothing is fetched and no art file is written.
+/// Writes `frames.txt`, one line per frame with its SHA-256, and a PNG of
+/// each frame asked for with `--png`.
+fn cmd_render(args: &[String]) -> Result<()> {
+    let mut config = PathBuf::from(DEFAULT_CONFIG);
+    let mut out = None;
+    let mut at: i64 = 1_790_000_000;
+    let mut frames = None;
+    let mut sample = false;
+    let mut pngs = Vec::new();
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--config" => config = it.next().context("--config needs a file")?.into(),
+            "--out" => out = Some(PathBuf::from(it.next().context("--out needs a folder")?)),
+            "--at" => at = it.next().and_then(|v| v.parse().ok()).context("--at needs seconds since 1970")?,
+            "--frames" => frames = Some(it.next().and_then(|v| v.parse().ok()).context("--frames needs a number")?),
+            "--sample" => sample = true,
+            "--png" => pngs.push(it.next().and_then(|v| v.parse::<u32>().ok()).context("--png needs a frame number")?),
+            o => bail!("unknown option {o}"),
+        }
+    }
+    let out = out.context("render needs --out DIR")?;
+    let cfg = Config::load(&config)?;
+    let show = Show::new(&cfg)?;
+    let frames = frames.or(show.pass_frames()).context("a config without pages needs --frames")?;
+    let start = chrono::DateTime::from_timestamp(at, 0).context("--at is out of range")?;
+    std::fs::create_dir_all(&out).with_context(|| format!("creating {}", out.display()))?;
+    let mut list = String::new();
+    let mut canvas = Canvas::new();
+    for frame in 0..frames {
+        let now = start + Duration::from_secs_f64(frame as f64 / cfg.fps as f64);
+        let mut data = if sample { data::Snapshot::sample(&cfg, frame) } else { data::Snapshot::default() };
+        show.draw(&mut canvas, frame, now.with_timezone(&chrono::Local), &mut data);
+        list.push_str(&format!("{frame} {:x}\n", Sha256::digest(&canvas.px)));
+        if pngs.contains(&frame) {
+            let png = out.join(format!("frame-{frame:05}.png"));
+            Mask::none().preview_png(&canvas, 4, &png)?;
+        }
+    }
+    let path = out.join("frames.txt");
+    std::fs::write(&path, list).with_context(|| format!("writing {}", path.display()))?;
+    eprintln!("panel-ddp: rendered {frames} frames into {}", out.display());
+    Ok(())
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let (cmd, rest) = match args.split_first() {
@@ -342,6 +423,7 @@ fn main() {
         "run" => cmd_run(rest),
         "frame" => cmd_frame(rest),
         "preview" => cmd_preview(rest),
+        "render" => cmd_render(rest),
         "test" => cmd_test(rest),
         "spotify-login" => cmd_spotify_login(rest),
         "-h" | "--help" => {

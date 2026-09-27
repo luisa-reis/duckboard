@@ -45,6 +45,7 @@ the first `cargo` run here.
 cargo build --release
 cargo clippy
 target/release/panel-ddp preview --out preview.png   # check a change without the board
+target/release/panel-ddp render --config demo.json --out /tmp/before   # frame hashes; diff before/after a refactor
 ```
 
 Cross-compiling for a Raspberry Pi (64-bit OS) from the Mac. `ring` needs a
