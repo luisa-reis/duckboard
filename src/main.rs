@@ -11,8 +11,8 @@
 //! `.json` file works the same. A config with `pages` loops through them,
 //! and `--once` plays them through a single time: `run --config demo.json`
 //! is the demo.
-//! `preview` renders one frame from sample data into a PNG with the mask
-//! applied; `--test` renders the test frame instead. `render` draws what
+//! `preview` renders the first page's first frame from sample data into a
+//! PNG with the mask applied; `--test` renders the test frame instead. `render` draws what
 //! `run` would send, frame by frame, at a fixed time and without the
 //! network, and writes a hash per frame, for checking that a change leaves
 //! the output alone. HOST defaults to 4.3.2.1 (WLED-AP), PORT to 4048.
@@ -28,7 +28,9 @@ mod frame;
 mod ha;
 mod hub;
 mod icons;
+mod legacy;
 mod mask;
+mod model;
 mod pages;
 mod palette;
 mod spotify;
@@ -38,9 +40,9 @@ mod weather;
 
 use anyhow::{bail, Context, Result};
 use canvas::Canvas;
-use config::Config;
 use ddp::DdpSender;
 use mask::Mask;
+use model::Model;
 use palette::{Palette, Rgba};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
@@ -138,7 +140,7 @@ fn cmd_spotify_login(args: &[String]) -> Result<()> {
             o => bail!("unknown option {o}"),
         }
     }
-    let cfg = Config::load(&config)?;
+    let cfg = legacy::load(&config)?;
     let sp = cfg.spotify.as_ref().context("the config has no [spotify] table")?;
     spotify::login(sp, port)
 }
@@ -148,75 +150,58 @@ fn cmd_test(args: &[String]) -> Result<()> {
     stream(&s, testframe::draw)
 }
 
-/// The `[frame]` pictures, loaded only when a background or a page wants
-/// them. For pages a missing folder only leaves those pages out.
-fn frame_pictures(cfg: &Config) -> Result<Option<frame::Frame>> {
-    let wants = |b: &Option<config::Background>| matches!(b, Some(config::Background::Frame { .. }));
-    let pages_want = cfg
-        .pages
-        .iter()
-        .any(|p| matches!(p.background, config::Background::Frame { .. }) || p.data.picture.is_some());
-    if cfg.pages.is_empty() && wants(&cfg.tiles.background) {
+/// The `[frame]` pictures, loaded only when a page wants them. A page shown
+/// for good needs them; among timed pages a missing folder only leaves
+/// those that name a picture out.
+fn frame_pictures(cfg: &Model) -> Result<Option<frame::Frame>> {
+    if !cfg.wants_pictures() {
+        return Ok(None);
+    }
+    if cfg.is_static() {
         return Ok(Some(frame::Frame::new(cfg)?));
     }
-    if pages_want {
-        return match frame::Frame::new(cfg) {
-            Ok(f) => Ok(Some(f)),
-            Err(e) => {
-                eprintln!("panel-ddp: pages: no [frame] pictures ({e:#})");
-                Ok(None)
-            }
-        };
+    match frame::Frame::new(cfg) {
+        Ok(f) => Ok(Some(f)),
+        Err(e) => {
+            eprintln!("panel-ddp: pages: no [frame] pictures ({e:#})");
+            Ok(None)
+        }
     }
-    Ok(None)
 }
 
-/// What a run draws from, set up once: the config's pages or its plain
-/// tiles, the `[frame]` pictures and the palette.
+/// What a run draws from, set up once: the pages, the `[frame]` pictures
+/// and the palette.
 struct Show<'a> {
-    cfg: &'a Config,
-    pages: Option<pages::Pages>,
+    cfg: &'a Model,
+    pages: pages::Pages,
     pictures: Option<frame::Frame>,
     palette: Palette,
 }
 
 impl<'a> Show<'a> {
-    fn new(cfg: &'a Config) -> Result<Self> {
+    fn new(cfg: &'a Model) -> Result<Self> {
         let pictures = frame_pictures(cfg)?;
-        let pages = if cfg.pages.is_empty() {
-            None
-        } else {
-            let p = pages::Pages::new(cfg, pictures.as_ref().map_or(0, |f| f.len()))?;
-            eprintln!(
-                "panel-ddp: {} pages, one pass is {:.0} s",
-                cfg.pages.len(),
-                p.total_frames() as f32 / cfg.fps as f32
-            );
-            Some(p)
-        };
+        let pages = pages::Pages::new(cfg, pictures.as_ref().map_or(0, |f| f.len()))?;
+        if let Some(total) = pages.total_frames() {
+            eprintln!("panel-ddp: {} pages, one pass is {:.0} s", cfg.pages.len(), total as f32 / cfg.fps as f32);
+        }
         Ok(Self { cfg, pages, pictures, palette: Palette::default().with(&cfg.colors) })
     }
 
-    /// Frames in one pass through the pages, when there are pages.
+    /// Frames in one pass through the pages, unless a page stays for good.
     fn pass_frames(&self) -> Option<u32> {
-        self.pages.as_ref().map(|p| p.total_frames())
+        self.pages.total_frames()
     }
 
     /// Draws `frame`, first laying the page's data over `data`; returns the
-    /// tiles on show.
-    fn draw(&self, c: &mut Canvas, frame: u32, now: chrono::DateTime<chrono::Local>, data: &mut data::Snapshot) -> &config::Tiles {
+    /// page on show.
+    fn draw(&self, c: &mut Canvas, frame: u32, now: chrono::DateTime<chrono::Local>, data: &mut data::Snapshot) -> &model::Page {
         let pictures = self.pictures.as_ref();
-        let (tiles, picture) = match &self.pages {
-            Some(p) => {
-                let at = p.at(frame);
-                p.apply(at.data, at.t, data);
-                let picture = match at.data.picture {
-                    Some(i) => pictures.map(|f| f.picture_at(i)),
-                    None => pictures.map(|f| f.picture(frame)),
-                };
-                (at.tiles, picture)
-            }
-            None => (&self.cfg.tiles, pictures.map(|f| f.picture(frame))),
+        let at = self.pages.at(frame);
+        self.pages.apply(&at.page.data, at.t, data);
+        let picture = match at.page.data.picture {
+            Some(i) => pictures.map(|f| f.picture_at(i)),
+            None => pictures.map(|f| f.picture(frame)),
         };
         let ctx = tiles::Ctx {
             now,
@@ -227,8 +212,8 @@ impl<'a> Show<'a> {
             fps: self.cfg.fps,
             picture,
         };
-        dashboard::draw(tiles, &self.cfg.regions, &self.cfg.alerts, c, &ctx);
-        tiles
+        dashboard::draw(at.page, &self.cfg.alerts, self.cfg.alert_area, c, &ctx);
+        at.page
     }
 }
 
@@ -253,7 +238,7 @@ fn cmd_run(args: &[String]) -> Result<()> {
             o => bail!("unknown option {o}"),
         }
     }
-    let cfg = Config::load(&config)?;
+    let cfg = legacy::load(&config)?;
     if cfg.spotify.is_some() && cfg.home_assistant.as_ref().is_some_and(|h| h.media_player.is_some()) {
         eprintln!("panel-ddp: both [spotify] and [home_assistant].media_player are set; Spotify feeds the hub");
     }
@@ -272,9 +257,9 @@ fn cmd_run(args: &[String]) -> Result<()> {
     let mut art_file = cfg.art_file.clone().map(|p| artfile::ArtFile::new(p, cfg.art_open));
     let result = stream(&s, |c, frame| {
         let mut data = if sample { data::Snapshot::sample(&cfg, frame) } else { shared.lock().unwrap().clone() };
-        let tiles = show.draw(c, frame, chrono::Local::now(), &mut data);
+        let page = show.draw(c, frame, chrono::Local::now(), &mut data);
         if let Some(a) = art_file.as_mut() {
-            a.update(tiles, &data);
+            a.update(page, &data);
         }
     });
     if let Some(a) = &art_file {
@@ -294,7 +279,7 @@ fn cmd_frame(args: &[String]) -> Result<()> {
             o => bail!("unknown option {o}"),
         }
     }
-    let cfg = Config::load(&config)?;
+    let cfg = legacy::load(&config)?;
     let frame = frame::Frame::new(&cfg)?;
     let s = Stream {
         target: ddp::target_with_default_port(&cfg.target),
@@ -325,7 +310,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
             o => bail!("unknown option {o}"),
         }
     }
-    let cfg = Config::load(&config)?;
+    let cfg = legacy::load(&config)?;
     let mask = if cfg.gaps.exists() {
         Mask::load(&cfg.gaps)?
     } else {
@@ -343,18 +328,8 @@ fn cmd_preview(args: &[String]) -> Result<()> {
             w.is_day = code < 1000;
             w.code %= 1000;
         }
-        let palette = Palette::default().with(&cfg.colors);
-        let pictures = frame_pictures(&cfg)?;
-        let ctx = tiles::Ctx {
-            now: chrono::Local::now(),
-            frame: 0,
-            data: &data,
-            palette: &palette,
-            temperature: cfg.temperature,
-            fps: cfg.fps,
-            picture: pictures.as_ref().map(|p| p.picture(0)),
-        };
-        dashboard::draw(&cfg.tiles, &cfg.regions, &cfg.alerts, &mut canvas, &ctx);
+        // The first page, at its first frame.
+        Show::new(&cfg)?.draw(&mut canvas, 0, chrono::Local::now(), &mut data);
     }
     mask.preview_png(&canvas, 4, &out)?;
     eprintln!("panel-ddp: wrote {}", out.display());
@@ -387,7 +362,7 @@ fn cmd_render(args: &[String]) -> Result<()> {
         }
     }
     let out = out.context("render needs --out DIR")?;
-    let cfg = Config::load(&config)?;
+    let cfg = legacy::load(&config)?;
     let show = Show::new(&cfg)?;
     let frames = frames.or(show.pass_frames()).context("a config without pages needs --frames")?;
     let start = chrono::DateTime::from_timestamp(at, 0).context("--at is out of range")?;

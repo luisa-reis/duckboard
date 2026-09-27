@@ -5,7 +5,7 @@
 
 use crate::artcache::ArtCache;
 use crate::canvas::{HEIGHT, WIDTH};
-use crate::config::Config;
+use crate::model::Model;
 use crate::ha::{self, Art, Media, Sensor};
 use crate::spotify;
 use crate::weather::{self, Weather};
@@ -26,7 +26,7 @@ impl Snapshot {
     /// Made-up data for previews and demos that must not touch the network:
     /// every sensor the config names sweeps 0..100 over `SWEEP_FRAMES` and
     /// holds full for a moment, and a gradient plays as album art.
-    pub fn sample(cfg: &Config, frame: u32) -> Self {
+    pub fn sample(cfg: &Model, frame: u32) -> Self {
         const SWEEP_FRAMES: u32 = 150;
         const HOLD_FRAMES: u32 = 30;
         let t = frame % (SWEEP_FRAMES + HOLD_FRAMES);
@@ -51,7 +51,8 @@ impl Snapshot {
             }
             rgb
         };
-        let rgb = gradient(cfg.regions.hub.width, cfg.regions.hub.height);
+        let hub = cfg.hub_size();
+        let rgb = gradient(hub.width, hub.height);
         let full = gradient(WIDTH, HEIGHT);
         Self {
             weather: Some(Weather { temperature: 21.4, code: 61, is_day: true }),
@@ -71,8 +72,8 @@ pub type Shared = Arc<Mutex<Snapshot>>;
 /// Starts one thread per configured source. Each keeps the last good value
 /// and logs a failure only when its message changes, so a service that is
 /// down does not fill the log at every retry.
-pub fn spawn_sources(cfg: &Config, shared: &Shared) {
-    let cache = ArtCache::for_config(cfg);
+pub fn spawn_sources(cfg: &Model, shared: &Shared) {
+    let cache = ArtCache::for_model(cfg);
     let gamma = cfg.gamma;
     if let Some(w) = cfg.weather.clone() {
         let shared = Arc::clone(shared);

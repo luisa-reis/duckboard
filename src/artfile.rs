@@ -2,8 +2,8 @@
 //! downloaded, black when no cover is on. A companion view for a laptop
 //! beside the panel (see tools/DemoArtViewer).
 
-use crate::config::{Background, HubSpec, Tiles};
 use crate::data::Snapshot;
+use crate::model::Page;
 use std::path::PathBuf;
 
 pub struct ArtFile {
@@ -19,10 +19,8 @@ impl ArtFile {
     }
 
     /// Rewrites the file when the cover on show changes.
-    pub fn update(&mut self, tiles: &Tiles, data: &Snapshot) {
-        let shows_art = matches!(tiles.background, Some(Background::Media { .. }))
-            || matches!(tiles.hub.spec, HubSpec::Media { .. });
-        let art = data.media.as_ref().and_then(|m| m.art.as_ref()).filter(|_| shows_art);
+    pub fn update(&mut self, page: &Page, data: &Snapshot) {
+        let art = data.media.as_ref().and_then(|m| m.art.as_ref()).filter(|_| page.shows_art());
         let key = art.map(|a| a.url.clone());
         if self.written.as_ref() == Some(&key) {
             return;

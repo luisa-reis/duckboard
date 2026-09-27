@@ -1,10 +1,11 @@
 //! Pages: a loop of dashboard layouts, each shown for its own time, with
 //! optional made-up data laid over what the sources report. A demo is just
 //! a config whose pages carry all their data; a real dashboard can rotate
-//! pages of live tiles the same way.
+//! pages of live tiles the same way. A page without a time stays for good.
 
 use crate::artcache::ArtCache;
-use crate::config::{Config, PageData, Tiles};
+use crate::config::PageData;
+use crate::model::{Model, Page};
 use crate::data::Snapshot;
 use crate::ha::{Art, Media, Sensor};
 use crate::weather::Weather;
@@ -12,38 +13,37 @@ use anyhow::{bail, Result};
 use std::sync::Arc;
 
 struct Resolved {
-    tiles: Tiles,
-    data: PageData,
+    page: Page,
     start: u32,
     frames: u32,
 }
 
 pub struct Pages {
     pages: Vec<Resolved>,
-    total: u32,
+    /// Frames in one pass; None when a page stays for good.
+    total: Option<u32>,
     /// Cached covers, newest first, for pages that name one.
     covers: Vec<Art>,
 }
 
 /// Where a frame falls: the page, and how far through it, 0..1.
 pub struct At<'a> {
-    pub tiles: &'a Tiles,
-    pub data: &'a PageData,
+    pub page: &'a Page,
     pub t: f32,
 }
 
 impl Pages {
     /// `pictures` is how many `[frame]` pictures are loaded. Pages that
     /// name a cover or a picture that is not there are left out.
-    pub fn new(cfg: &Config, pictures: usize) -> Result<Self> {
-        let covers = if cfg.pages.iter().any(|p| p.data.cover.is_some()) {
-            let cache = ArtCache::for_config(cfg);
+    pub fn new(model: &Model, pictures: usize) -> Result<Self> {
+        let covers = if model.pages.iter().any(|p| p.data.cover.is_some()) {
+            let cache = ArtCache::for_model(model);
             // With originals kept, only covers that have one, so an art
             // file only ever gets real covers.
             cache
                 .entries(256)
                 .into_iter()
-                .filter(|e| !cfg.art_cache.keep_originals || e.original.is_some())
+                .filter(|e| !model.art_cache.keep_originals || e.original.is_some())
                 .enumerate()
                 .map(|(i, e)| Art {
                     url: format!("cache:{i}"),
@@ -58,15 +58,15 @@ impl Pages {
         let mut pages = Vec::new();
         let mut skipped = 0;
         let mut start = 0u32;
-        for p in &cfg.pages {
+        for p in &model.pages {
             let missing_cover = p.data.cover.is_some_and(|i| i >= covers.len());
             let missing_picture = p.data.picture.is_some_and(|i| i >= pictures);
             if missing_cover || missing_picture {
                 skipped += 1;
                 continue;
             }
-            let frames = ((p.seconds * cfg.fps as f32).round() as u32).max(1);
-            pages.push(Resolved { tiles: p.tiles(), data: p.data.clone(), start, frames });
+            let frames = p.seconds.map_or(1, |s| ((s * model.fps as f32).round() as u32).max(1));
+            pages.push(Resolved { page: p.clone(), start, frames });
             start += frames;
         }
         if skipped > 0 {
@@ -78,18 +78,23 @@ impl Pages {
         if pages.is_empty() {
             bail!("no page left to show");
         }
-        Ok(Self { pages, total: start, covers })
+        let total = (!model.is_static()).then_some(start);
+        Ok(Self { pages, total, covers })
     }
 
-    pub fn total_frames(&self) -> u32 {
+    /// Frames in one pass through the pages; None when a page stays for good.
+    pub fn total_frames(&self) -> Option<u32> {
         self.total
     }
 
     pub fn at(&self, frame: u32) -> At<'_> {
-        let f = frame % self.total;
+        let Some(total) = self.total else {
+            return At { page: &self.pages[0].page, t: 0.0 };
+        };
+        let f = frame % total;
         let i = self.pages.partition_point(|p| p.start + p.frames <= f);
         let p = &self.pages[i];
-        At { tiles: &p.tiles, data: &p.data, t: (f - p.start) as f32 / p.frames as f32 }
+        At { page: &p.page, t: (f - p.start) as f32 / p.frames as f32 }
     }
 
     /// Lays a page's data over the snapshot.

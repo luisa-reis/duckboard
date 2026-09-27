@@ -4,7 +4,7 @@
 //! art.
 
 use crate::canvas::{Canvas, HEIGHT, WIDTH};
-use crate::config::Config;
+use crate::model::Model;
 use crate::ha::decode_art;
 use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};
@@ -16,7 +16,7 @@ pub struct Frame {
 }
 
 impl Frame {
-    pub fn new(cfg: &Config) -> Result<Self> {
+    pub fn new(cfg: &Model) -> Result<Self> {
         let f = &cfg.frame;
         let mut paths: Vec<PathBuf> = std::fs::read_dir(&f.dir)
             .with_context(|| format!("listing {}", f.dir.display()))?
@@ -31,7 +31,7 @@ impl Frame {
         let mut pictures = Vec::new();
         for p in paths {
             let bytes = std::fs::read(&p).with_context(|| format!("reading {}", p.display()))?;
-            match decode_art(&bytes, cfg.gamma, cfg.regions.hub.size()) {
+            match decode_art(&bytes, cfg.gamma, cfg.hub_size()) {
                 Ok((_, full)) => pictures.push((p, full)),
                 Err(e) => eprintln!("panel-ddp: frame: skipping {}: {e:#}", p.display()),
             }

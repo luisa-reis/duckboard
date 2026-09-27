@@ -16,20 +16,26 @@ Context for Claude Code sessions working on panel-ddp.
   `2d-gaps.json` is git-ignored; `2d-gaps.example.json` (four corners
   hidden) is the committed sample. The gap file does not shape the
   layout.
-- The screen is split into five regions (four tiles and the hub), set in
-  `[regions]` (`Regions` in `src/config.rs`) with x, y, width, height and a
-  `z`; they are drawn in ascending `z`, ties in `Slot` order with the hub
-  last. Regions have no background, so overlaps composite. Drawing code
-  must take its size from the region it is given, never a constant; hub art
-  is decoded at the hub region's size (`ArtCache::hub`).
+- Config files are read by a loader into `Model` (`src/model.rs`): pages,
+  each a list of layers (an area and what it shows) in drawing order. The
+  drawing code and the sources only see the model. Today's TOML/JSON files
+  go through `src/legacy.rs`, where the five regions of `[regions]` (x, y,
+  width, height, `z`) and the background become layers; `src/config.rs`
+  holds the building blocks any format shares. Layers have no background,
+  so overlaps composite. Drawing code must take its size from the area it
+  is given, never a constant; hub art is decoded at the hub's size
+  (`Model::hub_size`, `ArtCache::hub`).
 
 ## Layout
 
 - `src/main.rs` — CLI (`run`, `frame`, `preview`, `test`, `spotify-login`).
-- `src/config.rs` — TOML/JSON config, regions, defaults, path resolution.
+- `src/model.rs` — the resolved configuration everything works from.
+- `src/legacy.rs` — today's TOML/JSON files, read into the model.
+- `src/config.rs` — building blocks shared by any format (sources, alerts,
+  tile kinds, page data).
 - `src/ddp.rs` — the sender (an unconnected UDP socket, on purpose).
-- `src/dashboard.rs` — draws the regions in `z` order; `src/tiles.rs` and
-  `hub.rs` draw into a given area; `pages.rs` loops layouts.
+- `src/dashboard.rs` — draws a page's layers in order; `src/tiles.rs` and
+  `hub.rs` draw into a given area; `pages.rs` times the pages.
 - `src/mask.rs` — the gap file, for previews only.
 - `src/ha.rs`, `spotify.rs`, `weather.rs`, `data.rs` — data sources, each on
   its own thread keeping the last good reading.

@@ -8,7 +8,7 @@
 //! reached; a hit refreshes the entry's time.
 
 use crate::canvas::{HEIGHT, WIDTH};
-use crate::config::Config;
+use crate::model::Model;
 use anyhow::{Context, Result};
 use embedded_graphics::prelude::Size;
 use sha2::{Digest, Sha256};
@@ -63,13 +63,13 @@ impl ArtCache {
 
     /// The cache a config describes, for art decoded with its gamma at its
     /// hub's size.
-    pub fn for_config(cfg: &Config) -> Self {
+    pub fn for_model(cfg: &Model) -> Self {
         Self::new(
             cfg.art_cache.dir.clone(),
             cfg.art_cache.max_bytes(),
             format!("gamma {}", cfg.gamma),
             cfg.art_cache.keep_originals,
-            cfg.regions.hub.size(),
+            cfg.hub_size(),
         )
     }
 
