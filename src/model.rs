@@ -3,10 +3,8 @@
 //! loader looks names up and fills defaults in, so everything that draws or
 //! fetches works from this alone.
 
-use crate::canvas::{HEIGHT, WIDTH};
 use crate::config::{
-    Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, HubSpec, PageData, SpotifyConfig, TileSpec, Units,
-    WeatherConfig,
+    Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, PageData, SpotifyConfig, TileSpec, Units, WeatherConfig,
 };
 use crate::palette::Overrides;
 use embedded_graphics::{prelude::*, primitives::Rectangle};
@@ -48,41 +46,22 @@ pub struct Page {
     pub data: PageData,
 }
 
+/// A tile in an area of the panel.
 #[derive(Debug, Clone)]
 pub struct Layer {
     pub area: Rectangle,
-    pub content: Content,
+    pub tile: TileSpec,
     pub colors: Overrides,
-}
-
-#[derive(Debug, Clone)]
-pub enum Content {
-    Tile(TileSpec),
-    Hub(HubSpec),
-    /// A picture filling the area, blended over black at `alpha`, in place
-    /// of whatever was drawn there.
-    Backdrop { source: Backdrop, alpha: f32 },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Backdrop {
-    /// The album art.
-    Media,
-    /// The `[frame]` picture due.
-    Frame,
 }
 
 impl Page {
     /// Whether the album art shows anywhere on the page.
     pub fn shows_art(&self) -> bool {
-        self.layers.iter().any(|l| {
-            matches!(l.content, Content::Hub(HubSpec::Media { .. }) | Content::Backdrop { source: Backdrop::Media, .. })
-        })
+        self.layers.iter().any(|l| matches!(l.tile, TileSpec::Art { .. }))
     }
 
     fn wants_pictures(&self) -> bool {
-        self.data.picture.is_some()
-            || self.layers.iter().any(|l| matches!(l.content, Content::Backdrop { source: Backdrop::Frame, .. }))
+        self.data.picture.is_some() || self.layers.iter().any(|l| matches!(l.tile, TileSpec::Picture { .. }))
     }
 }
 
@@ -93,8 +72,8 @@ impl Model {
             .pages
             .iter()
             .flat_map(|p| &p.layers)
-            .filter_map(|l| match &l.content {
-                Content::Tile(TileSpec::Sensor { entity, .. } | TileSpec::Progress { entity, .. }) => Some(entity.clone()),
+            .filter_map(|l| match &l.tile {
+                TileSpec::Sensor { entity, .. } | TileSpec::Progress { entity, .. } => Some(entity.clone()),
                 _ => None,
             })
             .collect();
@@ -104,25 +83,23 @@ impl Model {
         v
     }
 
-    /// The sizes album art is decoded at: the hub's, then the whole panel's
-    /// for a background.
+    /// The sizes album art is decoded at: every art tile's, smallest first.
     pub fn art_sizes(&self) -> Vec<Size> {
-        vec![self.hub_size(), Size::new(WIDTH, HEIGHT)]
+        self.sizes_of(|t| matches!(t, TileSpec::Art { .. }))
     }
 
-    /// The sizes the `[frame]` pictures are decoded at: the whole panel's.
+    /// The sizes the `[frame]` pictures are decoded at: every picture
+    /// tile's, smallest first.
     pub fn picture_sizes(&self) -> Vec<Size> {
-        vec![Size::new(WIDTH, HEIGHT)]
+        self.sizes_of(|t| matches!(t, TileSpec::Picture { .. }))
     }
 
-    /// The size album art is decoded at for the hub: the first hub's, or
-    /// 22x22 when there is none.
-    fn hub_size(&self) -> Size {
-        self.pages
-            .iter()
-            .flat_map(|p| &p.layers)
-            .find(|l| matches!(l.content, Content::Hub(_)))
-            .map_or(Size::new(22, 22), |l| l.area.size)
+    fn sizes_of(&self, kind: impl Fn(&TileSpec) -> bool) -> Vec<Size> {
+        let mut v: Vec<Size> =
+            self.pages.iter().flat_map(|p| &p.layers).filter(|l| kind(&l.tile)).map(|l| l.area.size).collect();
+        v.sort_by_key(|s| (s.width * s.height, s.width, s.height));
+        v.dedup();
+        v
     }
 
     /// Whether any page draws the `[frame]` pictures.

@@ -286,35 +286,55 @@ pub enum TileSpec {
     },
     /// Artist and title scrolling; needs [home_assistant].media_player.
     NowPlaying,
-    /// Nothing.
-    Blank,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum HubSpec {
-    Blank,
-    /// Album art; needs [spotify] or [home_assistant].media_player.
-    Media {
+    /// The album art; needs [spotify] or [home_assistant].media_player.
+    Art {
+        #[serde(default)]
+        shape: ArtShape,
         /// Turn the art while playing.
         #[serde(default)]
         spin: bool,
-        #[serde(default)]
-        shape: ArtShape,
         /// The art's alpha while paused.
         #[serde(default = "default_paused_alpha")]
         paused_alpha: f32,
         /// The alpha of the corners outside the circle in the faded shape.
         #[serde(default = "default_corner_alpha")]
         corner_alpha: f32,
+        /// The art's alpha over what is drawn under it.
+        #[serde(default = "one")]
+        alpha: f32,
+        /// What shows while there is no art.
+        #[serde(default)]
+        idle: Idle,
     },
+    /// The `[frame]` picture due, at `alpha` over what is drawn under it.
+    Picture {
+        #[serde(default = "one")]
+        alpha: f32,
+    },
+    /// Nothing.
+    Blank,
 }
 
-fn default_paused_alpha() -> f32 {
+fn one() -> f32 {
+    1.0
+}
+
+/// What an art tile shows while there is no art.
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Idle {
+    /// A slow ripple from the middle.
+    #[default]
+    Ripple,
+    /// Nothing.
+    None,
+}
+
+pub(crate) fn default_paused_alpha() -> f32 {
     0.4
 }
 
-fn default_corner_alpha() -> f32 {
+pub(crate) fn default_corner_alpha() -> f32 {
     0.3
 }
 

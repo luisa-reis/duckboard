@@ -3,8 +3,7 @@
 
 use crate::canvas::{Canvas, HEIGHT, WIDTH};
 use crate::config::Alert;
-use crate::model::{Backdrop, Content, Page};
-use crate::hub;
+use crate::model::Page;
 use crate::palette::{Rgba, BLACK};
 use crate::tiles::{self, centred, Ctx};
 use embedded_graphics::{
@@ -47,31 +46,6 @@ pub fn draw(page: &Page, alerts: &[Alert], alert_area: Rectangle, c: &mut Canvas
     c.clear(BLACK).unwrap();
     for layer in &page.layers {
         let palette = ctx.palette.with(&layer.colors);
-        match &layer.content {
-            Content::Tile(spec) => tiles::draw(spec, c, layer.area, ctx, &palette),
-            Content::Hub(spec) => hub::draw(spec, c, layer.area, ctx.data, ctx.frame, &palette),
-            Content::Backdrop { source, alpha } => backdrop(*source, *alpha, layer.area, c, ctx),
-        }
-    }
-}
-
-/// The panel-sized picture over the area, blended over black at `alpha`
-/// and written in place of what was there, nothing else done to it.
-fn backdrop(source: Backdrop, alpha: f32, area: Rectangle, c: &mut Canvas, ctx: &Ctx) {
-    let panel = Size::new(WIDTH, HEIGHT);
-    let full: Option<&[u8]> = match source {
-        Backdrop::Media => ctx.data.media.as_ref().and_then(|m| m.art.as_ref()).and_then(|a| a.scaled.at(panel)),
-        Backdrop::Frame => ctx.picture.and_then(|p| p.at(panel)),
-    };
-    let Some(full) = full else { return };
-    let area = area.intersection(&Rectangle::new(Point::zero(), panel));
-    let Some(bottom_right) = area.bottom_right() else { return };
-    for y in area.top_left.y..=bottom_right.y {
-        for x in area.top_left.x..=bottom_right.x {
-            let i = (y as usize * WIDTH as usize + x as usize) * 3;
-            for (out, &p) in c.px[i..i + 3].iter_mut().zip(&full[i..i + 3]) {
-                *out = (p as f32 * alpha) as u8;
-            }
-        }
+        tiles::draw(&layer.tile, c, layer.area, ctx, &palette);
     }
 }

@@ -20,7 +20,8 @@ Context for Claude Code sessions working on panel-ddp.
   each a list of layers (an area and what it shows) in drawing order. The
   drawing code and the sources only see the model. Today's TOML/JSON files
   go through `src/legacy.rs`, where the five regions of `[regions]` (x, y,
-  width, height, `z`) and the background become layers; `src/config.rs`
+  width, height, `z`) and the background become layers (the hub an `art`
+  tile, the background an `art` or `picture` tile with an alpha); `src/config.rs`
   holds the building blocks any format shares. Layers have no background,
   so overlaps composite. Drawing code must take its size from the area it
   is given, never a constant. Album art and pictures are decoded once per
@@ -34,8 +35,9 @@ Context for Claude Code sessions working on panel-ddp.
 - `src/config.rs` — building blocks shared by any format (sources, alerts,
   tile kinds, page data).
 - `src/ddp.rs` — the sender (an unconnected UDP socket, on purpose).
-- `src/dashboard.rs` — draws a page's layers in order; `src/tiles.rs` and
-  `hub.rs` draw into a given area; `pages.rs` times the pages.
+- `src/dashboard.rs` — draws a page's layers in order; `src/tiles.rs`
+  draws any tile kind into a given area, `art.rs` the art and picture
+  kinds; `pages.rs` times the pages.
 - `src/mask.rs` — the gap file, for previews only.
 - `src/ha.rs`, `spotify.rs`, `weather.rs`, `data.rs` — data sources, each on
   its own thread keeping the last good reading.

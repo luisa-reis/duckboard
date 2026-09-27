@@ -17,7 +17,8 @@ pub struct Frame {
 }
 
 impl Frame {
-    pub fn new(cfg: &Model) -> Result<Self> {
+    /// The pictures in `[frame].dir`, decoded at each of `sizes`.
+    pub fn new(cfg: &Model, sizes: &[Size]) -> Result<Self> {
         let f = &cfg.frame;
         let mut paths: Vec<PathBuf> = std::fs::read_dir(&f.dir)
             .with_context(|| format!("listing {}", f.dir.display()))?
@@ -32,7 +33,7 @@ impl Frame {
         let mut pictures = Vec::new();
         for p in paths {
             let bytes = std::fs::read(&p).with_context(|| format!("reading {}", p.display()))?;
-            match picture::decode(&bytes, cfg.gamma, &cfg.picture_sizes()) {
+            match picture::decode(&bytes, cfg.gamma, sizes) {
                 Ok(scaled) => pictures.push((p, scaled)),
                 Err(e) => eprintln!("panel-ddp: frame: skipping {}: {e:#}", p.display()),
             }

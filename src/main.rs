@@ -17,6 +17,7 @@
 //! network, and writes a hash per frame, for checking that a change leaves
 //! the output alone. HOST defaults to 4.3.2.1 (WLED-AP), PORT to 4048.
 
+mod art;
 mod artcache;
 mod artfile;
 mod canvas;
@@ -26,7 +27,6 @@ mod data;
 mod ddp;
 mod frame;
 mod ha;
-mod hub;
 mod icons;
 mod legacy;
 mod mask;
@@ -158,10 +158,11 @@ fn frame_pictures(cfg: &Model) -> Result<Option<frame::Frame>> {
     if !cfg.wants_pictures() {
         return Ok(None);
     }
+    let sizes = cfg.picture_sizes();
     if cfg.is_static() {
-        return Ok(Some(frame::Frame::new(cfg)?));
+        return Ok(Some(frame::Frame::new(cfg, &sizes)?));
     }
-    match frame::Frame::new(cfg) {
+    match frame::Frame::new(cfg, &sizes) {
         Ok(f) => Ok(Some(f)),
         Err(e) => {
             eprintln!("panel-ddp: pages: no [frame] pictures ({e:#})");
@@ -281,7 +282,7 @@ fn cmd_frame(args: &[String]) -> Result<()> {
         }
     }
     let cfg = legacy::load(&config)?;
-    let frame = frame::Frame::new(&cfg)?;
+    let frame = frame::Frame::new(&cfg, &[embedded_graphics::prelude::Size::new(canvas::WIDTH, canvas::HEIGHT)])?;
     let s = Stream {
         target: ddp::target_with_default_port(&cfg.target),
         fps: cfg.fps,

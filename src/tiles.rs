@@ -3,6 +3,7 @@
 //! pixels of height and centred in taller or shorter regions; widths follow
 //! the region. Colours come from the palette in the context, by role.
 
+use crate::art;
 use crate::canvas::Canvas;
 use crate::config::{Seconds, TileSpec, Units};
 use crate::data::Snapshot;
@@ -27,11 +28,19 @@ pub struct Ctx<'a> {
     pub temperature: Units,
     /// Frames per second, for anything timed in seconds.
     pub fps: u32,
-    /// The `[frame]` picture due now, for a `frame` background.
+    /// The `[frame]` picture due now, for a picture tile.
     pub picture: Option<&'a Scaled>,
 }
 
 pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Palette) {
+    match *spec {
+        TileSpec::Art { shape, spin, paused_alpha, corner_alpha, alpha, idle } => {
+            let style = art::Style { shape, spin, paused_alpha, corner_alpha, alpha, idle };
+            return art::draw(&style, c, area, ctx.data, ctx.frame, p);
+        }
+        TileSpec::Picture { alpha } => return art::picture(c, area, ctx.picture, alpha),
+        _ => {}
+    }
     let mut clipped = c.clipped(&area);
     match spec {
         TileSpec::Clock { seconds, dot_size } => clock(&mut clipped, area, ctx, p, *seconds, *dot_size),
@@ -44,7 +53,7 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Pal
             progress(&mut clipped, area, ctx, p, entity, label, *max, *decimals)
         }
         TileSpec::NowPlaying => now_playing(&mut clipped, area, ctx, p),
-        TileSpec::Blank => {}
+        TileSpec::Art { .. } | TileSpec::Picture { .. } | TileSpec::Blank => {}
     }
 }
 

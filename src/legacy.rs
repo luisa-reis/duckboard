@@ -6,10 +6,10 @@
 
 use crate::canvas::{HEIGHT, WIDTH};
 use crate::config::{
-    default_dot_size, Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, HubSpec, PageData, Seconds,
-    SpotifyConfig, TileSpec, Units, WeatherConfig,
+    default_corner_alpha, default_dot_size, default_paused_alpha, Alert, ArtCacheConfig, ArtShape, FrameConfig,
+    HomeAssistantConfig, Idle, PageData, Seconds, SpotifyConfig, TileSpec, Units, WeatherConfig,
 };
-use crate::model::{self, Backdrop, Content, Layer, Model};
+use crate::model::{self, Layer, Model};
 use crate::palette::Overrides;
 use anyhow::{Context, Result};
 use embedded_graphics::{prelude::*, primitives::Rectangle};
@@ -351,6 +351,26 @@ impl From<TileSpec> for TileEntry {
     }
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum HubSpec {
+    Blank,
+    /// Album art; needs [spotify] or [home_assistant].media_player.
+    Media {
+        /// Turn the art while playing.
+        #[serde(default)]
+        spin: bool,
+        #[serde(default)]
+        shape: ArtShape,
+        /// The art's alpha while paused.
+        #[serde(default = "default_paused_alpha")]
+        paused_alpha: f32,
+        /// The alpha of the corners outside the circle in the faded shape.
+        #[serde(default = "default_corner_alpha")]
+        corner_alpha: f32,
+    },
+}
+
 #[derive(Debug, Clone)]
 pub struct HubEntry {
     pub spec: HubSpec,
@@ -549,26 +569,47 @@ impl Config {
 }
 
 /// A page's layers: the background across the panel, then the tiles and
-/// the hub in their regions, in drawing order.
+/// the hub in their regions, in drawing order. The background is a square
+/// art tile at its alpha that neither dims when paused nor ripples, or a
+/// picture tile; the hub is an art tile or blank.
 fn layers(tiles: &Tiles, regions: &Regions) -> Vec<Layer> {
     let panel = Rectangle::new(Point::zero(), Size::new(WIDTH, HEIGHT));
     let mut v = Vec::new();
-    match tiles.background {
-        Some(Background::Media { alpha }) => {
-            v.push(Layer { area: panel, content: Content::Backdrop { source: Backdrop::Media, alpha }, colors: Overrides::default() })
-        }
-        Some(Background::Frame { alpha }) => {
-            v.push(Layer { area: panel, content: Content::Backdrop { source: Backdrop::Frame, alpha }, colors: Overrides::default() })
-        }
-        Some(Background::None) | None => {}
+    let background = match tiles.background {
+        Some(Background::Media { alpha }) => Some(TileSpec::Art {
+            shape: ArtShape::Square,
+            spin: false,
+            paused_alpha: 1.0,
+            corner_alpha: 1.0,
+            alpha,
+            idle: Idle::None,
+        }),
+        Some(Background::Frame { alpha }) => Some(TileSpec::Picture { alpha }),
+        Some(Background::None) | None => None,
+    };
+    if let Some(tile) = background {
+        v.push(Layer { area: panel, tile, colors: Overrides::default() });
     }
     for (slot, region) in regions.in_order() {
         v.push(match tiles.tile(slot) {
-            Some(e) => Layer { area: region.rect(), content: Content::Tile(e.spec.clone()), colors: e.colors },
-            None => Layer { area: region.rect(), content: Content::Hub(tiles.hub.spec.clone()), colors: tiles.hub.colors },
+            Some(e) => Layer { area: region.rect(), tile: e.spec.clone(), colors: e.colors },
+            None => Layer { area: region.rect(), tile: tiles.hub.spec.to_tile(), colors: tiles.hub.colors },
         });
     }
     v
+}
+
+impl HubSpec {
+    /// The hub as a tile: blank, or art at full alpha that ripples while
+    /// there is none.
+    fn to_tile(&self) -> TileSpec {
+        match *self {
+            HubSpec::Blank => TileSpec::Blank,
+            HubSpec::Media { spin, shape, paused_alpha, corner_alpha } => {
+                TileSpec::Art { shape, spin, paused_alpha, corner_alpha, alpha: 1.0, idle: Idle::Ripple }
+            }
+        }
+    }
 }
 
 /// The checks that do not depend on which sources are configured.
@@ -580,6 +621,14 @@ fn validate_tiles(t: &Tiles) -> Result<()> {
             }
             TileSpec::Clock { dot_size, .. } if !(1..=12).contains(dot_size) => {
                 anyhow::bail!("clock dot_size must be between 1 and 12")
+            }
+            TileSpec::Art { paused_alpha, corner_alpha, alpha, .. }
+                if ![paused_alpha, corner_alpha, alpha].iter().all(|a| (0.0..=1.0).contains(*a)) =>
+            {
+                anyhow::bail!("art tile alphas must be between 0 and 1")
+            }
+            TileSpec::Picture { alpha } if !(0.0..=1.0).contains(alpha) => {
+                anyhow::bail!("picture tile alpha must be between 0 and 1")
             }
             _ => {}
         }
