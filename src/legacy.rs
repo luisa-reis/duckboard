@@ -542,13 +542,27 @@ impl Config {
         // `[colors]` for every tile, a tile's own `colors` over them.
         let base = Palette::default().with(&self.colors);
         let pages = if self.pages.is_empty() {
-            vec![model::Page { seconds: None, layers: layers(&self.tiles, &self.regions, base), data: PageData::default() }]
+            vec![model::Page {
+                name: "tiles".into(),
+                seconds: None,
+                layers: layers(&self.tiles, &self.regions, base),
+                data: PageData::default(),
+            }]
         } else {
             self.pages
                 .iter()
-                .map(|p| model::Page { seconds: Some(p.seconds), layers: layers(&p.tiles(), &self.regions, base), data: p.data.clone() })
+                .enumerate()
+                .map(|(i, p)| model::Page {
+                    name: format!("page {}", i + 1),
+                    seconds: Some(p.seconds),
+                    layers: layers(&p.tiles(), &self.regions, base),
+                    data: p.data.clone(),
+                })
                 .collect()
         };
+        // Every page, in order, at any time.
+        let playlists = vec![model::Playlist { name: "pages".into(), pages: (0..pages.len()).collect() }];
+        let schedule = vec![model::Rule { playlist: 0, when: None }];
         Model {
             target: self.target,
             fps: self.fps,
@@ -563,6 +577,8 @@ impl Config {
             alerts: self.alerts,
             alert_area: self.regions.hub.rect(),
             pages,
+            playlists,
+            schedule,
             art_file: self.art_file,
             art_open: self.art_open,
         }

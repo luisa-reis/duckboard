@@ -99,9 +99,11 @@ fn parse_stream(args: &[String]) -> Result<Stream> {
     Ok(s)
 }
 
-/// Runs `draw` for each frame and streams the result, paced from the start
-/// time so drawing cost does not drift the rate.
-fn stream(s: &Stream, mut draw: impl FnMut(&mut Canvas, u32)) -> Result<()> {
+/// Runs `draw` for each frame and streams what it drew, paced from the
+/// start time so drawing cost does not drift the rate. A frame `draw`
+/// returns false for is not sent, so the board falls back to its presets
+/// while it stays so.
+fn stream(s: &Stream, mut draw: impl FnMut(&mut Canvas, u32) -> bool) -> Result<()> {
     let mut sender = DdpSender::new(&s.target)
         .with_context(|| format!("opening UDP socket to {}", s.target))?;
     eprintln!(
@@ -119,8 +121,9 @@ fn stream(s: &Stream, mut draw: impl FnMut(&mut Canvas, u32)) -> Result<()> {
     let mut frame = 0u32;
     let stop = stop_flag();
     while s.frames.is_none_or(|n| frame < n) && !stop.load(Ordering::SeqCst) {
-        draw(&mut canvas, frame);
-        sender.send_frame(&canvas.px).context("sending frame")?;
+        if draw(&mut canvas, frame) {
+            sender.send_frame(&canvas.px).context("sending frame")?;
+        }
         frame += 1;
         let due = start + period * frame;
         if let Some(wait) = due.checked_duration_since(Instant::now()) {
@@ -148,7 +151,10 @@ fn cmd_spotify_login(args: &[String]) -> Result<()> {
 
 fn cmd_test(args: &[String]) -> Result<()> {
     let s = parse_stream(args)?;
-    stream(&s, testframe::draw)
+    stream(&s, |c, frame| {
+        testframe::draw(c, frame);
+        true
+    })
 }
 
 /// The `[frame]` pictures, loaded only when a page wants them. A page shown
@@ -183,22 +189,22 @@ impl<'a> Show<'a> {
     fn new(cfg: &'a Model) -> Result<Self> {
         let pictures = frame_pictures(cfg)?;
         let pages = pages::Pages::new(cfg, pictures.as_ref().map_or(0, |f| f.len()))?;
-        if let Some(total) = pages.total_frames() {
-            eprintln!("panel-ddp: {} pages, one pass is {:.0} s", cfg.pages.len(), total as f32 / cfg.fps as f32);
-        }
         Ok(Self { cfg, pages, pictures })
     }
 
-    /// Frames in one pass through the pages, unless a page stays for good.
-    fn pass_frames(&self) -> Option<u32> {
-        self.pages.total_frames()
+    /// Frames in one pass through the playlist playing at `now`, unless a
+    /// page stays for good or nothing plays.
+    fn pass_frames(&self, now: &chrono::DateTime<chrono::Local>) -> Option<u32> {
+        let frames = self.pages.pass_frames(now)?;
+        eprintln!("panel-ddp: one pass is {:.0} s", frames as f32 / self.cfg.fps as f32);
+        Some(frames)
     }
 
     /// Draws `frame`, first laying the page's data over `data`; returns the
-    /// page on show.
-    fn draw(&self, c: &mut Canvas, frame: u32, now: chrono::DateTime<chrono::Local>, data: &mut data::Snapshot) -> &model::Page {
+    /// page on show, or None, drawing nothing, while nothing is scheduled.
+    fn draw(&self, c: &mut Canvas, frame: u32, now: chrono::DateTime<chrono::Local>, data: &mut data::Snapshot) -> Option<&model::Page> {
         let pictures = self.pictures.as_ref();
-        let at = self.pages.at(frame);
+        let at = self.pages.at(frame, &now)?;
         self.pages.apply(&at.page.data, at.t, data);
         let picture = match at.page.data.picture {
             Some(i) => pictures.map(|f| f.picture_at(i)),
@@ -213,7 +219,7 @@ impl<'a> Show<'a> {
             picture,
         };
         dashboard::draw(at.page, &self.cfg.alerts, self.cfg.alert_area, c, &ctx);
-        at.page
+        Some(at.page)
     }
 }
 
@@ -244,7 +250,8 @@ fn cmd_run(args: &[String]) -> Result<()> {
     }
     let show = Show::new(&cfg)?;
     if once {
-        frames = Some(show.pass_frames().context("--once plays the pages through once; this config has none")?);
+        let pass = show.pass_frames(&chrono::Local::now());
+        frames = Some(pass.context("--once plays the playlist on now through once; this config has a page shown for good, or nothing on now")?);
     }
     let target = target.unwrap_or_else(|| cfg.target.clone());
     let s = Stream { target: ddp::target_with_default_port(&target), fps: cfg.fps, frames };
@@ -257,10 +264,11 @@ fn cmd_run(args: &[String]) -> Result<()> {
     let mut art_file = cfg.art_file.clone().map(|p| artfile::ArtFile::new(p, cfg.art_open));
     let result = stream(&s, |c, frame| {
         let mut data = if sample { data::Snapshot::sample(&cfg, frame) } else { shared.lock().unwrap().clone() };
-        let page = show.draw(c, frame, chrono::Local::now(), &mut data);
+        let Some(page) = show.draw(c, frame, chrono::Local::now(), &mut data) else { return false };
         if let Some(a) = art_file.as_mut() {
             a.update(page, &data);
         }
+        true
     });
     if let Some(a) = &art_file {
         a.remove();
@@ -286,7 +294,10 @@ fn cmd_frame(args: &[String]) -> Result<()> {
         fps: cfg.fps,
         frames: once.then_some(frame.total_frames()),
     };
-    stream(&s, |c, f| frame.draw(c, f))
+    stream(&s, |c, f| {
+        frame.draw(c, f);
+        true
+    })
 }
 
 fn cmd_preview(args: &[String]) -> Result<()> {
@@ -328,8 +339,10 @@ fn cmd_preview(args: &[String]) -> Result<()> {
             w.is_day = code < 1000;
             w.code %= 1000;
         }
-        // The first page, at its first frame.
-        Show::new(&cfg)?.draw(&mut canvas, 0, chrono::Local::now(), &mut data);
+        // The first page scheduled now, at its first frame.
+        if Show::new(&cfg)?.draw(&mut canvas, 0, chrono::Local::now(), &mut data).is_none() {
+            eprintln!("panel-ddp: nothing is scheduled now; the preview is dark");
+        }
     }
     mask.preview_png(&canvas, 4, &out)?;
     eprintln!("panel-ddp: wrote {}", out.display());
@@ -364,15 +377,20 @@ fn cmd_render(args: &[String]) -> Result<()> {
     let out = out.context("render needs --out DIR")?;
     let cfg = legacy::load(&config)?;
     let show = Show::new(&cfg)?;
-    let frames = frames.or(show.pass_frames()).context("a config without pages needs --frames")?;
     let start = chrono::DateTime::from_timestamp(at, 0).context("--at is out of range")?;
+    let frames = frames
+        .or_else(|| show.pass_frames(&start.with_timezone(&chrono::Local)))
+        .context("without a pass to play (a page shown for good, or nothing on at --at), render needs --frames")?;
     std::fs::create_dir_all(&out).with_context(|| format!("creating {}", out.display()))?;
     let mut list = String::new();
     let mut canvas = Canvas::new();
     for frame in 0..frames {
         let now = start + Duration::from_secs_f64(frame as f64 / cfg.fps as f64);
         let mut data = if sample { data::Snapshot::sample(&cfg, frame) } else { data::Snapshot::default() };
-        show.draw(&mut canvas, frame, now.with_timezone(&chrono::Local), &mut data);
+        if show.draw(&mut canvas, frame, now.with_timezone(&chrono::Local), &mut data).is_none() {
+            list.push_str(&format!("{frame} dark\n"));
+            continue;
+        }
         list.push_str(&format!("{frame} {:x}\n", Sha256::digest(&canvas.px)));
         if pngs.contains(&frame) {
             let png = out.join(format!("frame-{frame:05}.png"));

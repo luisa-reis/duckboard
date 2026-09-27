@@ -5,6 +5,7 @@
 
 use crate::config::{
     Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, PageData, SpotifyConfig, TileSpec, Units, WeatherConfig,
+    When,
 };
 use crate::palette::Palette;
 use embedded_graphics::{prelude::*, primitives::Rectangle};
@@ -28,20 +29,42 @@ pub struct Model {
     pub alerts: Vec<Alert>,
     /// Where an alert centres its label.
     pub alert_area: Rectangle,
-    /// Shown in turn, never empty.
+    /// Every page, by the index playlists use; never empty.
     pub pages: Vec<Page>,
+    /// Pages shown in turn, looping; each lists at least one page.
+    pub playlists: Vec<Playlist>,
+    /// Which playlist plays: the first rule that matches the time, checked
+    /// at every page's end. When none matches the panel goes dark.
+    pub schedule: Vec<Rule>,
     pub art_file: Option<PathBuf>,
     pub art_open: bool,
 }
 
 #[derive(Debug, Clone)]
 pub struct Page {
-    /// How long the page shows; None keeps it for good.
+    pub name: String,
+    /// How long the page shows; None keeps it for good, the schedule being
+    /// checked every second.
     pub seconds: Option<f32>,
     /// Drawn first to last, each over those before it where it draws.
     pub layers: Vec<Layer>,
     /// Values laid over the live data while the page shows.
     pub data: PageData,
+}
+
+#[derive(Debug, Clone)]
+pub struct Playlist {
+    pub name: String,
+    /// Indices into `Model::pages`.
+    pub pages: Vec<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Rule {
+    /// Index into `Model::playlists`.
+    pub playlist: usize,
+    /// None matches at any time.
+    pub when: Option<When>,
 }
 
 /// A tile in an area of the panel, with the colours it draws in.

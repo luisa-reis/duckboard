@@ -16,8 +16,11 @@ Context for Claude Code sessions working on panel-ddp.
   `2d-gaps.json` is git-ignored; `2d-gaps.example.json` (four corners
   hidden) is the committed sample. The gap file does not shape the
   layout.
-- Config files are read by a loader into `Model` (`src/model.rs`): pages,
-  each a list of layers (an area and what it shows) in drawing order. The
+- Config files are read by a loader into `Model` (`src/model.rs`): named
+  pages, each a list of layers (an area, a tile, its palette) in drawing
+  order; playlists of pages; and a schedule whose first matching rule picks
+  the playlist at each page's end (none matching: nothing is sent, so the
+  board falls back to its presets). `src/pages.rs` plays it. The
   drawing code and the sources only see the model. Today's TOML/JSON files
   go through `src/legacy.rs`, where the five regions of `[regions]` (x, y,
   width, height, `z`) and the background become layers (the hub an `art`

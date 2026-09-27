@@ -350,9 +350,115 @@ pub enum ArtShape {
     Faded,
 }
 
+/// When a schedule rule applies: on some days, between two times of day.
+/// Left out, a part does not limit: no `days` is every day, no `from` is
+/// from midnight, no `to` is until midnight. A `to` earlier than `from`
+/// runs past midnight. Days are those of the moment, local time.
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct When {
+    #[serde(default)]
+    pub days: Vec<Day>,
+    pub from: Option<TimeOfDay>,
+    pub to: Option<TimeOfDay>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Day {
+    Mon,
+    Tue,
+    Wed,
+    Thu,
+    Fri,
+    Sat,
+    Sun,
+}
+
+impl Day {
+    fn weekday(self) -> chrono::Weekday {
+        use chrono::Weekday::*;
+        match self {
+            Day::Mon => Mon,
+            Day::Tue => Tue,
+            Day::Wed => Wed,
+            Day::Thu => Thu,
+            Day::Fri => Fri,
+            Day::Sat => Sat,
+            Day::Sun => Sun,
+        }
+    }
+}
+
+/// A time of day, "HH:MM", 00:00 to 23:59.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct TimeOfDay {
+    /// Minutes since midnight.
+    pub minutes: u32,
+}
+
+impl TimeOfDay {
+    pub fn parse(s: &str) -> Result<Self, String> {
+        let bad = || format!("{s:?}: a time of day is \"HH:MM\", 00:00 to 23:59");
+        let (h, m) = s.split_once(':').ok_or_else(bad)?;
+        if h.len() != 2 || m.len() != 2 {
+            return Err(bad());
+        }
+        let (h, m): (u32, u32) = (h.parse().map_err(|_| bad())?, m.parse().map_err(|_| bad())?);
+        if h > 23 || m > 59 {
+            return Err(bad());
+        }
+        Ok(Self { minutes: h * 60 + m })
+    }
+}
+
+impl<'de> Deserialize<'de> for TimeOfDay {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        TimeOfDay::parse(&String::deserialize(d)?).map_err(serde::de::Error::custom)
+    }
+}
+
+impl When {
+    pub fn matches<Tz: chrono::TimeZone>(&self, now: &chrono::DateTime<Tz>) -> bool {
+        use chrono::{Datelike, Timelike};
+        if !self.days.is_empty() && !self.days.iter().any(|d| d.weekday() == now.weekday()) {
+            return false;
+        }
+        let t = now.hour() * 60 + now.minute();
+        match (self.from, self.to) {
+            (None, None) => true,
+            (Some(f), None) => t >= f.minutes,
+            (None, Some(e)) => t < e.minutes,
+            (Some(f), Some(e)) if f <= e => f.minutes <= t && t < e.minutes,
+            (Some(f), Some(e)) => t >= f.minutes || t < e.minutes,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Units;
+
+    #[test]
+    fn when_matches_days_and_windows() {
+        use super::{Day, TimeOfDay, When};
+        use chrono::{FixedOffset, TimeZone};
+        // 2026-09-25 is a Friday.
+        let at = |d: u32, h: u32, m: u32| FixedOffset::east_opt(0).unwrap().with_ymd_and_hms(2026, 9, d, h, m, 0).unwrap();
+        let t = |s: &str| Some(TimeOfDay::parse(s).unwrap());
+        assert!(When::default().matches(&at(25, 3, 0)));
+        let night = When { days: vec![], from: t("23:00"), to: t("07:00") };
+        assert!(night.matches(&at(25, 23, 0)) && night.matches(&at(26, 6, 59)));
+        assert!(!night.matches(&at(26, 7, 0)) && !night.matches(&at(25, 22, 59)));
+        let office = When { days: vec![Day::Mon, Day::Fri], from: t("09:00"), to: t("17:30") };
+        assert!(office.matches(&at(25, 9, 0)) && office.matches(&at(25, 17, 29)));
+        assert!(!office.matches(&at(25, 17, 30)) && !office.matches(&at(26, 12, 0)));
+        assert!(When { days: vec![], from: t("12:00"), to: None }.matches(&at(26, 23, 59)));
+        assert!(!When { days: vec![], from: None, to: t("12:00") }.matches(&at(26, 12, 0)));
+        for bad in ["24:00", "9:00", "12:60", "noon"] {
+            assert!(TimeOfDay::parse(bad).is_err(), "{bad}");
+        }
+    }
 
     #[test]
     fn converts_between_degrees_only() {
