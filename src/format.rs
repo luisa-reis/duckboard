@@ -18,10 +18,12 @@ use crate::palette::{Overrides, Palette};
 use anyhow::{bail, Context, Result};
 use embedded_graphics::{prelude::*, primitives::Rectangle};
 use indexmap::IndexMap;
+use schemars::{json_schema, JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Deserializer};
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct File {
     /// WLED host, "host" or "host:port".
@@ -96,7 +98,7 @@ fn default_alert_area() -> Area {
     Area { x: 21, y: 21, width: 22, height: 22 }
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Sources {
     pub weather: Option<WeatherConfig>,
@@ -107,7 +109,7 @@ pub struct Sources {
     pub pictures: Option<Pictures>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Pictures {
     /// Relative to this file.
@@ -130,7 +132,7 @@ fn default_pictures_seconds() -> f32 {
 }
 
 /// A rectangle of the panel, in pixels.
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Area {
     pub x: u32,
@@ -141,7 +143,7 @@ pub struct Area {
 
 /// A region of a layout: a rectangle, and where it stacks. Regions are drawn
 /// in ascending `z`, those with the same `z` in the layout's order.
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Region {
     pub x: u32,
@@ -209,11 +211,51 @@ impl<'de> Deserialize<'de> for Tile {
     }
 }
 
+impl JsonSchema for Tile {
+    fn schema_name() -> Cow<'static, str> {
+        "Tile".into()
+    }
+
+    /// The kind's own schema, with `scheme` and `colors` beside the
+    /// settings of every kind.
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        let mut schema = TileSpec::json_schema(generator);
+        let colors = generator.subschema_for::<Overrides>();
+        let scheme = json_schema!({
+            "description": "A colour scheme's name, over the page's.",
+            "type": "string"
+        });
+        if let Some(kinds) = schema.get_mut("oneOf").and_then(|v| v.as_array_mut()) {
+            for kind in kinds {
+                if let Some(props) = kind.get_mut("properties").and_then(|v| v.as_object_mut()) {
+                    props.insert("scheme".into(), scheme.clone().into());
+                    props.insert("colors".into(), colors.clone().into());
+                }
+            }
+        }
+        schema
+    }
+}
+
 /// A tile on a page: a named tile's name, or a tile spelt out.
 #[derive(Debug, Clone)]
 pub enum TileRef {
     Name(String),
     Inline(Tile),
+}
+
+impl JsonSchema for TileRef {
+    fn schema_name() -> Cow<'static, str> {
+        "TileRef".into()
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        let tile = generator.subschema_for::<Tile>();
+        json_schema!({
+            "description": "A tile's name from `tiles`, or a tile spelt out.",
+            "anyOf": [{"type": "string"}, tile]
+        })
+    }
 }
 
 impl<'de> Deserialize<'de> for TileRef {
@@ -226,7 +268,7 @@ impl<'de> Deserialize<'de> for TileRef {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Page {
     /// The layout's name.
@@ -244,12 +286,20 @@ pub struct Page {
     pub data: PageData,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Rule {
     pub playlist: String,
     /// Left out, the rule always matches.
     pub when: Option<When>,
+}
+
+/// The JSON Schema of the file, draft 7 for the widest editor support.
+pub fn schema() -> String {
+    let generator = schemars::generate::SchemaSettings::draft07().into_generator();
+    let mut schema = generator.into_root_schema_for::<File>();
+    schema.insert("title".into(), "panel-ddp configuration".into());
+    serde_json::to_string_pretty(&schema).expect("a schema serialises") + "\n"
 }
 
 /// Reads a YAML configuration file and resolves it.
@@ -598,6 +648,43 @@ pages:
         for (yaml, want) in cases {
             let err = format!("{:#}", load(&yaml).unwrap_err());
             assert!(err.contains(want), "{want:?} not in {err:?}");
+        }
+    }
+
+    #[test]
+    fn the_committed_schema_is_current() {
+        let committed = include_str!("../panel-ddp.schema.json");
+        assert!(
+            committed == super::schema(),
+            "panel-ddp.schema.json is out of date: target/release/panel-ddp schema > panel-ddp.schema.json"
+        );
+    }
+
+    fn validator() -> jsonschema::Validator {
+        let schema: serde_json::Value = serde_json::from_str(&super::schema()).unwrap();
+        jsonschema::validator_for(&schema).unwrap()
+    }
+
+    fn as_json(yaml: &str) -> serde_json::Value {
+        serde_yaml_ng::from_str(yaml).unwrap()
+    }
+
+    #[test]
+    fn the_schema_accepts_what_loads_and_refuses_typos() {
+        let v = validator();
+        for yaml in [BASE.to_string(), format!("{BASE}playlists:\n  day: [home]\nschedule:\n  - {{playlist: day, when: {{days: [mon], from: \"06:30\"}}}}\n")] {
+            let errors: Vec<String> = v.iter_errors(&as_json(&yaml)).map(|e| e.to_string()).collect();
+            assert!(errors.is_empty(), "{errors:?}");
+        }
+        for bad in [
+            BASE.replace("seconds: ring", "second: ring"),
+            BASE.replace("{kind: date}", "{kind: date, label: x}"),
+            BASE.replace("{kind: date}", "{kind: dates}"),
+            BASE.replace("target: wled.local", "targets: wled.local"),
+            BASE.replace("\"#101010\"", "\"#1010\""),
+            format!("{BASE}schedule:\n  - {{playlist: day, when: {{from: \"25:00\"}}}}\n"),
+        ] {
+            assert!(!v.is_valid(&as_json(&bad)), "accepted: {bad}");
         }
     }
 

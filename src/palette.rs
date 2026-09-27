@@ -50,6 +50,20 @@ impl<'de> Deserialize<'de> for Rgba {
     }
 }
 
+impl schemars::JsonSchema for Rgba {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "Colour".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "description": "A colour, \"#rrggbb\", or \"#rrggbbaa\" with alpha to blend it over what is under it.",
+            "type": "string",
+            "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+        })
+    }
+}
+
 pub const BLACK: Rgba = Rgba::rgb(0, 0, 0);
 
 /// The roles. Every field is what the tiles were tuned with.
@@ -97,7 +111,7 @@ impl Default for Palette {
 }
 
 /// The same roles, each optional: what a config table sets.
-#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Overrides {
     pub text: Option<Rgba>,

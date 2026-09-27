@@ -38,6 +38,10 @@ Context for Claude Code sessions working on panel-ddp.
   schemes, layouts, tiles, pages, playlists and a schedule, resolved into
   the model with errors that name the page and region.
 - `src/legacy.rs` — today's TOML/JSON files, read into the model.
+- `panel-ddp.schema.json` — the YAML file's JSON Schema, generated from the
+  format's types (their doc comments are its descriptions). After changing
+  them: `target/release/panel-ddp schema > panel-ddp.schema.json`; a test
+  fails until it is current. Check a config with `panel-ddp check FILE`.
 - `src/config.rs` — building blocks shared by any format (sources, alerts,
   tile kinds, page data).
 - `src/ddp.rs` — the sender (an unconnected UDP socket, on purpose).

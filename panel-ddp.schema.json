@@ -1,0 +1,1128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "panel-ddp configuration",
+  "type": "object",
+  "properties": {
+    "target": {
+      "description": "WLED host, \"host\" or \"host:port\".",
+      "type": "string"
+    },
+    "fps": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0,
+      "default": 10
+    },
+    "gamma": {
+      "description": "Gamma applied to pictures before they are sent: WLED does not\ncorrect streamed frames, so sRGB pictures need 2.2.",
+      "type": "number",
+      "format": "float",
+      "default": 2.200000047683716
+    },
+    "temperature": {
+      "description": "The unit every temperature is shown in.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Units"
+        }
+      ]
+    },
+    "gaps": {
+      "description": "A copy of the board's gap file, for previews; relative to this file.",
+      "type": "string",
+      "default": "2d-gaps.json"
+    },
+    "sources": {
+      "$ref": "#/definitions/Sources"
+    },
+    "art_cache": {
+      "$ref": "#/definitions/ArtCacheConfig"
+    },
+    "art_file": {
+      "description": "A JPEG kept at the album cover on show; relative to this file.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "art_open": {
+      "description": "Run `open` on the art file after each change (macOS Preview).",
+      "type": "boolean",
+      "default": false
+    },
+    "schemes": {
+      "description": "Colour schemes by name; `default` applies to every tile.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/Overrides"
+      }
+    },
+    "layouts": {
+      "description": "Layouts by name: regions of the panel by name.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/definitions/Region"
+        }
+      }
+    },
+    "tiles": {
+      "description": "Tiles by name, for pages to place.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/Tile"
+      }
+    },
+    "page_seconds": {
+      "description": "How long a page shows when it does not say, in seconds.",
+      "type": "number",
+      "format": "float",
+      "default": 10.0
+    },
+    "pages": {
+      "description": "Pages by name.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/Page"
+      }
+    },
+    "playlists": {
+      "description": "Playlists by name: pages shown in turn, looping.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "default": {}
+    },
+    "schedule": {
+      "description": "The first rule that matches picks the playlist; none matching sends\nnothing, so the board falls back to its presets.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Rule"
+      }
+    },
+    "alerts": {
+      "description": "While an entity is in its state, the panel pulses with its label.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Alert"
+      }
+    },
+    "alert_area": {
+      "description": "Where an alert centres its label.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Area"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "target",
+    "pages"
+  ],
+  "definitions": {
+    "Units": {
+      "type": "string",
+      "enum": [
+        "celsius",
+        "fahrenheit"
+      ]
+    },
+    "Sources": {
+      "type": "object",
+      "properties": {
+        "weather": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/WeatherConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "home_assistant": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/HomeAssistantConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "spotify": {
+          "description": "Takes precedence over a Home Assistant media player.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SpotifyConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pictures": {
+          "description": "A folder of pictures for picture tiles.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Pictures"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "WeatherConfig": {
+      "type": "object",
+      "properties": {
+        "latitude": {
+          "type": "number",
+          "format": "double"
+        },
+        "longitude": {
+          "type": "number",
+          "format": "double"
+        },
+        "units": {
+          "description": "Overrides the top-level `temperature` for the weather tile alone.\nLeft out, the loader fills it in.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Units"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "refresh_minutes": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "default": 10
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "latitude",
+        "longitude"
+      ]
+    },
+    "HomeAssistantConfig": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "description": "e.g. \"http://homeassistant.local:8123\"",
+          "type": "string"
+        },
+        "token": {
+          "description": "A long-lived access token (profile page, bottom).",
+          "type": "string"
+        },
+        "media_player": {
+          "description": "The media_player entity for the now_playing tile and media hub.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "refresh_seconds": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "default": 10
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "token"
+      ]
+    },
+    "SpotifyConfig": {
+      "type": "object",
+      "properties": {
+        "client_id": {
+          "description": "The Client ID of an app from developer.spotify.com/dashboard.",
+          "type": "string"
+        },
+        "token_file": {
+          "description": "Where `panel-ddp spotify-login` keeps the tokens, relative to the\nconfig file.",
+          "type": "string",
+          "default": "spotify-token.json"
+        },
+        "refresh_seconds": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "default": 5
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "client_id"
+      ]
+    },
+    "Pictures": {
+      "type": "object",
+      "properties": {
+        "dir": {
+          "description": "Relative to this file.",
+          "type": "string",
+          "default": "frame"
+        },
+        "seconds": {
+          "description": "Each picture, in seconds.",
+          "type": "number",
+          "format": "float",
+          "default": 10.0
+        },
+        "shuffle": {
+          "description": "Random order, reshuffled at each start; else by file name.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArtCacheConfig": {
+      "description": "Where decoded album art is kept between runs, and how much of it.",
+      "type": "object",
+      "properties": {
+        "dir": {
+          "description": "Relative to the config file.",
+          "type": "string",
+          "default": "art-cache"
+        },
+        "max_megabytes": {
+          "description": "0 disables the cache.",
+          "type": "number",
+          "format": "double",
+          "default": 4.0
+        },
+        "keep_originals": {
+          "description": "Also keep each picture as downloaded, at its original size, and ask\nSpotify for its largest. The `art_file` is then written from\nit. Costs a few tens of kilobytes per cover against the cap.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "Overrides": {
+      "description": "The same roles, each optional: what a config table sets.",
+      "type": "object",
+      "properties": {
+        "text": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Colour"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "label": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Colour"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "track": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Colour"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "accent": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Colour"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "secondary": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Colour"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "full": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Colour"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sun": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Colour"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "moon": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Colour"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cloud": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Colour"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "storm_cloud": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Colour"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rain": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Colour"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "snow": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Colour"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fog": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Colour"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Colour": {
+      "description": "A colour, \"#rrggbb\", or \"#rrggbbaa\" with alpha to blend it over what is under it.",
+      "type": "string",
+      "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+    },
+    "Region": {
+      "description": "A region of a layout: a rectangle, and where it stacks. Regions are drawn\nin ascending `z`, those with the same `z` in the layout's order.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "y": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "width": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "height": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "z": {
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ]
+    },
+    "Tile": {
+      "oneOf": [
+        {
+          "description": "Hours over minutes inside a seconds ring.",
+          "type": "object",
+          "properties": {
+            "seconds": {
+              "$ref": "#/definitions/Seconds"
+            },
+            "dot_size": {
+              "description": "Ring pixels the seconds dot covers.",
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0,
+              "default": 2
+            },
+            "kind": {
+              "type": "string",
+              "const": "clock"
+            },
+            "scheme": {
+              "description": "A colour scheme's name, over the page's.",
+              "type": "string"
+            },
+            "colors": {
+              "$ref": "#/definitions/Overrides"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "description": "Weekday, day of month, month.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "date"
+            },
+            "scheme": {
+              "description": "A colour scheme's name, over the page's.",
+              "type": "string"
+            },
+            "colors": {
+              "$ref": "#/definitions/Overrides"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Sky icon and temperature; needs the [weather] table.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "weather"
+            },
+            "scheme": {
+              "description": "A colour scheme's name, over the page's.",
+              "type": "string"
+            },
+            "colors": {
+              "$ref": "#/definitions/Overrides"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "A Home Assistant entity's state under a label; needs [home_assistant].",
+          "type": "object",
+          "properties": {
+            "entity": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string"
+            },
+            "unit": {
+              "description": "Overrides the entity's unit_of_measurement; \"\" hides it.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "decimals": {
+              "description": "Decimal places for a numeric state; fewer are used if it does not fit.",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint8",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "kind": {
+              "type": "string",
+              "const": "sensor"
+            },
+            "scheme": {
+              "description": "A colour scheme's name, over the page's.",
+              "type": "string"
+            },
+            "colors": {
+              "$ref": "#/definitions/Overrides"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "entity",
+            "label"
+          ]
+        },
+        {
+          "description": "A Home Assistant entity's numeric state as a bar under the value,\nfull at `max`; needs [home_assistant].",
+          "type": "object",
+          "properties": {
+            "entity": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string"
+            },
+            "max": {
+              "type": "number",
+              "format": "double",
+              "default": 100.0
+            },
+            "decimals": {
+              "description": "Decimal places for the value; 0 unless set.",
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0,
+              "maximum": 255,
+              "default": 0
+            },
+            "kind": {
+              "type": "string",
+              "const": "progress"
+            },
+            "scheme": {
+              "description": "A colour scheme's name, over the page's.",
+              "type": "string"
+            },
+            "colors": {
+              "$ref": "#/definitions/Overrides"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "entity",
+            "label"
+          ]
+        },
+        {
+          "description": "Artist and title scrolling; needs [home_assistant].media_player.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "now_playing"
+            },
+            "scheme": {
+              "description": "A colour scheme's name, over the page's.",
+              "type": "string"
+            },
+            "colors": {
+              "$ref": "#/definitions/Overrides"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "The album art; needs [spotify] or [home_assistant].media_player.",
+          "type": "object",
+          "properties": {
+            "shape": {
+              "$ref": "#/definitions/ArtShape"
+            },
+            "spin": {
+              "description": "Turn the art while playing.",
+              "type": "boolean",
+              "default": false
+            },
+            "paused_alpha": {
+              "description": "The art's alpha while paused.",
+              "type": "number",
+              "format": "float",
+              "default": 0.4000000059604645
+            },
+            "corner_alpha": {
+              "description": "The alpha of the corners outside the circle in the faded shape.",
+              "type": "number",
+              "format": "float",
+              "default": 0.30000001192092896
+            },
+            "alpha": {
+              "description": "The art's alpha over what is drawn under it.",
+              "type": "number",
+              "format": "float",
+              "default": 1.0
+            },
+            "idle": {
+              "description": "What shows while there is no art.",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Idle"
+                }
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "const": "art"
+            },
+            "scheme": {
+              "description": "A colour scheme's name, over the page's.",
+              "type": "string"
+            },
+            "colors": {
+              "$ref": "#/definitions/Overrides"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "description": "The `[frame]` picture due, at `alpha` over what is drawn under it.",
+          "type": "object",
+          "properties": {
+            "alpha": {
+              "type": "number",
+              "format": "float",
+              "default": 1.0
+            },
+            "kind": {
+              "type": "string",
+              "const": "picture"
+            },
+            "scheme": {
+              "description": "A colour scheme's name, over the page's.",
+              "type": "string"
+            },
+            "colors": {
+              "$ref": "#/definitions/Overrides"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "description": "Nothing.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "blank"
+            },
+            "scheme": {
+              "description": "A colour scheme's name, over the page's.",
+              "type": "string"
+            },
+            "colors": {
+              "$ref": "#/definitions/Overrides"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Seconds": {
+      "description": "How the clock shows the seconds on its ring.",
+      "oneOf": [
+        {
+          "description": "The ring fills clockwise from twelve.",
+          "type": "string",
+          "const": "ring"
+        },
+        {
+          "description": "A single dot travels round the ring, like a second hand.",
+          "type": "string",
+          "const": "dot"
+        }
+      ]
+    },
+    "ArtShape": {
+      "oneOf": [
+        {
+          "description": "A record: circular, with a spindle hole.",
+          "type": "string",
+          "const": "disc"
+        },
+        {
+          "description": "The whole cover.",
+          "type": "string",
+          "const": "square"
+        },
+        {
+          "description": "The whole cover, the corners outside the circle dimmed.",
+          "type": "string",
+          "const": "faded"
+        }
+      ]
+    },
+    "Idle": {
+      "description": "What an art tile shows while there is no art.",
+      "oneOf": [
+        {
+          "description": "A slow ripple from the middle.",
+          "type": "string",
+          "const": "ripple"
+        },
+        {
+          "description": "Nothing.",
+          "type": "string",
+          "const": "none"
+        }
+      ]
+    },
+    "Page": {
+      "type": "object",
+      "properties": {
+        "layout": {
+          "description": "The layout's name.",
+          "type": "string"
+        },
+        "seconds": {
+          "description": "How long the page shows; `page_seconds` when left out.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
+        },
+        "scheme": {
+          "description": "A scheme over the default one for every tile on the page.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tiles": {
+          "description": "The tile in each region, by region name. Regions left out stay\nempty.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/TileRef"
+          }
+        },
+        "data": {
+          "description": "Values laid over the live data while the page shows.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PageData"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "layout"
+      ]
+    },
+    "TileRef": {
+      "description": "A tile's name from `tiles`, or a tile spelt out.",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/definitions/Tile"
+        }
+      ]
+    },
+    "PageData": {
+      "description": "Values a page lays over the live data, for demos and for pinning a page\nto something the sources do not report.",
+      "type": "object",
+      "properties": {
+        "weather": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/WeatherData"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sensors": {
+          "description": "By entity id: a fixed state, or a sweep from one number to another\nover the page's time.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/SensorData"
+          }
+        },
+        "cover": {
+          "description": "A cover from the art cache, newest first (0 is the newest), played.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "minimum": 0
+        },
+        "picture": {
+          "description": "The `[frame]` picture, by position, for a `frame` background.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "WeatherData": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "description": "WMO weather code.",
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "is_day": {
+          "type": "boolean",
+          "default": true
+        },
+        "temperature": {
+          "description": "In the configured `temperature` unit.",
+          "type": "number",
+          "format": "float"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "temperature"
+      ]
+    },
+    "SensorData": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sweep": {
+          "description": "From, to: the value moves linearly across the page, rounded.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "number",
+            "format": "double"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Rule": {
+      "type": "object",
+      "properties": {
+        "playlist": {
+          "type": "string"
+        },
+        "when": {
+          "description": "Left out, the rule always matches.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/When"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "playlist"
+      ]
+    },
+    "When": {
+      "description": "When a schedule rule applies: on some days, between two times of day.\nLeft out, a part does not limit: no `days` is every day, no `from` is\nfrom midnight, no `to` is until midnight. A `to` earlier than `from`\nruns past midnight. Days are those of the moment, local time.",
+      "type": "object",
+      "properties": {
+        "days": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Day"
+          }
+        },
+        "from": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/TimeOfDay"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "to": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/TimeOfDay"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Day": {
+      "type": "string",
+      "enum": [
+        "mon",
+        "tue",
+        "wed",
+        "thu",
+        "fri",
+        "sat",
+        "sun"
+      ]
+    },
+    "TimeOfDay": {
+      "description": "A time of day, \"HH:MM\", 00:00 to 23:59, local time.",
+      "type": "string",
+      "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+    },
+    "Alert": {
+      "type": "object",
+      "properties": {
+        "entity": {
+          "type": "string"
+        },
+        "state": {
+          "description": "The state that raises the alert.",
+          "type": "string",
+          "default": "on"
+        },
+        "label": {
+          "description": "Shown in the middle of the panel: up to four characters large in\nthe hub, up to eleven small on the band above it.",
+          "type": "string"
+        },
+        "color": {
+          "$ref": "#/definitions/Colour"
+        },
+        "pulse_seconds": {
+          "description": "One pulse, in seconds.",
+          "type": "number",
+          "format": "float",
+          "default": 1.5
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "entity",
+        "label"
+      ]
+    },
+    "Area": {
+      "description": "A rectangle of the panel, in pixels.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "y": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "width": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "height": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ]
+    }
+  }
+}

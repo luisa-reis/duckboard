@@ -6,6 +6,8 @@
 //!     panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
 //!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
 //!     panel-ddp spotify-login [--config FILE] [--port N]
+//!     panel-ddp check FILE...
+//!     panel-ddp schema
 //!
 //! The config file defaults to dashboard.toml in the current directory; a
 //! `.json` file works the same. A config with `pages` loops through them,
@@ -66,7 +68,9 @@ const USAGE: &str = "usage:
   panel-ddp preview [--config FILE] [--out FILE] [--test | --weather-code N | --alert]
   panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
   panel-ddp test [HOST[:PORT]] [--fps N] [--frames N]
-  panel-ddp spotify-login [--config FILE] [--port N]";
+  panel-ddp spotify-login [--config FILE] [--port N]
+  panel-ddp check FILE...
+  panel-ddp schema";
 
 const DEFAULT_CONFIG: &str = "dashboard.toml";
 
@@ -404,6 +408,34 @@ fn cmd_render(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+/// Loads each file as `run` would and says what it holds, or what is wrong
+/// with it; fails if any is wrong.
+fn cmd_check(args: &[String]) -> Result<()> {
+    if args.is_empty() {
+        bail!("check needs a file");
+    }
+    let mut bad = 0;
+    for f in args {
+        match model::load(std::path::Path::new(f)) {
+            Ok(m) => eprintln!(
+                "{f}: ok, {} pages, {} playlists, {} schedule rules",
+                m.pages.len(),
+                m.playlists.len(),
+                m.schedule.len()
+            ),
+            Err(e) => {
+                eprintln!("{f}: {e:#}");
+                bad += 1;
+            }
+        }
+    }
+    if bad > 0 {
+        eprintln!("panel-ddp: {bad} of {} files have mistakes", args.len());
+        std::process::exit(1);
+    }
+    Ok(())
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let (cmd, rest) = match args.split_first() {
@@ -420,6 +452,11 @@ fn main() {
         "render" => cmd_render(rest),
         "test" => cmd_test(rest),
         "spotify-login" => cmd_spotify_login(rest),
+        "check" => cmd_check(rest),
+        "schema" => {
+            print!("{}", format::schema());
+            Ok(())
+        }
         "-h" | "--help" => {
             eprintln!("{USAGE}");
             return;

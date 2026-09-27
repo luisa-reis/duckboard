@@ -22,6 +22,10 @@ toml = "0.8"
 ureq = { version = "2", features = ["json"] }
 serde_yaml_ng = "0.10.0"
 indexmap = { version = "2.14.2", features = ["serde"] }
+schemars = { version = "1.2.2", features = ["indexmap2", "preserve_order"] }
 
 [profile.release]
 opt-level = 2
+
+[dev-dependencies]
+jsonschema = { version = "0.58.1", default-features = false }
