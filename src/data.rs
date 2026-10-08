@@ -38,15 +38,11 @@ impl Snapshot {
         let value = (t.min(sweep) as f64 * 100.0 / sweep as f64 * 10.0).round() / 10.0;
         let s = frame % (30 * fps);
         let alert_on = s >= 5 * fps && s < 10 * fps;
-        let mut sensors: HashMap<String, Sensor> = cfg
+        let sensors: HashMap<String, Sensor> = cfg
             .sensor_entities()
             .into_iter()
             .map(|e| (e, Sensor { state: format!("{value}"), unit: Some("%".into()) }))
             .collect();
-        for a in &cfg.alerts {
-            let state = if alert_on { a.state.clone() } else { format!("not {}", a.state) };
-            sensors.insert(a.entity.clone(), Sensor { state, unit: None });
-        }
         let gradient = |w: u32, h: u32| {
             let mut rgb = Vec::with_capacity((w * h * 3) as usize);
             for y in 0..h {
@@ -57,7 +53,7 @@ impl Snapshot {
             rgb
         };
         let scaled = Scaled::from_fn(&cfg.art_sizes(), gradient);
-        Self {
+        let mut snap = Self {
             weather: Some(Weather { temperature: 21.4, code: 61, is_day: true }),
             sensors,
             media: Some(Media {
@@ -66,6 +62,16 @@ impl Snapshot {
                 artist: "Sample Artist".into(),
                 art: Some(Art { url: String::new(), scaled, original: None }),
             }),
+        };
+        snap.set_alerts(cfg, alert_on);
+        snap
+    }
+
+    /// Raises every alert the config names, or lowers them all.
+    pub fn set_alerts(&mut self, cfg: &Model, on: bool) {
+        for a in &cfg.alerts {
+            let state = if on { a.state.clone() } else { format!("not {}", a.state) };
+            self.sensors.insert(a.entity.clone(), Sensor { state, unit: None });
         }
     }
 }

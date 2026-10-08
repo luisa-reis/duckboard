@@ -43,6 +43,45 @@ impl Mask {
     /// Writes the canvas as a PNG, scaled up, with the hidden pixels painted
     /// grey so the preview shows what the panel looks like behind the mask.
     pub fn preview_png(&self, canvas: &Canvas, scale: u32, path: &Path) -> Result<()> {
+        self.preview(canvas, scale).save(path).with_context(|| format!("writing {}", path.display()))
+    }
+
+    /// Writes the canvases as an animated GIF, like `preview_png`, looping,
+    /// `fps` frames a second (GIF timing is in hundredths of a second).
+    pub fn preview_gif(&self, canvases: impl ExactSizeIterator<Item = Canvas>, scale: u32, fps: u32, path: &Path) -> Result<()> {
+        use image::codecs::gif::{GifEncoder, Repeat};
+        let file = std::fs::File::create(path).with_context(|| format!("writing {}", path.display()))?;
+        let mut gif = GifEncoder::new_with_speed(std::io::BufWriter::new(file), 10);
+        gif.set_repeat(Repeat::Infinite)?;
+        let delay = image::Delay::from_numer_denom_ms(1000, fps.max(1));
+        gif.encode_frames(canvases.map(|c| {
+            let img = image::DynamicImage::ImageRgb8(self.preview(&c, scale)).into_rgba8();
+            image::Frame::from_parts(img, 0, 0, delay)
+        }))
+        .with_context(|| format!("writing {}", path.display()))
+    }
+
+    /// Writes the canvases as an animated PNG (APNG), like `preview_gif` but
+    /// in full colour. Viewers without APNG show the first frame.
+    pub fn preview_apng(&self, canvases: impl ExactSizeIterator<Item = Canvas>, scale: u32, fps: u32, path: &Path) -> Result<()> {
+        let write = || -> Result<(), png::EncodingError> {
+            let file = std::fs::File::create(path)?;
+            let mut png = png::Encoder::new(std::io::BufWriter::new(file), self.size.width * scale, self.size.height * scale);
+            png.set_color(png::ColorType::Rgb);
+            png.set_depth(png::BitDepth::Eight);
+            png.set_animated(canvases.len() as u32, 0)?;
+            png.set_frame_delay(1, fps.clamp(1, u16::MAX as u32) as u16)?;
+            let mut png = png.write_header()?;
+            for c in canvases {
+                png.write_image_data(self.preview(&c, scale).as_raw())?;
+            }
+            png.finish()
+        };
+        write().with_context(|| format!("writing {}", path.display()))
+    }
+
+    /// The canvas scaled up, the hidden pixels grey.
+    fn preview(&self, canvas: &Canvas, scale: u32) -> image::RgbImage {
         let hidden = image::Rgb([0x30, 0x30, 0x30]);
         let size = canvas.size();
         let mut img = image::RgbImage::new(size.width * scale, size.height * scale);
@@ -61,8 +100,7 @@ impl Mask {
                 }
             }
         }
-        img.save(path).with_context(|| format!("writing {}", path.display()))?;
-        Ok(())
+        img
     }
 }
 

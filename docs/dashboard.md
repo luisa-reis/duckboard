@@ -471,6 +471,8 @@ target/release/panel-ddp run --config other.yaml --frames 100
 target/release/panel-ddp run --sample                 # made-up data, sensors sweep 0..100: a demo of the layout
 target/release/panel-ddp run --config demo.yaml --target <board>   # the demo; --once for a single pass
 target/release/panel-ddp preview --out preview.png  # the first page from sample data, mask applied
+target/release/panel-ddp preview --out preview.gif  # the first page animated, for its time; --seconds N for longer or shorter
+target/release/panel-ddp preview --out preview.apng # the same as an animated PNG, in full colour (GIF has 256 a frame)
 target/release/panel-ddp preview --weather-code 95  # check an icon (add 1000 for night)
 target/release/panel-ddp preview --alert            # the alert view
 target/release/panel-ddp test <board-ip>            # colour bars, ramp, counter, bouncing dot; --size 128x64 for another panel

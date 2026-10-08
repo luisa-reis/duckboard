@@ -1,7 +1,7 @@
 //! panel-ddp: draws dashboard frames and streams them to a WLED matrix.
 //!
 //!     panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
-//!     panel-ddp preview [--config FILE] [--out FILE] [--test | --alert]
+//!     panel-ddp preview [--config FILE] [--out FILE] [--seconds S] [--test | --alert]
 //!     panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
 //!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N] [--size WxH]
 //!     panel-ddp spotify-login [--config FILE] [--port N]
@@ -14,12 +14,13 @@
 //! file when it changes; `--once` plays that playlist through a single
 //! time: `run --config demo.yaml --once` is the demo. `preview` renders the
 //! first page's first frame from sample data into a PNG with the mask
-//! applied; `--test` renders the test frame instead. `render` draws what
-//! `run` would send, frame by frame, at a fixed time and without the
-//! network, and writes a hash per frame, for checking that a change leaves
-//! the output alone. `check` loads configs, `schema` prints their JSON
-//! Schema, and `migrate` converts an older TOML or JSON config. HOST
-//! defaults to 4.3.2.1 (WLED-AP), PORT to 4048.
+//! applied, or with `--out` naming a .gif or .apng the whole page
+//! (`--seconds` long) animated; `--test` renders the test frame instead.
+//! `render` draws what `run` would send, frame by frame, at a fixed time
+//! and without the network, and writes a hash per frame, for checking that
+//! a change leaves the output alone. `check` loads configs, `schema`
+//! prints their JSON Schema, and `migrate` converts an older TOML or JSON
+//! config. HOST defaults to 4.3.2.1 (WLED-AP), PORT to 4048.
 
 mod art;
 mod artcache;
@@ -68,7 +69,7 @@ fn stop_flag() -> Arc<AtomicBool> {
 
 const USAGE: &str = "usage:
   panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
-  panel-ddp preview [--config FILE] [--out FILE] [--test | --weather-code N | --alert]
+  panel-ddp preview [--config FILE] [--out FILE] [--seconds S] [--test | --weather-code N | --alert]
   panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
   panel-ddp test [HOST[:PORT]] [--fps N] [--frames N] [--size WxH]
   panel-ddp spotify-login [--config FILE] [--port N]
@@ -404,11 +405,15 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     let mut test = false;
     let mut alert_preview = false;
     let mut weather_code = None;
+    let mut seconds = None;
     let mut it = args.iter();
     while let Some(a) = it.next() {
         match a.as_str() {
             "--config" => config = it.next().context("--config needs a file")?.into(),
             "--out" => out = it.next().context("--out needs a file")?.into(),
+            "--seconds" => {
+                seconds = Some(it.next().and_then(|v| v.parse::<f32>().ok()).filter(|s| *s > 0.0).context("--seconds needs a number above 0")?)
+            }
             "--test" => test = true,
             "--alert" => alert_preview = true,
             "--weather-code" => {
@@ -426,25 +431,51 @@ fn cmd_preview(args: &[String]) -> Result<()> {
         eprintln!("panel-ddp: no gap file at {}; the preview shows the whole panel", cfg.gaps.display());
         Mask::none(cfg.size())
     };
-    let mut canvas = Canvas::new(cfg.size());
-    mask::draw_outline(&mut canvas, &mask, Rgba::rgb(20, 20, 20));
-    if test {
-        testframe::draw(&mut canvas, 0);
-    } else {
-        // Six seconds in, an alert of the made-up data is up.
-        let mut data = data::Snapshot::sample(&cfg, if alert_preview { 6 * cfg.fps } else { 0 });
+    let animated = out.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).filter(|e| e == "gif" || e == "apng");
+    let (size, fps) = (cfg.size(), cfg.fps.max(1));
+    let show = if test { None } else { Some(Show::new(cfg)?) };
+    let start = chrono::Local::now();
+    let draw = |frame: u32| {
+        let mut canvas = Canvas::new(size);
+        mask::draw_outline(&mut canvas, &mask, Rgba::rgb(20, 20, 20));
+        let Some(show) = &show else {
+            testframe::draw(&mut canvas, frame);
+            return (canvas, true);
+        };
+        // The made-up data raises its alerts now and then; here they are up
+        // only with --alert (a page's own data may still raise one).
+        let mut data = data::Snapshot::sample(&show.cfg, frame);
+        data.set_alerts(&show.cfg, alert_preview);
         if let (Some(code), Some(w)) = (weather_code, data.weather.as_mut()) {
             w.code = code;
             w.is_day = code < 1000;
             w.code %= 1000;
         }
-        // The first page scheduled now, at its first frame.
-        if Show::new(cfg)?.draw(&mut canvas, 0, chrono::Local::now(), &mut data).is_none() {
-            eprintln!("panel-ddp: nothing is scheduled now; the preview is dark");
-        }
+        let now = start + Duration::from_secs_f64(frame as f64 / fps as f64);
+        let on = show.draw(&mut canvas, frame, now, &mut data).is_some();
+        (canvas, on)
+    };
+    // The first page scheduled now: its first frame, or animated its whole
+    // time (ten seconds for the test frame or a page shown for good).
+    let (first, on) = draw(0);
+    if !on {
+        eprintln!("panel-ddp: nothing is scheduled now; the preview is dark");
     }
-    mask.preview_png(&canvas, 4, &out)?;
-    eprintln!("panel-ddp: wrote {}", out.display());
+    if let Some(ext) = animated {
+        let page_seconds = show.as_ref().and_then(|s| s.pages.at(0, &start)).and_then(|at| at.page.seconds);
+        let frames = ((seconds.or(page_seconds).unwrap_or(10.0) * fps as f32).round() as u32).max(1);
+        let mut first = Some(first);
+        let canvases = (0..frames).map(|f| first.take().unwrap_or_else(|| draw(f).0));
+        if ext == "gif" {
+            mask.preview_gif(canvases, 4, fps, &out)?;
+        } else {
+            mask.preview_apng(canvases, 4, fps, &out)?;
+        }
+        eprintln!("panel-ddp: wrote {} ({frames} frames, {:.1} s)", out.display(), frames as f32 / fps as f32);
+    } else {
+        mask.preview_png(&first, 4, &out)?;
+        eprintln!("panel-ddp: wrote {}", out.display());
+    }
     Ok(())
 }
 
