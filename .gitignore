@@ -9,3 +9,7 @@ demo-art.jpg
 frame/
 2d-gaps.json
 secrets.yaml
+# preview output
+preview*.png
+*.gif
+*.apng
