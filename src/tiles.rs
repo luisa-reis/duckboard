@@ -64,13 +64,13 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Pal
         TileSpec::Progress { entity, label, max, decimals } => {
             progress(&mut clipped, area, ctx, p, entity, label, *max, *decimals)
         }
-        TileSpec::Sparkline { entity, series, hours, line, dot } => {
+        TileSpec::LineChart { entity, series, hours, line, dot } => {
             let values = match (entity, series) {
                 (Some(entity), _) => ctx.data.series.get(&(entity.clone(), *hours)),
                 (None, Some(name)) => ctx.data.pushed.get(name),
                 (None, None) => None,
             };
-            sparkline(&mut clipped, area, p, values.map(|v| v.as_slice()), *line, *dot)
+            line_chart(&mut clipped, area, p, values.map(|v| v.as_slice()), *line, *dot)
         }
         TileSpec::NowPlaying => now_playing(&mut clipped, area, ctx, p),
         TileSpec::Art { .. } | TileSpec::Picture { .. } | TileSpec::Blank => {}
@@ -344,7 +344,7 @@ fn columns(values: &[f64], cols: usize) -> Vec<f64> {
 /// A series as a line across the area, its lowest value on the
 /// bottom row and its highest on the top one, with a dot on its end when
 /// `dot` is set; a flat line in the track colour while there is none.
-fn sparkline<D: DrawTarget<Color = Rgba>>(
+fn line_chart<D: DrawTarget<Color = Rgba>>(
     t: &mut D,
     area: Rectangle,
     p: &Palette,

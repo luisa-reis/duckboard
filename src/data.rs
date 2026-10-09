@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-/// How often the sparklines' histories are fetched again.
+/// How often the line charts' histories are fetched again.
 const HISTORY_REFRESH: Duration = Duration::from_secs(60);
 
 #[derive(Clone, Debug, Default)]
@@ -26,7 +26,7 @@ pub struct Snapshot {
     pub sensors: HashMap<String, Sensor>,
     pub media: Option<Media>,
     /// An entity's history over some hours, oldest first, for the
-    /// sparklines; shared, since the snapshot is copied every frame.
+    /// line charts; shared, since the snapshot is copied every frame.
     pub series: HashMap<(String, u32), Arc<Vec<f64>>>,
     /// The series pushed over HTTP, by name, oldest value first.
     pub pushed: HashMap<String, Arc<Vec<f64>>>,
@@ -35,7 +35,7 @@ pub struct Snapshot {
 impl Snapshot {
     /// Made-up data for previews and demos that must not touch the network:
     /// every sensor the config names sweeps 0..100 over `SWEEP_SECONDS` and
-    /// holds full for `HOLD_SECONDS`, every sparkline draws the same two
+    /// holds full for `HOLD_SECONDS`, every line chart draws the same two
     /// waves, alerts raise for five seconds of every
     /// thirty, and a gradient plays as album art. Timed in seconds, so it
     /// runs the same at any frame rate.

@@ -59,7 +59,7 @@ Context for Claude Code sessions working on panel-ddp.
 - `src/mask.rs` — the gap file, for previews only.
 - `src/ha.rs`, `spotify.rs`, `weather.rs`, `data.rs` — data sources, each on
   its own thread keeping the last good reading.
-- `src/http.rs` — the HTTP endpoint sparkline series are pushed to
+- `src/http.rs` — the HTTP endpoint line chart series are pushed to
   (`sources.http`), on its own thread, a thread per request.
 - `tools/DemoArtViewer/` — a Processing sketch for the demo art.
 

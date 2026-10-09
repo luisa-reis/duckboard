@@ -108,7 +108,7 @@ With `sources.home_assistant`:
 - `progress` — one entity as a label, the value with its unit beside it, and
   a bar that is full at `max` (default 100), amber on the way and green when
   full.
-- `sparkline` — one `entity`'s numeric history over the last `hours`
+- `line_chart` — one `entity`'s numeric history over the last `hours`
   (default 24, up to 720) as a line across the region, the lowest value on the
   bottom row and the highest on the top one, with nothing else: no axes
   and no labels. `line` is its colour (the `accent` colour unless set);
@@ -120,7 +120,7 @@ With `sources.home_assistant`:
 
 With `sources.http`:
 
-- `sparkline` with a `series` in place of the `entity` — the same line, of
+- `line_chart` with a `series` in place of the `entity` — the same line, of
   values pushed to the panel under that name; see Pushing a series.
 
 With `sources.pictures`:
@@ -300,7 +300,7 @@ target/release/panel-ddp run > panel-ddp.log 2>&1 &` is enough.
 - `sources.home_assistant` — `url`, the long-lived access `token` (profile
   page, Security tab) as a secret, the `media_player` entity to use as the
   media source when there is no Spotify, `refresh_seconds`.
-- `sources.http` — `listen`, the address and port the series of sparklines
+- `sources.http` — `listen`, the address and port the series of line charts
   are pushed to (default `127.0.0.1:4049`), and optionally a `token`, as a
   secret, that every request must carry; see Pushing a series.
 - `sources.pictures` — `dir` (default `frame`), `seconds` each picture
@@ -369,7 +369,7 @@ pages:
 
 ## Pushing a series
 
-A sparkline with a `series` draws values sent to the panel over HTTP, for
+A line chart with a `series` draws values sent to the panel over HTTP, for
 anything Home Assistant does not hold: a script's output, a build's
 duration, a price.
 
@@ -377,7 +377,7 @@ duration, a price.
 sources:
   http: {listen: "127.0.0.1:4049"}
 tiles:
-  power: {kind: sparkline, series: power, dot: "#ffffff"}
+  power: {kind: line_chart, series: power, dot: "#ffffff"}
 ```
 
 ```sh
@@ -390,7 +390,7 @@ curl -X DELETE                         http://127.0.0.1:4049/series/power   # em
 - `PUT` replaces the series with the body, a JSON array of numbers, oldest
   first; `POST` adds a number, or an array of them, to its end. A series
   keeps its newest 1024 values. The answer is the count, `4 values`.
-- Only the series a sparkline in the config names are taken; any other
+- Only the series a line chart in the config names are taken; any other
   name is a 404, as is any other path. A body that is not numbers is a 400
   and changes nothing.
 - A name is letters, digits, `.`, `_` and `-`.
@@ -468,7 +468,7 @@ source is missing is allowed when its page brings the data:
 - `sensors: {sensor.x: {state: "29", unit: "°C"}}`, or `{sweep: [0, 100]}`
   to move the value linearly across the page. An alert's entity set to its
   state raises the alert.
-- `series: {sensor.x: [3, 4, 6, 5]}` — the values a sparkline of the
+- `series: {sensor.x: [3, 4, 6, 5]}` — the values a line chart of the
   entity, or of the series of that name, draws, oldest first, whatever its
   `hours`.
 - `cover: N` — the Nth newest cover in the art cache, playing. With
@@ -495,7 +495,7 @@ in its own size and saying which, then lines too wide for the panel,
 scrolling. It needs no data.
 
 `demo-dashboards.yaml` is the dashboards demo: four dashboards built from
-sparklines and text of different sizes on made-up series: one reading with
+line charts and text of different sizes on made-up series: one reading with
 its day under it, three readings each beside its chart, the clock and the
 date over a reading, and text over a chart the size of the panel.
 

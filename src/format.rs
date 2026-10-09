@@ -142,7 +142,7 @@ pub struct Sources {
     pub spotify: Option<SpotifyConfig>,
     /// A folder of pictures for picture tiles.
     pub pictures: Option<Pictures>,
-    /// An HTTP endpoint taking the values of sparkline series.
+    /// An HTTP endpoint taking the values of line chart series.
     pub http: Option<Http>,
 }
 
@@ -615,12 +615,12 @@ impl File {
                     {
                         Some("sources.home_assistant")
                     }
-                    TileSpec::Sparkline { entity: Some(entity), .. }
+                    TileSpec::LineChart { entity: Some(entity), .. }
                         if s.home_assistant.is_none() && !d.series.contains_key(entity) =>
                     {
                         Some("sources.home_assistant")
                     }
-                    TileSpec::Sparkline { series: Some(name), .. }
+                    TileSpec::LineChart { series: Some(name), .. }
                         if s.http.is_none() && !d.series.contains_key(name) =>
                     {
                         Some("sources.http")
@@ -658,7 +658,7 @@ fn kind_name(t: &TileSpec) -> &'static str {
         TileSpec::Weather => "weather",
         TileSpec::Sensor { .. } => "sensor",
         TileSpec::Progress { .. } => "progress",
-        TileSpec::Sparkline { .. } => "sparkline",
+        TileSpec::LineChart { .. } => "line_chart",
         TileSpec::NowPlaying => "now_playing",
         TileSpec::Art { .. } => "art",
         TileSpec::Picture { .. } => "picture",
@@ -750,27 +750,27 @@ pages:
     }
 
     #[test]
-    fn sparkline_needs_its_history() {
+    fn line_chart_needs_its_history() {
         let page = |tile: &str, data: &str| format!("target: t\nlayouts: {{l: {{a: {{x: 0, y: 0, width: 64, height: 20}}}}}}\npages: {{p: {{layout: l, tiles: {{a: {tile}}}, data: {data}}}}}\n");
-        let m = load(&page("{kind: sparkline, entity: sensor.a, dot: '#ff0000'}", "{series: {sensor.a: [1, 2]}}")).unwrap();
+        let m = load(&page("{kind: line_chart, entity: sensor.a, dot: '#ff0000'}", "{series: {sensor.a: [1, 2]}}")).unwrap();
         match m.pages[0].layers[0].tile {
-            TileSpec::Sparkline { hours, line, dot, .. } => {
+            TileSpec::LineChart { hours, line, dot, .. } => {
                 assert_eq!((hours, line, dot), (24, None, Some(Rgba::rgb(255, 0, 0))));
             }
             ref other => panic!("{other:?}"),
         }
         assert_eq!(m.series(), [("sensor.a".to_string(), 24)]);
         let err = |tile: &str, data: &str| format!("{:#}", load(&page(tile, data)).unwrap_err());
-        assert!(err("{kind: sparkline, entity: sensor.a}", "{}").contains("sources.home_assistant"));
-        assert!(err("{kind: sparkline, entity: sensor.a}", "{series: {sensor.a: []}}").contains("series sensor.a"));
-        assert!(err("{kind: sparkline, entity: sensor.a, hours: 0}", "{series: {sensor.a: [1]}}").contains("hours"));
-        assert!(err("{kind: sparkline, series: power}", "{}").contains("sources.http"));
-        assert!(err("{kind: sparkline}", "{}").contains("either entity or series"));
-        assert!(err("{kind: sparkline, entity: sensor.a, series: a}", "{}").contains("either entity or series"));
-        assert!(err("{kind: sparkline, series: a/b}", "{}").contains("a name is"));
-        let m = load(&page("{kind: sparkline, series: power}", "{series: {power: [1]}}")).unwrap();
+        assert!(err("{kind: line_chart, entity: sensor.a}", "{}").contains("sources.home_assistant"));
+        assert!(err("{kind: line_chart, entity: sensor.a}", "{series: {sensor.a: []}}").contains("series sensor.a"));
+        assert!(err("{kind: line_chart, entity: sensor.a, hours: 0}", "{series: {sensor.a: [1]}}").contains("hours"));
+        assert!(err("{kind: line_chart, series: power}", "{}").contains("sources.http"));
+        assert!(err("{kind: line_chart}", "{}").contains("either entity or series"));
+        assert!(err("{kind: line_chart, entity: sensor.a, series: a}", "{}").contains("either entity or series"));
+        assert!(err("{kind: line_chart, series: a/b}", "{}").contains("a name is"));
+        let m = load(&page("{kind: line_chart, series: power}", "{series: {power: [1]}}")).unwrap();
         assert_eq!((m.series(), m.pushed()), (vec![], vec!["power".to_string()]));
-        let m = load(&page("{kind: sparkline, series: power}", "{}").replace("target: t", "target: t\nsources: {http: {}}")).unwrap();
+        let m = load(&page("{kind: line_chart, series: power}", "{}").replace("target: t", "target: t\nsources: {http: {}}")).unwrap();
         assert_eq!(m.http.unwrap().listen, "127.0.0.1:4049");
     }
 

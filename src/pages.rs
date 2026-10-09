@@ -182,12 +182,12 @@ impl Pages {
         for layer in &page.layers {
             let values = |name: &String| data.series.get(name).map(|v| Arc::new(v.clone()));
             match &layer.tile {
-                TileSpec::Sparkline { entity: Some(entity), hours, .. } => {
+                TileSpec::LineChart { entity: Some(entity), hours, .. } => {
                     if let Some(v) = values(entity) {
                         snap.series.insert((entity.clone(), *hours), v);
                     }
                 }
-                TileSpec::Sparkline { series: Some(name), .. } => {
+                TileSpec::LineChart { series: Some(name), .. } => {
                     if let Some(v) = values(name) {
                         snap.pushed.insert(name.clone(), v);
                     }

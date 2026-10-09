@@ -1,4 +1,4 @@
-//! The HTTP endpoint that takes the values of the sparklines' series, so
+//! The HTTP endpoint that takes the values of the line charts' series, so
 //! anything on the network can push a line to the panel:
 //!
 //! - `PUT /series/NAME` with a JSON array of numbers replaces the series;
@@ -114,7 +114,7 @@ fn answer(method: &Method, url: &str, body: &str, names: &[String], shared: &Sha
         return (404, "the series are at /series/NAME\n".into());
     };
     if !names.iter().any(|n| n == name) {
-        return (404, format!("no sparkline draws a series named {name}\n"));
+        return (404, format!("no line chart draws a series named {name}\n"));
     }
     match method {
         Method::Get => {

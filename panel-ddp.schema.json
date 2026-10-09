@@ -214,7 +214,7 @@
           ]
         },
         "http": {
-          "description": "An HTTP endpoint taking the values of sparkline series.",
+          "description": "An HTTP endpoint taking the values of line chart series.",
           "anyOf": [
             {
               "$ref": "#/definitions/Http"
@@ -831,7 +831,7 @@
             },
             "kind": {
               "type": "string",
-              "const": "sparkline"
+              "const": "line_chart"
             },
             "scheme": {
               "description": "A colour scheme's name, over the page's.",
@@ -1129,7 +1129,7 @@
           "default": {}
         },
         "series": {
-          "description": "By entity id or series name: the values a sparkline of it draws,\noldest first, whatever its `hours`.",
+          "description": "By entity id or series name: the values a line chart of it draws,\noldest first, whatever its `hours`.",
           "type": "object",
           "additionalProperties": {
             "type": "array",

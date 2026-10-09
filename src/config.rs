@@ -18,7 +18,7 @@ pub struct PageData {
     /// over the page's time.
     #[serde(default)]
     pub sensors: std::collections::BTreeMap<String, SensorData>,
-    /// By entity id or series name: the values a sparkline of it draws,
+    /// By entity id or series name: the values a line chart of it draws,
     /// oldest first, whatever its `hours`.
     #[serde(default)]
     pub series: std::collections::BTreeMap<String, Vec<f64>>,
@@ -182,7 +182,7 @@ pub struct HomeAssistantConfig {
     pub refresh_seconds: u64,
 }
 
-/// The HTTP endpoint the values of sparkline series are pushed to.
+/// The HTTP endpoint the values of line chart series are pushed to.
 #[derive(Debug, Clone)]
 pub struct HttpConfig {
     /// The address and port to listen on.
@@ -338,7 +338,7 @@ pub enum TileSpec {
     /// either a Home Assistant `entity`'s numeric history (needs
     /// sources.home_assistant) or a `series` pushed over HTTP (needs
     /// sources.http).
-    Sparkline {
+    LineChart {
         entity: Option<String>,
         /// The name the values are pushed under, at /series/NAME: letters,
         /// digits, `.`, `_` and `-`.
@@ -406,16 +406,16 @@ impl TileSpec {
             {
                 anyhow::bail!("art tile alphas must be between 0 and 1")
             }
-            TileSpec::Sparkline { entity, series, .. } if entity.is_some() == series.is_some() => {
-                anyhow::bail!("a sparkline takes either entity or series")
+            TileSpec::LineChart { entity, series, .. } if entity.is_some() == series.is_some() => {
+                anyhow::bail!("a line chart takes either entity or series")
             }
-            TileSpec::Sparkline { hours, .. } if !(1..=720).contains(hours) => {
-                anyhow::bail!("sparkline hours must be between 1 and 720")
+            TileSpec::LineChart { hours, .. } if !(1..=720).contains(hours) => {
+                anyhow::bail!("line chart hours must be between 1 and 720")
             }
-            TileSpec::Sparkline { series: Some(name), .. }
+            TileSpec::LineChart { series: Some(name), .. }
                 if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c)) =>
             {
-                anyhow::bail!("sparkline series {name:?}: a name is letters, digits, '.', '_' and '-'")
+                anyhow::bail!("line chart series {name:?}: a name is letters, digits, '.', '_' and '-'")
             }
             TileSpec::Picture { alpha } if !(0.0..=1.0).contains(alpha) => {
                 anyhow::bail!("picture tile alpha must be between 0 and 1")

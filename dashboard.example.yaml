@@ -24,7 +24,7 @@ sources:
   #   token: {secret: home_assistant_token}
   #   media_player: media_player.living_room   # when there is no Spotify
   # pictures: {dir: frame, seconds: 10}        # for picture tiles
-  # http: {listen: "127.0.0.1:4049"}           # for sparklines of a pushed `series`;
+  # http: {listen: "127.0.0.1:4049"}           # for line charts of a pushed `series`;
   #                                            # add token: {secret: http_token} to ask for one
 
 # Colour schemes by name; `default` applies to every tile, and a page or a
@@ -46,8 +46,8 @@ layouts:
     clock: {x: 8, y: 8, width: 48, height: 48}
 
 # Tiles by name. Kinds: clock, date, text, weather, sensor, progress,
-# sparkline, now_playing, art, picture, blank; each may add a `scheme` and its own
-# `colors`.
+# line_chart, now_playing, art, picture, blank; each may add a `scheme` and
+# its own `colors`.
 tiles:
   clock: {kind: clock}
   date: {kind: date}

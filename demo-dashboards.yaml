@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=panel-ddp.schema.json
 #
-# The dashboards demo: a few dashboards built from sparklines and text of
+# The dashboards demo: a few dashboards built from line charts and text of
 # different sizes, on made-up data. It needs no accounts: every page brings
 # its own series, and the text is fixed.
 #
@@ -42,14 +42,14 @@ layouts:
 tiles:
   clock: {kind: clock}
   date: {kind: date}
-  # Sparklines: the line alone, in the accent colour or one of its own, and
+  # Line charts: the line alone, in the accent colour or one of its own, and
   # a dot of another colour on the latest value.
-  outside-chart: {kind: sparkline, entity: sensor.demo_outside, line: "#50aaff", dot: "#ff4060"}
-  solar-chart: {kind: sparkline, entity: sensor.demo_solar, dot: "#ffffff"}
-  house-chart: {kind: sparkline, entity: sensor.demo_house, line: "#50aaff"}
-  battery-chart: {kind: sparkline, entity: sensor.demo_battery, line: "#3cdc5a", dot: "#ffffff"}
-  co2-chart: {kind: sparkline, entity: sensor.demo_co2, line: "#c080ff", dot: "#ffffff"}
-  week-chart: {kind: sparkline, entity: sensor.demo_week, hours: 168, line: "#3cdc5a70"}
+  outside-chart: {kind: line_chart, entity: sensor.demo_outside, line: "#50aaff", dot: "#ff4060"}
+  solar-chart: {kind: line_chart, entity: sensor.demo_solar, dot: "#ffffff"}
+  house-chart: {kind: line_chart, entity: sensor.demo_house, line: "#50aaff"}
+  battery-chart: {kind: line_chart, entity: sensor.demo_battery, line: "#3cdc5a", dot: "#ffffff"}
+  co2-chart: {kind: line_chart, entity: sensor.demo_co2, line: "#c080ff", dot: "#ffffff"}
+  week-chart: {kind: line_chart, entity: sensor.demo_week, hours: 168, line: "#3cdc5a70"}
   # The text beside them, from 4x6 to 10x20.
   outside-name: {kind: text, text: "OUTSIDE", size: 4x6, colors: {text: "#6e6e6e"}}
   outside-value: {kind: text, text: "21.4°", size: 10x20}
