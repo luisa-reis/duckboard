@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=panel-ddp.schema.json
 #
-# The dashboards demo: a few dashboards built from line charts, area charts
-# and text of different sizes, on made-up data. It needs no accounts: every page brings
+# The dashboards demo: a few dashboards built from line charts, area charts,
+# bar charts and text of different sizes, on made-up data. It needs no accounts: every page brings
 # its own series, and the text is fixed.
 #
 #   target/release/panel-ddp run --config demo-dashboards.yaml --target <board> --once
@@ -56,6 +56,12 @@ tiles:
   down-area: {kind: area_chart, entity: sensor.demo_down, line: "#50aaff"}
   up-area: {kind: area_chart, entity: sensor.demo_up, line: "#3cdc5a", area: "#3cdc5a90", area_bottom: "#50aaff20"}
   ping-area: {kind: area_chart, entity: sensor.demo_ping, line: "#ffffff", area: "#7030c0", dot: "#ff4060"}
+  # Bar charts: as many bars as fit at their `width` and `gap`, standing on
+  # zero, the latest in a colour of its own with `last`.
+  rain-bars: {kind: bar_chart, entity: sensor.demo_rain, hours: 168, bar: "#2c6cd0", last: "#50aaff", width: 6, gap: 3}
+  energy-bars: {kind: bar_chart, entity: sensor.demo_energy, width: 1, last: "#ffffff"}
+  water-bars: {kind: bar_chart, entity: sensor.demo_water, bar: "#50aaff", last: "#ffffff"}
+  steps-bars: {kind: bar_chart, entity: sensor.demo_steps, bar: "#3cdc5a", width: 4}
   # The text beside them, from 4x6 to 10x20.
   outside-name: {kind: text, text: "OUTSIDE", size: 4x6, colors: {text: "#6e6e6e"}}
   outside-value: {kind: text, text: "21.4°", size: 10x20}
@@ -77,6 +83,15 @@ tiles:
   up-value: {kind: text, text: "12Mb", size: 6x10}
   ping-name: {kind: text, text: "PING", size: 4x6, colors: {text: "#6e6e6e"}}
   ping-value: {kind: text, text: "9ms", size: 6x10}
+  rain-name: {kind: text, text: "RAIN TODAY", size: 4x6, colors: {text: "#6e6e6e"}}
+  rain-value: {kind: text, text: "12mm", size: 10x20}
+  rain-foot: {kind: text, text: "LAST 7 DAYS", size: 4x6, colors: {text: "#6e6e6e"}}
+  energy-name: {kind: text, text: "ENERGY", size: 4x6, colors: {text: "#6e6e6e"}}
+  energy-value: {kind: text, text: "18kWh", size: 6x10}
+  water-name: {kind: text, text: "WATER", size: 4x6, colors: {text: "#6e6e6e"}}
+  water-value: {kind: text, text: "210L", size: 6x10}
+  steps-name: {kind: text, text: "STEPS", size: 4x6, colors: {text: "#6e6e6e"}}
+  steps-value: {kind: text, text: "8.4k", size: 6x10}
   week-name: {kind: text, text: "THIS WEEK", size: 7x14, colors: {text: "#6e6e6e"}}
   week-value: {kind: text, text: "+4.2%", size: 9x18}
 
@@ -144,3 +159,28 @@ pages:
         sensor.demo_down: [40.0, 48.0, 57.0, 59.0, 53.0, 49.0, 55.0, 69.0, 79.0, 75.0, 62.0, 51.0, 48.0, 48.0, 46.0, 55.0, 61.0, 59.0, 54.0, 56.0, 68.0, 82.0, 85.0, 75.0, 61.0, 54.0, 55.0, 55.0, 52.0, 61.0, 64.0, 60.0]
         sensor.demo_up: [10.2, 13.5, 12.5, 11.1, 12.6, 8.4, 8.2, 10.4, 9.8, 13.7, 12.6, 12.5, 13.9, 10.1, 10.6, 9.1, 9.1, 13.5, 12.3, 13.4, 14.9, 11.5, 12.8, 10.4, 8.4, 12.8, 11.7, 13.9, 15.3, 12.7, 14.6, 11.9]
         sensor.demo_ping: [9.0, 10.0, 11.0, 11.0, 10.0, 9.0, 8.0, 7.0, 7.0, 8.0, 9.0, 14.0, 23.0, 22.0, 13.0, 10.0, 8.0, 7.0, 7.0, 7.0, 8.0, 10.0, 11.0, 11.0, 15.0, 18.0, 10.0, 8.0, 7.0, 7.0, 8.0, 9.0]
+  # Bar charts: a week of wide bars under a reading, then three beside
+  # theirs, one, two and four pixels wide.
+  rain:
+    layout: reading
+    tiles: {name: rain-name, value: rain-value, chart: rain-bars, foot: rain-foot}
+    data:
+      series:
+        sensor.demo_rain: [0.0, 2.5, 7.0, 1.0, 0.0, 4.5, 12.0]
+  usage:
+    layout: rows
+    tiles:
+      name_1: energy-name
+      value_1: energy-value
+      chart_1: energy-bars
+      name_2: water-name
+      value_2: water-value
+      chart_2: water-bars
+      name_3: steps-name
+      value_3: steps-value
+      chart_3: steps-bars
+    data:
+      series:
+        sensor.demo_energy: [11.4, 13.8, 14.5, 13.1, 10.5, 13.1, 15.4, 15.8, 14.3, 11.6, 14.9, 16.9, 17.1, 15.4, 13.4]
+        sensor.demo_water: [232.0, 227.0, 181.0, 231.0, 276.0, 223.0, 211.0, 199.0, 241.0, 276.0]
+        sensor.demo_steps: [8.2, 8.5, 4.7, 7.8, 8.8, 5.4]
