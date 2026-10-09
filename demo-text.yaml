@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=panel-ddp.schema.json
+#
+# The text demo: every size a text tile comes in, each line in its own
+# size and saying which, then lines too wide for the panel, scrolling. It
+# needs no accounts and no data.
+#
+#   target/release/panel-ddp run --config demo-text.yaml --target <board> --once
+
+target: "4.3.2.1"
+
+# The regions: rows across the panel, each as tall as the size it holds.
+layouts:
+  small:
+    row_1: {x: 0, y: 1, width: 64, height: 6}
+    row_2: {x: 0, y: 9, width: 64, height: 7}
+    row_3: {x: 0, y: 18, width: 64, height: 8}
+    row_4: {x: 0, y: 28, width: 64, height: 9}
+    row_5: {x: 0, y: 39, width: 64, height: 10}
+    row_6: {x: 0, y: 51, width: 64, height: 12}
+  medium:
+    row_1: {x: 0, y: 1, width: 64, height: 13}
+    row_2: {x: 0, y: 17, width: 64, height: 13}
+    row_3: {x: 0, y: 33, width: 64, height: 14}
+    row_4: {x: 0, y: 50, width: 64, height: 13}
+  large:
+    row_1: {x: 0, y: 2, width: 64, height: 15}
+    row_2: {x: 0, y: 21, width: 64, height: 18}
+    row_3: {x: 0, y: 43, width: 64, height: 20}
+  scrolling:
+    row_1: {x: 0, y: 8, width: 64, height: 20}
+    row_2: {x: 0, y: 36, width: 64, height: 10}
+    row_3: {x: 0, y: 52, width: 64, height: 6}
+
+# A tile for each size, by name.
+tiles:
+  text-4x6: {kind: text, text: "4x6 Aa 12", size: 4x6}
+  text-5x7: {kind: text, text: "5x7 Aa 12", size: 5x7}
+  text-5x8: {kind: text, text: "5x8 Aa 12", size: 5x8}
+  text-6x9: {kind: text, text: "6x9 Aa 12", size: 6x9}
+  text-6x10: {kind: text, text: "6x10 Aa 12", size: 6x10}
+  text-6x12: {kind: text, text: "6x12 Aa 12", size: 6x12}
+  text-6x13: {kind: text, text: "6x13 Aa", size: 6x13}
+  text-7x13: {kind: text, text: "7x13 Aa", size: 7x13}
+  text-7x14: {kind: text, text: "7x14 Aa", size: 7x14}
+  text-8x13: {kind: text, text: "8x13 Aa", size: 8x13}
+  text-9x15: {kind: text, text: "9x15", size: 9x15}
+  text-9x18: {kind: text, text: "9x18", size: 9x18}
+  text-10x20: {kind: text, text: "10x20", size: 10x20}
+  long-10x20: {kind: text, text: "The quick brown duck", size: 10x20}
+  long-6x10: {kind: text, text: "jumps over the lazy dog", size: 6x10, colors: {text: "#ffb000"}}
+  long-4x6: {kind: text, text: "and scrolls when it is too wide", size: 4x6}
+
+page_seconds: 6.0
+
+pages:
+  small:
+    layout: small
+    tiles:
+      row_1: text-4x6
+      row_2: text-5x7
+      row_3: text-5x8
+      row_4: text-6x9
+      row_5: text-6x10
+      row_6: text-6x12
+  medium:
+    layout: medium
+    tiles: {row_1: text-6x13, row_2: text-7x13, row_3: text-7x14, row_4: text-8x13}
+  large:
+    layout: large
+    tiles: {row_1: text-9x15, row_2: text-9x18, row_3: text-10x20}
+  # Lines wider than the panel scroll, at the same speed in any size.
+  scrolling:
+    layout: scrolling
+    seconds: 30.0
+    tiles: {row_1: long-10x20, row_2: long-6x10, row_3: long-4x6}
