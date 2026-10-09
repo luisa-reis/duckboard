@@ -108,8 +108,8 @@ With `sources.home_assistant`:
 - `progress` — one entity as a label, the value with its unit beside it, and
   a bar that is full at `max` (default 100), amber on the way and green when
   full.
-- `sparkline` — one entity's numeric history over the last `hours` (default
-  24, up to 720) as a line across the region, the lowest value on the
+- `sparkline` — one `entity`'s numeric history over the last `hours`
+  (default 24, up to 720) as a line across the region, the lowest value on the
   bottom row and the highest on the top one, with nothing else: no axes
   and no labels. `line` is its colour (the `accent` colour unless set);
   `dot` puts a three-pixel dot of that colour on the latest value, and
@@ -117,6 +117,11 @@ With `sources.home_assistant`:
   that are not numbers are skipped, and a flat line in the `track` colour
   shows while there is nothing to draw. Text tiles beside it name it and
   give the value; `demo-dashboards.yaml` has examples.
+
+With `sources.http`:
+
+- `sparkline` with a `series` in place of the `entity` — the same line, of
+  values pushed to the panel under that name; see Pushing a series.
 
 With `sources.pictures`:
 
@@ -295,6 +300,8 @@ target/release/panel-ddp run > panel-ddp.log 2>&1 &` is enough.
 - `sources.home_assistant` — `url`, the long-lived access `token` (profile
   page, Security tab) as a secret, the `media_player` entity to use as the
   media source when there is no Spotify, `refresh_seconds`.
+- `sources.http` — `listen`, the address and port the series of sparklines
+  are pushed to (default `127.0.0.1:4049`); see Pushing a series.
 - `sources.pictures` — `dir` (default `frame`), `seconds` each picture
   shows (default 10) and `shuffle`; see Picture frame.
 - `art_cache` — `dir` (default `art-cache` next to the config),
@@ -359,6 +366,41 @@ pages:
   night: {layout: big-clock, scheme: dim, tiles: {clock: clock}}
 ```
 
+## Pushing a series
+
+A sparkline with a `series` draws values sent to the panel over HTTP, for
+anything Home Assistant does not hold: a script's output, a build's
+duration, a price.
+
+```yaml
+sources:
+  http: {listen: "127.0.0.1:4049"}
+tiles:
+  power: {kind: sparkline, series: power, dot: "#ffffff"}
+```
+
+```sh
+curl -X PUT  -d '[412, 398, 455, 620]' http://127.0.0.1:4049/series/power   # the whole line
+curl -X POST -d '640'                  http://127.0.0.1:4049/series/power   # one more value on its end
+curl                                   http://127.0.0.1:4049/series/power   # what it holds
+curl -X DELETE                         http://127.0.0.1:4049/series/power   # empty it
+```
+
+- `PUT` replaces the series with the body, a JSON array of numbers, oldest
+  first; `POST` adds a number, or an array of them, to its end. A series
+  keeps its newest 1024 values. The answer is the count, `4 values`.
+- Only the series a sparkline in the config names are taken; any other
+  name is a 404, as is any other path. A body that is not numbers is a 400
+  and changes nothing.
+- A name is letters, digits, `.`, `_` and `-`.
+- The values are kept in memory: a reload of the config keeps them, and
+  they are gone when the program restarts.
+- `listen` defaults to this machine only. `0.0.0.0:4049` takes requests
+  from the network, and there is no password: anything that reaches the
+  port can change the lines, so keep it to a network you trust.
+- The endpoint has its own thread and answers each request on another, so
+  a slow or stuck client never delays a frame.
+
 ## Picture frame
 
 The pictures in a folder, one after another, each cropped to its area,
@@ -414,7 +456,8 @@ source is missing is allowed when its page brings the data:
   to move the value linearly across the page. An alert's entity set to its
   state raises the alert.
 - `series: {sensor.x: [3, 4, 6, 5]}` — the values a sparkline of the
-  entity draws, oldest first, whatever its `hours`.
+  entity, or of the series of that name, draws, oldest first, whatever its
+  `hours`.
 - `cover: N` — the Nth newest cover in the art cache, playing. With
   `keep_originals`, only covers with an original count.
 - `picture: N` — the Nth picture, for a picture tile.

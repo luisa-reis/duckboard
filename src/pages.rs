@@ -180,10 +180,19 @@ impl Pages {
             snap.sensors.insert(entity.clone(), Sensor { state, unit: s.unit.clone() });
         }
         for layer in &page.layers {
-            if let TileSpec::Sparkline { entity, hours, .. } = &layer.tile {
-                if let Some(values) = data.series.get(entity) {
-                    snap.series.insert((entity.clone(), *hours), Arc::new(values.clone()));
+            let values = |name: &String| data.series.get(name).map(|v| Arc::new(v.clone()));
+            match &layer.tile {
+                TileSpec::Sparkline { entity: Some(entity), hours, .. } => {
+                    if let Some(v) = values(entity) {
+                        snap.series.insert((entity.clone(), *hours), v);
+                    }
                 }
+                TileSpec::Sparkline { series: Some(name), .. } => {
+                    if let Some(v) = values(name) {
+                        snap.pushed.insert(name.clone(), v);
+                    }
+                }
+                _ => {}
             }
         }
         if let Some(i) = data.cover {

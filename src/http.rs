@@ -1,0 +1,185 @@
+//! The HTTP endpoint that takes the values of the sparklines' series, so
+//! anything on the network can push a line to the panel:
+//!
+//! - `PUT /series/NAME` with a JSON array of numbers replaces the series;
+//! - `POST /series/NAME` with a number, or an array of them, adds to its
+//!   end, the oldest going once there are more than `MAX_VALUES`;
+//! - `GET /series/NAME` gives it back; `DELETE /series/NAME` empties it.
+//!
+//! It listens on its own thread and answers each request on another, so a
+//! slow client stalls neither the frames nor the next request. The body is
+//! read and parsed before the snapshot is locked.
+
+use crate::config::HttpConfig;
+use crate::data::{log_changed, Shared};
+use std::io::Read;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
+use tiny_http::{Method, Request, Response, Server};
+
+/// The most values a series keeps.
+pub const MAX_VALUES: usize = 1024;
+
+/// The largest request body read, in bytes.
+const MAX_BODY: usize = 64 * 1024;
+
+/// Listens on its own thread until `stop` is set, for the series in
+/// `names`. An address that cannot be bound is tried again every second: at
+/// a reload the server before this one may still be letting go of it.
+pub fn spawn(cfg: HttpConfig, names: Vec<String>, shared: Shared, stop: Arc<AtomicBool>) {
+    thread::spawn(move || {
+        let mut last_err = None;
+        let server = loop {
+            match Server::http(&cfg.listen) {
+                Ok(server) => break server,
+                Err(e) => log_changed(&mut last_err, "http", anyhow::anyhow!("listening on {}: {e}", cfg.listen)),
+            }
+            thread::sleep(Duration::from_secs(1));
+            if stop.load(Ordering::SeqCst) {
+                return;
+            }
+        };
+        eprintln!("panel-ddp: http: listening on {}", server.server_addr());
+        serve(&server, Arc::new(names), &shared, &stop);
+    });
+}
+
+/// Answers requests until `stop` is set, each on a thread of its own.
+fn serve(server: &Server, names: Arc<Vec<String>>, shared: &Shared, stop: &AtomicBool) {
+    while !stop.load(Ordering::SeqCst) {
+        match server.recv_timeout(Duration::from_secs(1)) {
+            Ok(Some(request)) => {
+                let (names, shared) = (Arc::clone(&names), Arc::clone(shared));
+                thread::spawn(move || handle(request, &names, &shared));
+            }
+            Ok(None) => {}
+            Err(e) => {
+                eprintln!("panel-ddp: http: {e}");
+                thread::sleep(Duration::from_secs(1));
+            }
+        }
+    }
+}
+
+fn handle(mut request: Request, names: &[String], shared: &Shared) {
+    let mut body = String::new();
+    let read = request.as_reader().take(MAX_BODY as u64 + 1).read_to_string(&mut body);
+    let (status, text) = match read {
+        Err(_) => (400, "the body is not UTF-8 text\n".to_string()),
+        Ok(_) if body.len() > MAX_BODY => (413, format!("the body is over {MAX_BODY} bytes\n")),
+        Ok(_) => answer(request.method(), request.url(), &body, names, shared),
+    };
+    let _ = request.respond(Response::from_string(text).with_status_code(status));
+}
+
+/// The status and the text a request is answered with, after doing what it
+/// asks.
+fn answer(method: &Method, url: &str, body: &str, names: &[String], shared: &Shared) -> (u16, String) {
+    let path = url.split('?').next().unwrap_or_default();
+    let Some(name) = path.strip_prefix("/series/").filter(|n| !n.is_empty() && !n.contains('/')) else {
+        return (404, "the series are at /series/NAME\n".into());
+    };
+    if !names.iter().any(|n| n == name) {
+        return (404, format!("no sparkline draws a series named {name}\n"));
+    }
+    match method {
+        Method::Get => {
+            let values = shared.lock().unwrap().pushed.get(name).cloned().unwrap_or_default();
+            (200, format!("{}\n", serde_json::json!(*values)))
+        }
+        Method::Delete => {
+            shared.lock().unwrap().pushed.remove(name);
+            (200, "0 values\n".into())
+        }
+        Method::Put | Method::Post => {
+            let new = match values(body) {
+                Ok(v) => v,
+                Err(e) => return (400, format!("{e}\n")),
+            };
+            let mut snap = shared.lock().unwrap();
+            let mut all = match (method, snap.pushed.get(name)) {
+                (Method::Post, Some(old)) => old.to_vec(),
+                _ => Vec::new(),
+            };
+            all.extend(new);
+            all.drain(..all.len().saturating_sub(MAX_VALUES));
+            let count = all.len();
+            snap.pushed.insert(name.to_string(), Arc::new(all));
+            (200, format!("{count} values\n"))
+        }
+        _ => (405, "GET, PUT, POST or DELETE\n".into()),
+    }
+}
+
+/// The numbers in a body: a JSON number, or an array of them.
+fn values(body: &str) -> Result<Vec<f64>, String> {
+    let wrong = || "the body is a JSON number or an array of numbers".to_string();
+    match serde_json::from_str(body).map_err(|_| wrong())? {
+        serde_json::Value::Number(n) => Ok(vec![n.as_f64().ok_or_else(wrong)?]),
+        serde_json::Value::Array(a) => a.iter().map(|v| v.as_f64().ok_or_else(wrong)).collect(),
+        _ => Err(wrong()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pushed(shared: &Shared, name: &str) -> Vec<f64> {
+        shared.lock().unwrap().pushed.get(name).map(|v| v.to_vec()).unwrap_or_default()
+    }
+
+    #[test]
+    fn puts_replace_and_posts_add() {
+        let shared = Shared::default();
+        let names = ["power".to_string()];
+        let ask = |method: Method, url: &str, body: &str| answer(&method, url, body, &names, &shared);
+        assert_eq!(ask(Method::Put, "/series/power", "[1, 2.5]"), (200, "2 values\n".into()));
+        assert_eq!(ask(Method::Post, "/series/power", "4"), (200, "3 values\n".into()));
+        assert_eq!(ask(Method::Post, "/series/power?x=1", "[5]").0, 200);
+        assert_eq!(pushed(&shared, "power"), [1.0, 2.5, 4.0, 5.0]);
+        assert_eq!(ask(Method::Get, "/series/power", ""), (200, "[1.0,2.5,4.0,5.0]\n".into()));
+        assert_eq!(ask(Method::Put, "/series/power", "[9]").0, 200);
+        assert_eq!(pushed(&shared, "power"), [9.0], "a put starts over");
+        assert_eq!(ask(Method::Put, "/series/power", "[1, \"two\"]").0, 400);
+        assert_eq!(ask(Method::Put, "/series/power", "{}").0, 400);
+        assert_eq!(pushed(&shared, "power"), [9.0], "a refused body changes nothing");
+        assert_eq!(ask(Method::Put, "/series/other", "[1]").0, 404, "not a series a tile draws");
+        assert_eq!(ask(Method::Put, "/elsewhere", "[1]").0, 404);
+        assert_eq!(ask(Method::Patch, "/series/power", "[1]").0, 405);
+        assert_eq!(ask(Method::Delete, "/series/power", "").0, 200);
+        assert!(pushed(&shared, "power").is_empty());
+    }
+
+    #[test]
+    fn keeps_the_newest_values() {
+        let shared = Shared::default();
+        let names = ["n".to_string()];
+        let many = serde_json::json!((0..MAX_VALUES + 10).collect::<Vec<_>>()).to_string();
+        answer(&Method::Put, "/series/n", &many, &names, &shared);
+        answer(&Method::Post, "/series/n", "-1", &names, &shared);
+        let kept = pushed(&shared, "n");
+        assert_eq!(kept.len(), MAX_VALUES);
+        assert_eq!((kept[0], kept[MAX_VALUES - 1]), (11.0, -1.0));
+    }
+
+    #[test]
+    fn serves_over_a_socket_until_stopped() {
+        let server = Server::http("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/series/power", server.server_addr());
+        let shared = Shared::default();
+        let stop = Arc::new(AtomicBool::new(false));
+        let thread = {
+            let (shared, stop) = (Arc::clone(&shared), Arc::clone(&stop));
+            thread::spawn(move || serve(&server, Arc::new(vec!["power".to_string()]), &shared, &stop))
+        };
+        assert_eq!(ureq::put(&url).send_string("[3, 1, 2]").unwrap().into_string().unwrap(), "3 values\n");
+        assert_eq!(pushed(&shared, "power"), [3.0, 1.0, 2.0]);
+        assert_eq!(ureq::post(&url).send_string("nope").unwrap_err().into_response().unwrap().status(), 400);
+        stop.store(true, Ordering::SeqCst);
+        thread.join().unwrap();
+        assert!(ureq::get(&url).call().is_err(), "the listener goes with its server");
+    }
+}

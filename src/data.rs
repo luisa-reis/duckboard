@@ -7,6 +7,7 @@ use crate::artcache::ArtCache;
 use crate::model::Model;
 use crate::picture::Scaled;
 use crate::ha::{self, Art, Media, Sensor};
+use crate::http;
 use crate::spotify;
 use crate::weather::{self, Weather};
 use std::collections::HashMap;
@@ -27,6 +28,8 @@ pub struct Snapshot {
     /// An entity's history over some hours, oldest first, for the
     /// sparklines; shared, since the snapshot is copied every frame.
     pub series: HashMap<(String, u32), Arc<Vec<f64>>>,
+    /// The series pushed over HTTP, by name, oldest value first.
+    pub pushed: HashMap<String, Arc<Vec<f64>>>,
 }
 
 impl Snapshot {
@@ -62,11 +65,13 @@ impl Snapshot {
         let waves: Arc<Vec<f64>> =
             Arc::new((0..96).map(|i| (i as f64 / 7.0).sin() * 3.0 + (i as f64 / 2.3).sin() + i as f64 / 24.0).collect());
         let series = cfg.series().into_iter().map(|key| (key, Arc::clone(&waves))).collect();
+        let pushed = cfg.pushed().into_iter().map(|name| (name, Arc::clone(&waves))).collect();
         let scaled = Scaled::from_fn(&cfg.art_sizes(), gradient);
         let mut snap = Self {
             weather: Some(Weather { temperature: 21.4, code: 61, is_day: true }),
             sensors,
             series,
+            pushed,
             media: Some(Media {
                 playing: true,
                 title: "Sample Song Title".into(),
@@ -228,6 +233,9 @@ pub fn spawn_sources(cfg: &Model, shared: &Shared) -> Sources {
                 }
             }
         });
+    }
+    if let Some(h) = cfg.http.clone() {
+        http::spawn(h, cfg.pushed(), Arc::clone(shared), Arc::clone(&stop));
     }
     Sources { stop }
 }

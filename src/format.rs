@@ -10,7 +10,7 @@
 
 use crate::canvas::{DEFAULT_HEIGHT, DEFAULT_WIDTH};
 use crate::config::{
-    Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, PageData, SpotifyConfig, TileSpec, Units, WeatherConfig,
+    Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, HttpConfig, PageData, SpotifyConfig, TileSpec, Units, WeatherConfig,
     When,
 };
 use crate::model::{self, Layer, Model};
@@ -142,6 +142,8 @@ pub struct Sources {
     pub spotify: Option<SpotifyConfig>,
     /// A folder of pictures for picture tiles.
     pub pictures: Option<Pictures>,
+    /// An HTTP endpoint taking the values of sparkline series.
+    pub http: Option<HttpConfig>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -411,6 +413,7 @@ impl File {
             weather: self.sources.weather,
             spotify: self.sources.spotify,
             home_assistant,
+            http: self.sources.http,
             art_cache,
             frame,
             alerts: self.alerts,
@@ -589,10 +592,15 @@ impl File {
                     {
                         Some("sources.home_assistant")
                     }
-                    TileSpec::Sparkline { entity, .. }
+                    TileSpec::Sparkline { entity: Some(entity), .. }
                         if s.home_assistant.is_none() && !d.series.contains_key(entity) =>
                     {
                         Some("sources.home_assistant")
+                    }
+                    TileSpec::Sparkline { series: Some(name), .. }
+                        if s.http.is_none() && !d.series.contains_key(name) =>
+                    {
+                        Some("sources.http")
                     }
                     TileSpec::NowPlaying | TileSpec::Art { .. } if !media && d.cover.is_none() => {
                         Some("sources.spotify or sources.home_assistant.media_player")
@@ -733,6 +741,14 @@ pages:
         assert!(err("{kind: sparkline, entity: sensor.a}", "{}").contains("sources.home_assistant"));
         assert!(err("{kind: sparkline, entity: sensor.a}", "{series: {sensor.a: []}}").contains("series sensor.a"));
         assert!(err("{kind: sparkline, entity: sensor.a, hours: 0}", "{series: {sensor.a: [1]}}").contains("hours"));
+        assert!(err("{kind: sparkline, series: power}", "{}").contains("sources.http"));
+        assert!(err("{kind: sparkline}", "{}").contains("either entity or series"));
+        assert!(err("{kind: sparkline, entity: sensor.a, series: a}", "{}").contains("either entity or series"));
+        assert!(err("{kind: sparkline, series: a/b}", "{}").contains("a name is"));
+        let m = load(&page("{kind: sparkline, series: power}", "{series: {power: [1]}}")).unwrap();
+        assert_eq!((m.series(), m.pushed()), (vec![], vec!["power".to_string()]));
+        let m = load(&page("{kind: sparkline, series: power}", "{}").replace("target: t", "target: t\nsources: {http: {}}")).unwrap();
+        assert_eq!(m.http.unwrap().listen, "127.0.0.1:4049");
     }
 
     #[test]

@@ -577,6 +577,7 @@ impl Config {
             weather: self.weather,
             spotify: self.spotify,
             home_assistant: self.home_assistant,
+            http: None,
             art_cache: self.art_cache,
             frame: self.frame,
             alerts: self.alerts,

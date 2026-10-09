@@ -33,6 +33,7 @@ mod ddp;
 mod format;
 mod frame;
 mod ha;
+mod http;
 mod icons;
 mod legacy;
 mod mask;
@@ -253,7 +254,10 @@ impl Show {
 fn sources_key(m: &Model) -> String {
     format!(
         "{:?}",
-        (&m.weather, &m.spotify, &m.home_assistant, &m.art_cache, m.gamma, m.art_sizes(), m.sensor_entities(), m.series())
+        (
+            (&m.weather, &m.spotify, &m.home_assistant, &m.http, &m.art_cache),
+            (m.gamma, m.art_sizes(), m.sensor_entities(), m.series(), m.pushed()),
+        )
     )
 }
 
@@ -287,6 +291,8 @@ impl Live {
         let show = Show::new(cfg)?;
         if !same_sources && !sample {
             let shared: data::Shared = Default::default();
+            // What was pushed cannot be fetched again, so it carries over.
+            shared.lock().unwrap().pushed = self.shared.lock().unwrap().pushed.clone();
             // The old sources stop as their handle goes.
             self.sources = Some(data::spawn_sources(&show.cfg, &shared));
             self.shared = shared;

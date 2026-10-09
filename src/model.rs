@@ -4,7 +4,7 @@
 //! fetches works from this alone.
 
 use crate::config::{
-    Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, PageData, SpotifyConfig, TileSpec, Units, WeatherConfig,
+    Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, HttpConfig, PageData, SpotifyConfig, TileSpec, Units, WeatherConfig,
     When,
 };
 use crate::palette::Palette;
@@ -40,6 +40,7 @@ pub struct Model {
     pub weather: Option<WeatherConfig>,
     pub spotify: Option<SpotifyConfig>,
     pub home_assistant: Option<HomeAssistantConfig>,
+    pub http: Option<HttpConfig>,
     pub art_cache: ArtCacheConfig,
     pub frame: FrameConfig,
     pub alerts: Vec<Alert>,
@@ -126,14 +127,31 @@ impl Model {
         v
     }
 
-    /// Every history a sparkline draws: the entity and its hours.
+    /// Every history a sparkline draws from Home Assistant: the entity and
+    /// its hours.
     pub fn series(&self) -> Vec<(String, u32)> {
         let mut v: Vec<(String, u32)> = self
             .pages
             .iter()
             .flat_map(|p| &p.layers)
             .filter_map(|l| match &l.tile {
-                TileSpec::Sparkline { entity, hours, .. } => Some((entity.clone(), *hours)),
+                TileSpec::Sparkline { entity: Some(entity), hours, .. } => Some((entity.clone(), *hours)),
+                _ => None,
+            })
+            .collect();
+        v.sort();
+        v.dedup();
+        v
+    }
+
+    /// The name of every series a sparkline draws that is pushed over HTTP.
+    pub fn pushed(&self) -> Vec<String> {
+        let mut v: Vec<String> = self
+            .pages
+            .iter()
+            .flat_map(|p| &p.layers)
+            .filter_map(|l| match &l.tile {
+                TileSpec::Sparkline { series: Some(name), .. } => Some(name.clone()),
                 _ => None,
             })
             .collect();

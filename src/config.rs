@@ -18,8 +18,8 @@ pub struct PageData {
     /// over the page's time.
     #[serde(default)]
     pub sensors: std::collections::BTreeMap<String, SensorData>,
-    /// By entity id: the values a sparkline of the entity draws, oldest
-    /// first, whatever its `hours`.
+    /// By entity id or series name: the values a sparkline of it draws,
+    /// oldest first, whatever its `hours`.
     #[serde(default)]
     pub series: std::collections::BTreeMap<String, Vec<f64>>,
     /// A cover from the art cache, newest first (0 is the newest), played.
@@ -182,6 +182,22 @@ pub struct HomeAssistantConfig {
     pub refresh_seconds: u64,
 }
 
+/// The HTTP endpoint the values of sparkline series are pushed to.
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct HttpConfig {
+    /// The address and port to listen on. The default takes requests from
+    /// this machine only; "0.0.0.0:4049" takes them from the network, and
+    /// anything that reaches it can change the series: there is no
+    /// password.
+    #[serde(default = "default_listen")]
+    pub listen: String,
+}
+
+fn default_listen() -> String {
+    "127.0.0.1:4049".into()
+}
+
 fn default_refresh_seconds() -> u64 {
     10
 }
@@ -321,11 +337,16 @@ pub enum TileSpec {
         #[serde(default)]
         decimals: u8,
     },
-    /// A Home Assistant entity's numeric history as a line, low at the
-    /// bottom of the region and high at the top; needs sources.home_assistant.
+    /// A line, low at the bottom of the region and high at the top, of
+    /// either a Home Assistant `entity`'s numeric history (needs
+    /// sources.home_assistant) or a `series` pushed over HTTP (needs
+    /// sources.http).
     Sparkline {
-        entity: String,
-        /// How far back the line goes.
+        entity: Option<String>,
+        /// The name the values are pushed under, at /series/NAME: letters,
+        /// digits, `.`, `_` and `-`.
+        series: Option<String>,
+        /// How far back an entity's line goes.
         #[serde(default = "default_hours")]
         hours: u32,
         /// The line's colour; the `accent` colour unless set.
@@ -388,8 +409,16 @@ impl TileSpec {
             {
                 anyhow::bail!("art tile alphas must be between 0 and 1")
             }
-            TileSpec::Sparkline { entity, hours, .. } if !(1..=720).contains(hours) => {
-                anyhow::bail!("sparkline {entity}: hours must be between 1 and 720")
+            TileSpec::Sparkline { entity, series, .. } if entity.is_some() == series.is_some() => {
+                anyhow::bail!("a sparkline takes either entity or series")
+            }
+            TileSpec::Sparkline { hours, .. } if !(1..=720).contains(hours) => {
+                anyhow::bail!("sparkline hours must be between 1 and 720")
+            }
+            TileSpec::Sparkline { series: Some(name), .. }
+                if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c)) =>
+            {
+                anyhow::bail!("sparkline series {name:?}: a name is letters, digits, '.', '_' and '-'")
             }
             TileSpec::Picture { alpha } if !(0.0..=1.0).contains(alpha) => {
                 anyhow::bail!("picture tile alpha must be between 0 and 1")

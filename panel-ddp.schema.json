@@ -212,6 +212,17 @@
               "type": "null"
             }
           ]
+        },
+        "http": {
+          "description": "An HTTP endpoint taking the values of sparkline series.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/HttpConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -342,6 +353,18 @@
           "description": "Random order, reshuffled at each start; else by file name.",
           "type": "boolean",
           "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "HttpConfig": {
+      "description": "The HTTP endpoint the values of sparkline series are pushed to.",
+      "type": "object",
+      "properties": {
+        "listen": {
+          "description": "The address and port to listen on. The default takes requests from\nthis machine only; \"0.0.0.0:4049\" takes them from the network, and\nanything that reaches it can change the series: there is no\npassword.",
+          "type": "string",
+          "default": "127.0.0.1:4049"
         }
       },
       "additionalProperties": false
@@ -751,14 +774,24 @@
           ]
         },
         {
-          "description": "A Home Assistant entity's numeric history as a line, low at the\nbottom of the region and high at the top; needs sources.home_assistant.",
+          "description": "A line, low at the bottom of the region and high at the top, of\neither a Home Assistant `entity`'s numeric history (needs\nsources.home_assistant) or a `series` pushed over HTTP (needs\nsources.http).",
           "type": "object",
           "properties": {
             "entity": {
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "series": {
+              "description": "The name the values are pushed under, at /series/NAME: letters,\ndigits, `.`, `_` and `-`.",
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "hours": {
-              "description": "How far back the line goes.",
+              "description": "How far back an entity's line goes.",
               "type": "integer",
               "format": "uint32",
               "minimum": 0,
@@ -800,8 +833,7 @@
           },
           "additionalProperties": false,
           "required": [
-            "kind",
-            "entity"
+            "kind"
           ]
         },
         {
@@ -1087,7 +1119,7 @@
           "default": {}
         },
         "series": {
-          "description": "By entity id: the values a sparkline of the entity draws, oldest\nfirst, whatever its `hours`.",
+          "description": "By entity id or series name: the values a sparkline of it draws,\noldest first, whatever its `hours`.",
           "type": "object",
           "additionalProperties": {
             "type": "array",
