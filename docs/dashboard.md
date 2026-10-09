@@ -65,6 +65,10 @@ at, and the disc is the largest circle that fits.
 
 ### Tile kinds
 
+[charts.md](charts.md) has the text, chart and table kinds at length, with
+an example of each, and [designing-dashboards.md](designing-dashboards.md)
+how to lay a page out and check it, by hand or with an agent.
+
 No source needed:
 
 - `clock` — hours over minutes inside a seconds ring, advanced once a
@@ -72,7 +76,8 @@ No source needed:
   pixels (default 2) round it like a second hand, `seconds: ring` fills
   it clockwise from twelve.
 - `date` — weekday, day of month, month.
-- `text` — one line, `text`. `align` sets it against the `left` or the
+- `text` — one line, `text` (or a `column` of pushed data, on a table's
+  repeat row; see Tables). `align` sets it against the `left` or the
   `right` of the region, or in its `center` (the default). Wider than the
   region, it scrolls at 5 pixels a second whatever the alignment; with
   `overflow: truncate` it is cut to the whole characters that fit instead,
@@ -82,6 +87,7 @@ No source needed:
   `10x20`. It is drawn in the `text` colour. The fonts cover Latin-1; any
   other character shows as `?`. `demo-text.yaml` shows every size.
 - `blank`
+- `table` — rows of other tiles; see Tables.
 
 With `sources.weather`, which is just a location:
 
@@ -142,7 +148,7 @@ With `sources.http`:
 - `line_chart`, `area_chart` or `bar_chart` with a `series` in place of the
   `entity` —
   the same chart, of values pushed to the panel under that name; see
-  Pushing a series.
+  Pushing data.
 
 With `sources.pictures`:
 
@@ -321,9 +327,10 @@ target/release/panel-ddp run > panel-ddp.log 2>&1 &` is enough.
 - `sources.home_assistant` — `url`, the long-lived access `token` (profile
   page, Security tab) as a secret, the `media_player` entity to use as the
   media source when there is no Spotify, `refresh_seconds`.
-- `sources.http` — `listen`, the address and port the series of charts
-  are pushed to (default `127.0.0.1:4049`), and optionally a `token`, as a
-  secret, that every request must carry; see Pushing a series.
+- `sources.http` — `listen`, the address and port the series of charts and
+  the rows of tables are pushed to (default `127.0.0.1:4049`), and
+  optionally a `token`, as a secret, that every request must carry; see
+  Pushing data.
 - `sources.pictures` — `dir` (default `frame`), `seconds` each picture
   shows (default 10) and `shuffle`; see Picture frame.
 - `art_cache` — `dir` (default `art-cache` next to the config),
@@ -388,52 +395,128 @@ pages:
   night: {layout: big-clock, scheme: dim, tiles: {clock: clock}}
 ```
 
-## Pushing a series
+## Tables
 
-A line, area or bar chart with a `series` draws values sent to the panel over HTTP, for
-anything Home Assistant does not hold: a script's output, a build's
-duration, a price.
+A `table` tile is rows, stacked from the top of its region, each with a
+`height` and the `tiles` on it. A tile on a row is placed from the row's
+top left corner: `x` and `width`, and optionally `y` (default 0) and
+`height` (default the rest of the row). Its `tile` is a name from `tiles`
+or a tile spelt out, of any kind but `table`. `gap` puts pixels between the
+rows (default 0).
+
+```yaml
+tiles:
+  rooms:
+    kind: table
+    gap: 1
+    colors: {accent: "#50aaff"}
+    rows:
+      - height: 7
+        tiles:
+          - {x: 0, width: 27, tile: {kind: text, text: "ROOM", size: 4x6, align: left}}
+          - {x: 29, width: 19, tile: {kind: text, text: "°C", size: 4x6, align: right}}
+      - height: 10
+        tiles:
+          - {x: 0, width: 27, tile: {kind: text, text: "KITCHEN", size: 4x6, align: left, overflow: truncate}}
+          - {x: 29, width: 19, tile: {kind: text, text: "22.8", size: 5x8, align: right}}
+          - {x: 50, y: 1, width: 12, height: 8, tile: {kind: line_chart, entity: sensor.kitchen}}
+```
+
+- Text in a table usually wants `align`, names to the left and numbers to
+  the right, and `overflow: truncate` where a long name must not scroll.
+- A tile must fit its row, and the rows the region; `check` names the row
+  and the tile that does not.
+- The table's own `scheme` and `colors` apply to every tile on it, under
+  each tile's own.
+- A table draws nothing itself: each of its tiles is drawn in its place,
+  in row order, as if it had a region there. Tiles may overlap, the later
+  over the earlier.
+
+### Rows from data
+
+A table can take its rows from data pushed to the panel, as an external
+process would after a database query: one request with the result, a row of
+the table for each row of it.
 
 ```yaml
 sources:
-  http: {listen: "127.0.0.1:4049"}
+  http: {}
 tiles:
-  power: {kind: line_chart, series: power, dot: "#ffffff"}
+  rooms:
+    kind: table
+    data: rooms
+    gap: 1
+    rows:
+      - height: 7
+        tiles:
+          - {x: 0, width: 27, tile: {kind: text, text: "ROOM", size: 4x6, align: left}}
+      - height: 10
+        repeat: true
+        tiles:
+          - {x: 0, width: 27, tile: {kind: text, column: room, size: 4x6, align: left, overflow: truncate}}
+          - {x: 29, width: 19, tile: {kind: text, column: temp, size: 5x8, align: right}}
+          - {x: 50, y: 1, width: 12, height: 8, tile: {kind: line_chart, column: history}}
 ```
 
 ```sh
-curl -X PUT  -d '[412, 398, 455, 620]' http://127.0.0.1:4049/series/power   # the whole line
-curl -X POST -d '640'                  http://127.0.0.1:4049/series/power   # one more value on its end
-curl                                   http://127.0.0.1:4049/series/power   # what it holds
-curl -X DELETE                         http://127.0.0.1:4049/series/power   # empty it
+curl -X PUT http://127.0.0.1:4049/tables/rooms -d '[
+  {"room": "Kitchen", "temp": 22.8, "history": [21.0, 22.1, 22.8]},
+  {"room": "Office",  "temp": 23.1, "history": [19.4, 20.0, 23.1]}
+]'
 ```
 
-- `PUT` replaces the series with the body, a JSON array of numbers, oldest
-  first; `POST` adds a number, or an array of them, to its end. A series
-  keeps its newest 1024 values. The answer is the count, `4 values`.
-- Only the series a chart in the config names are taken; any other
-  name is a 404, as is any other path. A body that is not numbers is a 400
-  and changes nothing.
-- A name is letters, digits, `.`, `_` and `-`.
-- The values are kept in memory: a reload of the config keeps them, and
-  they are gone when the program restarts.
-- `listen` defaults to this machine only. `0.0.0.0:4049` takes requests
-  from the network; without a token, anything that reaches the port can
-  change the lines.
-- `token: {secret: http_token}` asks every request for that secret as a
-  bearer token, and answers 401 without it. It goes over plain HTTP, so it
+- `data` names the table's rows; they are pushed to `/tables/NAME` (see
+  [pushing-data.md](pushing-data.md)), or given by a page's `data.tables`
+  for a demo.
+- A row with `repeat: true` is laid out once for each pushed row, top to
+  bottom in their order, as many as fit the region under the rows before
+  it; pushed rows past those are not shown, and with fewer the rest of the
+  region stays empty. Only the last row of a table repeats. Rows without
+  `repeat` are fixed, as a header is.
+- On the repeat row, a `text` tile takes `column` in place of `text`, and a
+  chart takes `column` in place of `entity` and `series`. A column the
+  pushed row lacks draws nothing.
+- A pushed row is a JSON object, column to value. A string, a number or a
+  boolean is text exactly as written, so format numbers in the query
+  (`ROUND`, `printf`) the way they should read; `null` is empty; an array of
+  numbers is a chart's values, oldest first.
+
+`demo-dashboards.yaml` has two tables, the first from data.
+
+## Pushing data
+
+Charts and tables can draw what another program sends to the panel over
+HTTP: a chart with `series: NAME` what is `PUT` to `/series/NAME`, a table
+with `data: NAME` the rows `PUT` to `/tables/NAME`. Both need
+`sources.http`:
+
+```yaml
+sources:
+  http: {listen: "0.0.0.0:4049", token: {secret: http_token}}
+```
+
+```sh
+curl http://panel.local:4049/ -H "Authorization: Bearer $TOKEN"                                  # what it takes
+curl -X PUT -d '[412, 398, 455, 620]' -H "Authorization: Bearer $TOKEN" http://panel.local:4049/series/power
+curl -X PUT -d '[{"room": "Kitchen", "temp": 22.8}]' -H "Authorization: Bearer $TOKEN" http://panel.local:4049/tables/rooms
+```
+
+- `listen` defaults to `127.0.0.1:4049`, this machine only; `0.0.0.0:4049`
+  takes requests from the network.
+- `token` is optional. With it, every request must carry the secret as a
+  bearer token, and gets a 401 without. It goes over plain HTTP, so it
   keeps out what merely reaches the port, not what can read the traffic.
-
-  ```yaml
-  sources:
-    http: {listen: "0.0.0.0:4049", token: {secret: http_token}}
-  ```
-
-  ```sh
-  curl -X POST -d '640' -H "Authorization: Bearer $TOKEN" http://panel.local:4049/series/power
-  ```
+  Without it, anything that reaches the port can change what shows.
+- What is pushed is kept in memory: a reload of the config keeps it, and
+  it is gone when the program restarts.
 - The endpoint has its own thread and answers each request on another, so
   a slow or stuck client never delays a frame.
+
+[pushing-data.md](pushing-data.md) is the whole of it, written for the
+program on the other end: every request and answer, the shape of the data,
+and an example that pushes a query's results. `charts.example.yaml` is a
+config that takes pushed data and `tools/push_example.py` a program that
+sends it.
 
 ## Picture frame
 
@@ -492,6 +575,8 @@ source is missing is allowed when its page brings the data:
 - `series: {sensor.x: [3, 4, 6, 5]}` — the values a chart of the
   entity, or of the series of that name, draws, oldest first, whatever its
   `hours`.
+- `tables: {rooms: [{room: Kitchen, temp: 22.8}]}` — the rows of the table
+  whose `data` is that name, as they would be pushed.
 - `cover: N` — the Nth newest cover in the art cache, playing. With
   `keep_originals`, only covers with an original count.
 - `picture: N` — the Nth picture, for a picture tile.
@@ -515,12 +600,12 @@ target/release/panel-ddp run --config demo.yaml --target wled.local --once   # o
 in its own size and saying which, then lines too wide for the panel,
 scrolling. It needs no data.
 
-`demo-dashboards.yaml` is the dashboards demo: eight dashboards built from
-line charts, area charts, bar charts and text of different sizes on made-up
-series: one reading with its day under it, three readings each beside its
+`demo-dashboards.yaml` is the dashboards demo: ten dashboards built from
+line charts, area charts, bar charts, tables and text of different sizes on
+made-up series: one reading with its day under it, three readings each beside its
 chart, the clock and the date over a reading, text over a chart the size of
 the panel, then area charts, one with a gradient under a reading and three
-beside theirs, and bar charts the same way.
+beside theirs, bar charts the same way, and two tables.
 
 `art_file`, a top-level setting, keeps a JPEG at the album cover on show,
 the original as downloaded, black when no cover is on, and removes it when
@@ -576,6 +661,8 @@ target/release/panel-ddp run --config other.yaml --frames 100
 target/release/panel-ddp run --sample                 # made-up data, sensors sweep 0..100: a demo of the layout
 target/release/panel-ddp run --config demo.yaml --target <board>   # the demo; --once for a single pass
 target/release/panel-ddp preview --out preview.png  # the first page from sample data, mask applied
+target/release/panel-ddp preview --page home        # that page instead of the first
+target/release/panel-ddp preview --all --out p.png  # every page, each into p-NAME.png
 target/release/panel-ddp preview --out preview.gif  # the first page animated, for its time; --seconds N for longer or shorter
 target/release/panel-ddp preview --out preview.apng # the same as an animated PNG, in full colour (GIF has 256 a frame)
 target/release/panel-ddp preview --weather-code 95  # check an icon (add 1000 for night)

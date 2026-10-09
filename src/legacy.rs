@@ -612,12 +612,14 @@ fn layers(tiles: &Tiles, regions: &Regions, base: Palette) -> Vec<Layer> {
         Some(Background::None) | None => None,
     };
     if let Some(tile) = background {
-        v.push(Layer { area: panel, tile, palette: base });
+        v.push(Layer { area: panel, tile, palette: base, record: None });
     }
     for (slot, region) in regions.in_order() {
         v.push(match tiles.tile(slot) {
-            Some(e) => Layer { area: region.rect(), tile: e.spec.clone(), palette: base.with(&e.colors) },
-            None => Layer { area: region.rect(), tile: tiles.hub.spec.to_tile(), palette: base.with(&tiles.hub.colors) },
+            Some(e) => Layer { area: region.rect(), tile: e.spec.clone(), palette: base.with(&e.colors), record: None },
+            None => {
+                Layer { area: region.rect(), tile: tiles.hub.spec.to_tile(), palette: base.with(&tiles.hub.colors), record: None }
+            }
         });
     }
     v

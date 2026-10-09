@@ -15,6 +15,7 @@ use crate::config::{
 };
 use crate::model::{self, Layer, Model};
 use crate::palette::{Overrides, Palette};
+use crate::data::{records, MAX_ROWS};
 use crate::secrets::{SecretRef, Secrets};
 use anyhow::{bail, Context, Result};
 use embedded_graphics::{prelude::*, primitives::Rectangle};
@@ -250,9 +251,61 @@ impl Region {
 /// colours over the page's.
 #[derive(Debug, Clone)]
 pub struct Tile {
-    pub spec: TileSpec,
+    pub body: Body,
     pub scheme: Option<String>,
     pub colors: Overrides,
+}
+
+/// What a tile is: one of the kinds that draw, or a table of them.
+#[derive(Debug, Clone)]
+pub enum Body {
+    Spec(TileSpec),
+    Table(Table),
+}
+
+/// Rows of tiles, stacked from the top of the region the table is in. The
+/// table's `scheme` and `colors` apply to its tiles, under their own.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Table {
+    pub rows: Vec<Row>,
+    /// The name rows are pushed under, at /tables/NAME, for the table's
+    /// repeat row: letters, digits, `.`, `_` and `-`.
+    pub data: Option<String>,
+    /// Pixels between two rows.
+    #[serde(default)]
+    pub gap: u32,
+}
+
+/// A row of a table: its height, and the tiles on it.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Row {
+    /// In pixels.
+    pub height: u32,
+    /// Lays the row out once for each row pushed as the table's `data`, as
+    /// many as fit the region; its tiles take their values by `column`.
+    /// Only the last row repeats.
+    #[serde(default)]
+    pub repeat: bool,
+    #[serde(default)]
+    pub tiles: Vec<Cell>,
+}
+
+/// A tile on a row, placed from the row's top left corner.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Cell {
+    /// Pixels from the row's left edge.
+    pub x: u32,
+    /// Pixels from the row's top edge.
+    #[serde(default)]
+    pub y: u32,
+    pub width: u32,
+    /// The rest of the row's height unless set.
+    pub height: Option<u32>,
+    /// A tile's name from `tiles`, or a tile spelt out; not a table.
+    pub tile: TileRef,
 }
 
 /// Kinds without settings of their own, which serde would let take any key.
@@ -275,8 +328,13 @@ impl<'de> Deserialize<'de> for Tile {
                 return Err(D::Error::custom(format!("unknown field `{stray}` for kind {kind}")));
             }
         }
-        let spec = TileSpec::deserialize(serde_json::Value::Object(map)).map_err(D::Error::custom)?;
-        Ok(Self { spec, scheme, colors })
+        let body = if map.get("kind").and_then(|k| k.as_str()) == Some("table") {
+            map.remove("kind");
+            Body::Table(Table::deserialize(serde_json::Value::Object(map)).map_err(D::Error::custom)?)
+        } else {
+            Body::Spec(TileSpec::deserialize(serde_json::Value::Object(map)).map_err(D::Error::custom)?)
+        };
+        Ok(Self { body, scheme, colors })
     }
 }
 
@@ -294,7 +352,16 @@ impl JsonSchema for Tile {
             "description": "A colour scheme's name, over the page's.",
             "type": "string"
         });
+        let mut table = Table::json_schema(generator);
+        table.insert("description".into(), "Rows of tiles, stacked from the top of the region.".into());
+        if let Some(props) = table.get_mut("properties").and_then(|v| v.as_object_mut()) {
+            props.insert("kind".into(), serde_json::json!({"type": "string", "const": "table"}));
+        }
+        if let Some(required) = table.get_mut("required").and_then(|v| v.as_array_mut()) {
+            required.push("kind".into());
+        }
         if let Some(kinds) = schema.get_mut("oneOf").and_then(|v| v.as_array_mut()) {
+            kinds.push(table.into());
             for kind in kinds {
                 if let Some(props) = kind.get_mut("properties").and_then(|v| v.as_object_mut()) {
                     props.insert("scheme".into(), scheme.clone().into());
@@ -487,7 +554,9 @@ impl File {
             }
         }
         for (name, t) in &self.tiles {
-            t.spec.check().with_context(|| format!("tile {name}"))?;
+            if let Body::Spec(spec) = &t.body {
+                spec.check().with_context(|| format!("tile {name}"))?;
+            }
         }
         Ok(())
     }
@@ -528,6 +597,10 @@ impl File {
         if let Some((entity, _)) = p.data.series.iter().find(|(_, v)| v.is_empty() || v.iter().any(|x| !x.is_finite())) {
             bail!("series {entity} takes one or more numbers");
         }
+        for (table, rows) in &p.data.tables {
+            let rows = serde_json::Value::Array(rows.iter().cloned().map(serde_json::Value::Object).collect());
+            records(&rows).map_err(|e| anyhow::anyhow!("data.tables.{table}: {e}"))?;
+        }
         if let Some(region) = p.tiles.keys().find(|r| !layout.contains_key(*r)) {
             bail!("layout {} has no region {region}{}", p.layout, known(layout.keys()));
         }
@@ -542,23 +615,95 @@ impl File {
         let mut layers = Vec::new();
         for (_, region, r) in regions {
             let Some(tile) = p.tiles.get(region) else { continue };
-            let tile = match tile {
-                TileRef::Name(t) => self
-                    .tiles
-                    .get(t)
-                    .with_context(|| format!("region {region}: no tile named {t}{}", known(self.tiles.keys())))?,
-                TileRef::Inline(t) => {
-                    t.spec.check().with_context(|| format!("region {region}"))?;
-                    t
+            let (tile, palette) = self.tile(tile, page_palette).with_context(|| format!("region {region}"))?;
+            match &tile.body {
+                Body::Spec(spec) if spec.column().is_some() => {
+                    bail!("region {region}: column is for a tile on a table's repeat row")
                 }
-            };
-            let mut palette = page_palette;
-            if let Some(s) = &tile.scheme {
-                palette = palette.with(self.scheme(s).with_context(|| format!("region {region}"))?);
+                Body::Spec(spec) => layers.push(Layer { area: r.area().rect(), tile: spec.clone(), palette, record: None }),
+                Body::Table(table) => {
+                    let cells = self.table(table, r.area(), palette).with_context(|| format!("region {region}"))?;
+                    layers.extend(cells);
+                }
             }
-            layers.push(Layer { area: r.area().rect(), tile: tile.spec.clone(), palette: palette.with(&tile.colors) });
         }
         Ok(model::Page { name: name.to_string(), seconds: Some(seconds), layers, data: p.data.clone() })
+    }
+
+    /// The tile a reference stands for, checked when it is spelt out, and
+    /// the palette it draws in over `under`: its scheme, then its colours.
+    fn tile<'a>(&'a self, tile: &'a TileRef, under: Palette) -> Result<(&'a Tile, Palette)> {
+        let tile = match tile {
+            TileRef::Name(t) => {
+                self.tiles.get(t).with_context(|| format!("no tile named {t}{}", known(self.tiles.keys())))?
+            }
+            TileRef::Inline(t) => {
+                if let Body::Spec(spec) = &t.body {
+                    spec.check()?;
+                }
+                t
+            }
+        };
+        let palette = match &tile.scheme {
+            Some(s) => under.with(self.scheme(s)?),
+            None => under,
+        };
+        Ok((tile, palette.with(&tile.colors)))
+    }
+
+    /// A table in `area` as layers, one for each of its tiles: the rows
+    /// stacked from the area's top, each tile placed from its row's corner.
+    /// A repeat row is laid out as many times as fit under the rows before
+    /// it, each time for the next of the pushed rows.
+    fn table(&self, table: &Table, area: Area, palette: Palette) -> Result<Vec<Layer>> {
+        if let Some(name) = table.data.as_ref().filter(|n| !is_name(n)) {
+            bail!("data {name:?}: a name is letters, digits, '.', '_' and '-'");
+        }
+        let mut layers = Vec::new();
+        let mut top = 0u32;
+        for (i, row) in table.rows.iter().enumerate() {
+            let n = i + 1;
+            let fits = |top: u32| top.checked_add(row.height).filter(|bottom| row.height > 0 && *bottom <= area.height);
+            if fits(top).is_none() {
+                bail!("row {n}: the rows must each have a height and fit the region's {} pixels", area.height);
+            }
+            let data = match (row.repeat, &table.data) {
+                (false, _) => None,
+                (true, Some(name)) if n == table.rows.len() => Some(name),
+                (true, Some(_)) => bail!("row {n}: the repeat row must be the last"),
+                (true, None) => bail!("row {n}: a repeat row needs the table's data"),
+            };
+            // A row of its own, or one for each pushed row there is room for.
+            let mut record = 0;
+            while let Some(bottom) = fits(top) {
+                for (j, cell) in row.tiles.iter().enumerate() {
+                    let at = || format!("row {n}, tile {}", j + 1);
+                    let (tile, palette) = self.tile(&cell.tile, palette).with_context(at)?;
+                    let Body::Spec(spec) = &tile.body else { bail!("{}: a table cannot hold a table", at()) };
+                    if spec.column().is_some() && data.is_none() {
+                        bail!("{}: column is for a tile on a table's repeat row", at());
+                    }
+                    let height = cell.height.unwrap_or(row.height.saturating_sub(cell.y));
+                    let past = |from: u32, len: u32, max: u32| from.checked_add(len).is_none_or(|end| end > max);
+                    if cell.width == 0 || height == 0 || past(cell.x, cell.width, area.width) || past(cell.y, height, row.height) {
+                        bail!("{}: must fit the row, {} wide and {} high", at(), area.width, row.height);
+                    }
+                    let corner = Point::new((area.x + cell.x) as i32, (area.y + top + cell.y) as i32);
+                    layers.push(Layer {
+                        area: Rectangle::new(corner, Size::new(cell.width, height)),
+                        tile: spec.clone(),
+                        palette,
+                        record: data.map(|name| (name.clone(), record)),
+                    });
+                }
+                top = bottom.saturating_add(table.gap);
+                record += 1;
+                if data.is_none() || record == MAX_ROWS {
+                    break;
+                }
+            }
+        }
+        Ok(layers)
     }
 
     /// The playlists and the schedule, by index, with their defaults.
@@ -628,6 +773,10 @@ impl File {
                     TileSpec::Picture { .. } if s.pictures.is_none() => Some("sources.pictures"),
                     _ => None,
                 };
+                let missing = match &layer.record {
+                    Some((table, _)) if s.http.is_none() && !d.tables.contains_key(table) => Some("sources.http"),
+                    _ => missing,
+                };
                 if let Some(source) = missing {
                     bail!("page {}: a {} tile needs {source}", page.name, kind_name(&layer.tile));
                 }
@@ -663,6 +812,11 @@ fn kind_name(t: &TileSpec) -> &'static str {
         TileSpec::Picture { .. } => "picture",
         TileSpec::Blank => "blank",
     }
+}
+
+/// Whether `name` can be pushed to: letters, digits, '.', '_' and '-'.
+fn is_name(name: &str) -> bool {
+    !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
 }
 
 /// " (known: a, b)" for an error about a name, or nothing when none are.
@@ -771,8 +925,8 @@ pages:
         assert!(err("{kind: line_chart, entity: sensor.a}", "{series: {sensor.a: []}}").contains("series sensor.a"));
         assert!(err("{kind: line_chart, entity: sensor.a, hours: 0}", "{series: {sensor.a: [1]}}").contains("hours"));
         assert!(err("{kind: line_chart, series: power}", "{}").contains("sources.http"));
-        assert!(err("{kind: line_chart}", "{}").contains("either entity or series"));
-        assert!(err("{kind: line_chart, entity: sensor.a, series: a}", "{}").contains("either entity or series"));
+        assert!(err("{kind: line_chart}", "{}").contains("one of entity, series or column"));
+        assert!(err("{kind: line_chart, entity: sensor.a, series: a}", "{}").contains("one of entity, series or column"));
         assert!(err("{kind: line_chart, series: a/b}", "{}").contains("a name is"));
         let m = load(&page("{kind: line_chart, series: power}", "{series: {power: [1]}}")).unwrap();
         assert_eq!((m.series(), m.pushed()), (vec![], vec!["power".to_string()]));
@@ -781,7 +935,7 @@ pages:
         assert_eq!(m.pushed(), ["power"]);
         assert!(matches!(m.pages[0].layers[0].tile, TileSpec::AreaChart { area: Some(_), area_bottom: Some(_), line: None, .. }));
         assert!(err("{kind: area_chart, series: power}", "{}").contains("area_chart tile needs sources.http"));
-        assert!(err("{kind: area_chart}", "{}").contains("either entity or series"));
+        assert!(err("{kind: area_chart}", "{}").contains("one of entity, series or column"));
         let m = load(&page("{kind: bar_chart, entity: sensor.a, hours: 48, last: '#ffffff'}", "{series: {sensor.a: [1]}}")).unwrap();
         assert_eq!(m.series(), [("sensor.a".to_string(), 48)]);
         assert!(matches!(m.pages[0].layers[0].tile, TileSpec::BarChart { width: 2, gap: 1, bar: None, last: Some(_), .. }));
@@ -789,6 +943,73 @@ pages:
         assert!(err("{kind: bar_chart, series: power}", "{}").contains("bar_chart tile needs sources.http"));
         let m = load(&page("{kind: line_chart, series: power}", "{}").replace("target: t", "target: t\nsources: {http: {}}")).unwrap();
         assert_eq!(m.http.unwrap().listen, "127.0.0.1:4049");
+    }
+
+    #[test]
+    fn a_table_is_a_layer_for_each_of_its_tiles() {
+        let yaml = |rows: &str| {
+            format!(
+                "target: t\nschemes: {{dim: {{text: '#202020', label: '#303030'}}}}\n\
+                 layouts: {{l: {{a: {{x: 4, y: 10, width: 40, height: 30}}}}}}\n\
+                 tiles:\n  name: {{kind: text, text: hi, colors: {{label: '#505050'}}}}\n\
+                 \x20 inner: {{kind: table, rows: []}}\n\
+                 \x20 sheet: {{kind: table, gap: 2, scheme: dim, colors: {{accent: '#404040'}}, rows: {rows}}}\n\
+                 pages: {{p: {{layout: l, tiles: {{a: sheet}}}}}}\n"
+            )
+        };
+        let rows = "[{height: 8, tiles: [{x: 0, width: 10, tile: name}, {x: 12, y: 2, width: 28, height: 5, tile: {kind: date}}]}, \
+                    {height: 6}, {height: 12, tiles: [{x: 1, y: 3, width: 39, tile: name}]}]";
+        let m = load(&yaml(rows)).unwrap();
+        let layers = &m.pages[0].layers;
+        let places: Vec<(i32, i32, u32, u32)> =
+            layers.iter().map(|l| (l.area.top_left.x, l.area.top_left.y, l.area.size.width, l.area.size.height)).collect();
+        assert_eq!(places, [(4, 10, 10, 8), (16, 12, 28, 5), (5, 31, 39, 9)], "rows stack with the gap; tiles from their row");
+        assert!(matches!(layers[1].tile, TileSpec::Date));
+        let p = layers[0].palette;
+        assert_eq!((p.text, p.accent, p.label), (Rgba::rgb(0x20, 0x20, 0x20), Rgba::rgb(0x40, 0x40, 0x40), Rgba::rgb(0x50, 0x50, 0x50)));
+        assert_eq!(layers[1].palette.label, Rgba::rgb(0x30, 0x30, 0x30), "the table's scheme, under a tile's own colours");
+        let err = |rows: &str| format!("{:#}", load(&yaml(rows)).unwrap_err());
+        assert!(err("[{height: 8, tiles: [{x: 0, width: 10, tile: nope}]}]").contains("region a: row 1, tile 1: no tile named nope"));
+        assert!(err("[{height: 8, tiles: [{x: 0, width: 10, tile: inner}]}]").contains("a table cannot hold a table"));
+        assert!(err("[{height: 8, tiles: [{x: 31, width: 10, tile: name}]}]").contains("row 1, tile 1: must fit the row, 40 wide and 8 high"));
+        assert!(err("[{height: 8, tiles: [{x: 0, y: 4, width: 10, height: 5, tile: name}]}]").contains("must fit the row"));
+        assert!(err("[{height: 20}, {height: 9}]").contains("row 2: the rows must each have a height and fit the region's 30 pixels"));
+        assert!(err("[{height: 0}]").contains("row 1"));
+        assert!(err("[{height: 8, tiles: [{x: 0, width: 10, tile: {kind: clock, dot_size: 0}}]}]").contains("dot_size"));
+        assert!(err("[{height: 8, wide: 1}]").contains("unknown field"));
+    }
+
+    #[test]
+    fn a_repeat_row_is_laid_out_for_each_pushed_row() {
+        let yaml = |table: &str, tile: &str, data: &str| {
+            format!(
+                "target: t\nlayouts: {{l: {{a: {{x: 0, y: 4, width: 40, height: 30}}}}}}\n\
+                 tiles: {{sheet: {table}}}\npages: {{p: {{layout: l, tiles: {{a: {tile}}}, data: {data}}}}}\n"
+            )
+        };
+        let table = "{kind: table, data: rooms, gap: 1, rows: [{height: 7, tiles: [{x: 0, width: 9, tile: {kind: text, text: hi}}]}, \
+                     {height: 5, repeat: true, tiles: [{x: 0, width: 20, tile: {kind: text, column: room}}, \
+                     {x: 21, width: 19, tile: {kind: bar_chart, column: history}}]}]}";
+        let data = "{tables: {rooms: [{room: Hall, history: [1, 2]}]}}";
+        let m = load(&yaml(table, "sheet", data)).unwrap();
+        let layers = &m.pages[0].layers;
+        let rows: Vec<(i32, Option<usize>)> = layers.iter().map(|l| (l.area.top_left.y, l.record.as_ref().map(|r| r.1))).collect();
+        let expected = [(4, None), (12, Some(0)), (12, Some(0)), (18, Some(1)), (18, Some(1)), (24, Some(2)), (24, Some(2))];
+        assert_eq!(rows, expected, "as many as fit under the header: 5 and a gap each in the 22 left");
+        assert_eq!(layers[1].record.as_ref().unwrap().0, "rooms");
+        let columns: Vec<(String, &str)> = m.table_columns()["rooms"].clone().into_iter().collect();
+        assert_eq!(columns, [("history".to_string(), "numbers"), ("room".to_string(), "text")]);
+        let err = |table: &str, tile: &str, data: &str| format!("{:#}", load(&yaml(table, tile, data)).unwrap_err());
+        assert!(err(table, "sheet", "{}").contains("needs sources.http"), "or the page's data");
+        assert!(err(table, "sheet", "{tables: {rooms: [{room: {a: 1}}]}}").contains("data.tables.rooms: row 1, column room"));
+        assert!(err(&table.replace("data: rooms, ", ""), "sheet", data).contains("row 2: a repeat row needs the table's data"));
+        assert!(err(&table.replace("{height: 7,", "{height: 7, repeat: true,"), "sheet", data).contains("row 1: the repeat row must be the last"));
+        assert!(err(&table.replace("repeat: true, ", ""), "sheet", data).contains("row 2, tile 1: column is for a tile on a table's repeat row"));
+        assert!(err(&table.replace("data: rooms", "data: a/b"), "sheet", data).contains("a name is"));
+        assert!(err(table, "{kind: text, column: room}", data).contains("region a: column is for a tile on a table's repeat row"));
+        assert!(err(table, "{kind: text}", data).contains("either text or column"));
+        assert!(err(table, "{kind: text, text: a, column: b}", data).contains("either text or column"));
+        assert!(err(table, "{kind: line_chart, series: s, column: b}", data).contains("one of entity, series or column"));
     }
 
     #[test]

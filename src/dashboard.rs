@@ -45,6 +45,15 @@ pub fn draw(page: &Page, alerts: &[Alert], alert_area: Rectangle, c: &mut Canvas
     }
     c.clear(BLACK).unwrap();
     for layer in &page.layers {
-        tiles::draw(&layer.tile, c, layer.area, ctx, &layer.palette);
+        // A tile on a table's repeat row shows one of the pushed rows, and
+        // nothing when there are fewer.
+        let record = match &layer.record {
+            Some((table, row)) => match ctx.data.tables.get(table).and_then(|rows| rows.get(*row)) {
+                Some(record) => Some(record),
+                None => continue,
+            },
+            None => None,
+        };
+        tiles::draw(&layer.tile, c, layer.area, ctx, &layer.palette, record);
     }
 }

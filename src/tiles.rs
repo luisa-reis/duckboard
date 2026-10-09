@@ -6,7 +6,7 @@
 use crate::art;
 use crate::canvas::Canvas;
 use crate::config::{Align, Overflow, Seconds, TextSize, TileSpec, Units};
-use crate::data::Snapshot;
+use crate::data::{Record, Snapshot, Value};
 use crate::icons;
 use crate::palette::{Palette, Rgba};
 use crate::picture::Scaled;
@@ -43,7 +43,9 @@ impl Ctx<'_> {
 /// How fast text too wide for its tile scrolls, in pixels a second.
 const SCROLL_PX_PER_SECOND: u64 = 5;
 
-pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Palette) {
+/// Draws a tile into its area. `record` is the pushed row a tile on a
+/// table's repeat row takes its `column` from.
+pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Palette, record: Option<&Record>) {
     match *spec {
         TileSpec::Art { shape, spin, paused_alpha, corner_alpha, alpha, idle } => {
             let style = art::Style { shape, spin, paused_alpha, corner_alpha, alpha, idle };
@@ -56,7 +58,12 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Pal
     match spec {
         TileSpec::Clock { seconds, dot_size } => clock(&mut clipped, area, ctx, p, *seconds, *dot_size),
         TileSpec::Date => date(&mut clipped, area, ctx, p),
-        TileSpec::Text { text, size, align, overflow } => {
+        TileSpec::Text { text, column, size, align, overflow } => {
+            let text = match (text, column.as_ref().and_then(|c| record?.get(c))) {
+                (Some(text), _) => text.as_str(),
+                (None, Some(Value::Text(text))) => text.as_str(),
+                _ => "",
+            };
             line(&mut clipped, area, ctx, p, text, *size, *align, *overflow)
         }
         TileSpec::Weather => weather(&mut clipped, area, ctx, p),
@@ -67,16 +74,16 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Pal
             progress(&mut clipped, area, ctx, p, entity, label, *max, *decimals)
         }
         TileSpec::LineChart { line, dot, .. } => {
-            chart(&mut clipped, area, p, chart_values(ctx, spec), *line, None, *dot)
+            chart(&mut clipped, area, p, chart_values(ctx, spec, record), *line, None, *dot)
         }
         TileSpec::AreaChart { line, area: top, area_bottom, dot, .. } => {
             let top = top.unwrap_or(line.unwrap_or(p.accent).scaled(AREA_ALPHA));
             let fill_with = Some((top, area_bottom.unwrap_or(top)));
-            chart(&mut clipped, area, p, chart_values(ctx, spec), *line, fill_with, *dot)
+            chart(&mut clipped, area, p, chart_values(ctx, spec, record), *line, fill_with, *dot)
         }
         TileSpec::BarChart { bar, last, width, gap, .. } => {
             let bar = bar.unwrap_or(p.accent);
-            bars(&mut clipped, area, p, chart_values(ctx, spec), bar, last.unwrap_or(bar), *width, *gap)
+            bars(&mut clipped, area, p, chart_values(ctx, spec, record), bar, last.unwrap_or(bar), *width, *gap)
         }
         TileSpec::NowPlaying => now_playing(&mut clipped, area, ctx, p),
         TileSpec::Art { .. } | TileSpec::Picture { .. } | TileSpec::Blank => {}
@@ -382,8 +389,15 @@ fn columns(values: &[f64], cols: usize) -> Vec<f64> {
 /// against the line's.
 const AREA_ALPHA: f32 = 0.35;
 
-/// The values a chart draws: an entity's history, or a pushed series.
-fn chart_values<'a>(ctx: &Ctx<'a>, spec: &TileSpec) -> Option<&'a [f64]> {
+/// The values a chart draws: an entity's history, a pushed series, or a
+/// column of the pushed row it is on.
+fn chart_values<'a>(ctx: &Ctx<'a>, spec: &TileSpec, record: Option<&'a Record>) -> Option<&'a [f64]> {
+    if let Some(column) = spec.column() {
+        return match record?.get(column)? {
+            Value::Series(values) => Some(values),
+            Value::Text(_) => None,
+        };
+    }
     let values = match spec.chart()? {
         (Some(entity), _, hours) => ctx.data.series.get(&(entity.clone(), hours)),
         (None, Some(name), _) => ctx.data.pushed.get(name),

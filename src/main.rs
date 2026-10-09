@@ -256,7 +256,7 @@ fn sources_key(m: &Model) -> String {
         "{:?}",
         (
             (&m.weather, &m.spotify, &m.home_assistant, &m.http, &m.art_cache),
-            (m.gamma, m.art_sizes(), m.sensor_entities(), m.series(), m.pushed()),
+            (m.gamma, m.art_sizes(), m.sensor_entities(), m.series(), m.pushed(), m.table_columns()),
         )
     )
 }
@@ -292,7 +292,14 @@ impl Live {
         if !same_sources && !sample {
             let shared: data::Shared = Default::default();
             // What was pushed cannot be fetched again, so it carries over.
-            shared.lock().unwrap().pushed = self.shared.lock().unwrap().pushed.clone();
+            let (pushed, tables) = {
+                let old = self.shared.lock().unwrap();
+                (old.pushed.clone(), old.tables.clone())
+            };
+            {
+                let mut new = shared.lock().unwrap();
+                (new.pushed, new.tables) = (pushed, tables);
+            }
             // The old sources stop as their handle goes.
             self.sources = Some(data::spawn_sources(&show.cfg, &shared));
             self.shared = shared;

@@ -19,6 +19,53 @@ use std::time::{Duration, Instant};
 /// How often the charts' histories are fetched again.
 const HISTORY_REFRESH: Duration = Duration::from_secs(60);
 
+/// A value in a row pushed for a table: a line of text, or the numbers of
+/// a chart.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Value {
+    Text(String),
+    Series(Vec<f64>),
+}
+
+/// A row pushed for a table: its values by column.
+pub type Record = HashMap<String, Value>;
+
+/// The most rows a table's data keeps.
+pub const MAX_ROWS: usize = 256;
+
+/// The rows in pushed JSON: an array of objects, or one object for a
+/// single row. A string, a number or a boolean is text as written, a null
+/// is empty text, and an array of numbers is a chart's values.
+pub fn records(json: &serde_json::Value) -> Result<Vec<Record>, String> {
+    use serde_json::Value as Json;
+    let rows = match json {
+        Json::Array(rows) => rows.iter().collect(),
+        Json::Object(_) => vec![json],
+        _ => return Err("the rows are a JSON array of objects, column to value".into()),
+    };
+    let mut records = Vec::with_capacity(rows.len());
+    for (i, row) in rows.into_iter().enumerate() {
+        let Json::Object(row) = row else { return Err(format!("row {}: not an object, column to value", i + 1)) };
+        let mut record = Record::new();
+        for (column, value) in row {
+            let value = match value {
+                Json::String(s) => Value::Text(s.clone()),
+                Json::Number(n) => Value::Text(n.to_string()),
+                Json::Bool(b) => Value::Text(b.to_string()),
+                Json::Null => Value::Text(String::new()),
+                Json::Array(a) => match a.iter().map(Json::as_f64).collect::<Option<Vec<f64>>>() {
+                    Some(numbers) => Value::Series(numbers),
+                    None => return Err(format!("row {}, column {column}: an array must be of numbers", i + 1)),
+                },
+                Json::Object(_) => return Err(format!("row {}, column {column}: not text, a number or an array", i + 1)),
+            };
+            record.insert(column.clone(), value);
+        }
+        records.push(record);
+    }
+    Ok(records)
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Snapshot {
     pub weather: Option<Weather>,
@@ -30,13 +77,15 @@ pub struct Snapshot {
     pub series: HashMap<(String, u32), Arc<Vec<f64>>>,
     /// The series pushed over HTTP, by name, oldest value first.
     pub pushed: HashMap<String, Arc<Vec<f64>>>,
+    /// The rows pushed over HTTP for the tables, by data name.
+    pub tables: HashMap<String, Arc<Vec<Record>>>,
 }
 
 impl Snapshot {
     /// Made-up data for previews and demos that must not touch the network:
     /// every sensor the config names sweeps 0..100 over `SWEEP_SECONDS` and
     /// holds full for `HOLD_SECONDS`, every chart draws the same two
-    /// waves, alerts raise for five seconds of every
+    /// waves, every table row is filled with them and with `--`, alerts raise for five seconds of every
     /// thirty, and a gradient plays as album art. Timed in seconds, so it
     /// runs the same at any frame rate.
     pub fn sample(cfg: &Model, frame: u32) -> Self {
@@ -66,12 +115,24 @@ impl Snapshot {
             Arc::new((0..96).map(|i| (i as f64 / 7.0).sin() * 3.0 + (i as f64 / 2.3).sin() + i as f64 / 24.0).collect());
         let series = cfg.series().into_iter().map(|key| (key, Arc::clone(&waves))).collect();
         let pushed = cfg.pushed().into_iter().map(|name| (name, Arc::clone(&waves))).collect();
+        // A row for every place a table has one, with a value for each
+        // column its tiles read.
+        let mut rows: HashMap<String, Vec<Record>> = HashMap::new();
+        for layer in cfg.pages.iter().flat_map(|p| &p.layers) {
+            let (Some((table, row)), Some(column)) = (&layer.record, layer.tile.column()) else { continue };
+            let rows = rows.entry(table.clone()).or_default();
+            rows.resize(rows.len().max(row + 1), Record::new());
+            let value = if layer.tile.chart().is_some() { Value::Series(waves.to_vec()) } else { Value::Text("--".into()) };
+            rows[*row].insert(column.clone(), value);
+        }
+        let tables = rows.into_iter().map(|(name, rows)| (name, Arc::new(rows))).collect();
         let scaled = Scaled::from_fn(&cfg.art_sizes(), gradient);
         let mut snap = Self {
             weather: Some(Weather { temperature: 21.4, code: 61, is_day: true }),
             sensors,
             series,
             pushed,
+            tables,
             media: Some(Media {
                 playing: true,
                 title: "Sample Song Title".into(),
@@ -235,7 +296,7 @@ pub fn spawn_sources(cfg: &Model, shared: &Shared) -> Sources {
         });
     }
     if let Some(h) = cfg.http.clone() {
-        http::spawn(h, cfg.pushed(), Arc::clone(shared), Arc::clone(&stop));
+        http::spawn(h, cfg.pushed(), cfg.table_columns(), Arc::clone(shared), Arc::clone(&stop));
     }
     Sources { stop }
 }
@@ -245,5 +306,28 @@ pub fn log_changed(last: &mut Option<String>, what: &str, e: anyhow::Error) {
     if last.as_deref() != Some(&msg) {
         eprintln!("panel-ddp: {what}: {msg}");
         *last = Some(msg);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{records, Value};
+    use serde_json::json;
+
+    #[test]
+    fn rows_are_objects_of_text_and_series() {
+        let rows = records(&json!([{"room": "Kitchen", "temp": 22.8, "n": 3, "on": true, "none": null, "history": [1, 2.5]}])).unwrap();
+        let text = |column: &str| match &rows[0][column] {
+            Value::Text(s) => s.clone(),
+            other => panic!("{other:?}"),
+        };
+        assert_eq!((text("room"), text("temp"), text("n"), text("on"), text("none")), ("Kitchen".into(), "22.8".into(), "3".into(), "true".into(), String::new()));
+        assert_eq!(rows[0]["history"], Value::Series(vec![1.0, 2.5]));
+        assert_eq!(records(&json!({"a": 1})).unwrap().len(), 1, "one object is one row");
+        assert!(records(&json!([])).unwrap().is_empty());
+        assert!(records(&json!("rows")).is_err());
+        assert!(records(&json!([1])).unwrap_err().contains("row 1"));
+        assert!(records(&json!([{"a": 1}, {"h": [1, "x"]}])).unwrap_err().contains("row 2, column h"));
+        assert!(records(&json!([{"a": {}}])).is_err());
     }
 }

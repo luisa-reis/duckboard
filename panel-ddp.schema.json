@@ -646,7 +646,18 @@
           "type": "object",
           "properties": {
             "text": {
-              "type": "string"
+              "description": "The line itself.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "column": {
+              "description": "On a table's repeat row: the column of the pushed rows the line\ncomes from, in place of `text`.",
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "size": {
               "default": "6x10",
@@ -688,8 +699,7 @@
           },
           "additionalProperties": false,
           "required": [
-            "kind",
-            "text"
+            "kind"
           ]
         },
         {
@@ -818,6 +828,13 @@
                 "null"
               ]
             },
+            "column": {
+              "description": "On a table's repeat row: the column of the pushed rows the\nvalues come from, an array of numbers, in place of `entity` and\n`series`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "hours": {
               "description": "How far back an entity's line goes.",
               "type": "integer",
@@ -876,6 +893,13 @@
             },
             "series": {
               "description": "The name the values are pushed under, at /series/NAME: letters,\ndigits, `.`, `_` and `-`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "column": {
+              "description": "On a table's repeat row: the column of the pushed rows the\nvalues come from, an array of numbers, in place of `entity` and\n`series`.",
               "type": [
                 "string",
                 "null"
@@ -961,6 +985,13 @@
             },
             "series": {
               "description": "The name the values are pushed under, at /series/NAME: letters,\ndigits, `.`, `_` and `-`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "column": {
+              "description": "On a table's repeat row: the column of the pushed rows the\nvalues come from, an array of numbers, in place of `entity` and\n`series`.",
               "type": [
                 "string",
                 "null"
@@ -1154,6 +1185,48 @@
             "kind"
           ],
           "additionalProperties": false
+        },
+        {
+          "description": "Rows of tiles, stacked from the top of the region.",
+          "type": "object",
+          "properties": {
+            "rows": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Row"
+              }
+            },
+            "data": {
+              "description": "The name rows are pushed under, at /tables/NAME, for the table's\nrepeat row: letters, digits, `.`, `_` and `-`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "gap": {
+              "description": "Pixels between two rows.",
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0,
+              "default": 0
+            },
+            "kind": {
+              "type": "string",
+              "const": "table"
+            },
+            "scheme": {
+              "description": "A colour scheme's name, over the page's.",
+              "type": "string"
+            },
+            "colors": {
+              "$ref": "#/definitions/Overrides"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "rows",
+            "kind"
+          ]
         }
       ]
     },
@@ -1249,6 +1322,91 @@
         }
       ]
     },
+    "Row": {
+      "description": "A row of a table: its height, and the tiles on it.",
+      "type": "object",
+      "properties": {
+        "height": {
+          "description": "In pixels.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "repeat": {
+          "description": "Lays the row out once for each row pushed as the table's `data`, as\nmany as fit the region; its tiles take their values by `column`.\nOnly the last row repeats.",
+          "type": "boolean",
+          "default": false
+        },
+        "tiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Cell"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "height"
+      ]
+    },
+    "Cell": {
+      "description": "A tile on a row, placed from the row's top left corner.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "description": "Pixels from the row's left edge.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "y": {
+          "description": "Pixels from the row's top edge.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "default": 0
+        },
+        "width": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "height": {
+          "description": "The rest of the row's height unless set.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "tile": {
+          "description": "A tile's name from `tiles`, or a tile spelt out; not a table.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/TileRef"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "width",
+        "tile"
+      ]
+    },
+    "TileRef": {
+      "description": "A tile's name from `tiles`, or a tile spelt out.",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/definitions/Tile"
+        }
+      ]
+    },
     "Page": {
       "type": "object",
       "properties": {
@@ -1284,6 +1442,7 @@
             "weather": null,
             "sensors": {},
             "series": {},
+            "tables": {},
             "cover": null,
             "picture": null
           },
@@ -1297,17 +1456,6 @@
       "additionalProperties": false,
       "required": [
         "layout"
-      ]
-    },
-    "TileRef": {
-      "description": "A tile's name from `tiles`, or a tile spelt out.",
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "$ref": "#/definitions/Tile"
-        }
       ]
     },
     "PageData": {
@@ -1340,6 +1488,18 @@
             "items": {
               "type": "number",
               "format": "double"
+            }
+          },
+          "default": {}
+        },
+        "tables": {
+          "description": "By table data name: the rows a table's repeat row draws, each a map\nof column to value, as they are pushed to /tables/NAME.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
             }
           },
           "default": {}

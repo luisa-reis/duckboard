@@ -22,6 +22,10 @@ pub struct PageData {
     /// oldest first, whatever its `hours`.
     #[serde(default)]
     pub series: std::collections::BTreeMap<String, Vec<f64>>,
+    /// By table data name: the rows a table's repeat row draws, each a map
+    /// of column to value, as they are pushed to /tables/NAME.
+    #[serde(default)]
+    pub tables: std::collections::BTreeMap<String, Vec<serde_json::Map<String, serde_json::Value>>>,
     /// A cover from the art cache, newest first (0 is the newest), played.
     pub cover: Option<usize>,
     /// The picture from `sources.pictures`, by position, for picture tiles.
@@ -329,7 +333,11 @@ pub enum TileSpec {
     Date,
     /// One line of text.
     Text {
-        text: String,
+        /// The line itself.
+        text: Option<String>,
+        /// On a table's repeat row: the column of the pushed rows the line
+        /// comes from, in place of `text`.
+        column: Option<String>,
         #[serde(default)]
         size: TextSize,
         /// Which side of the region the line is set against.
@@ -370,6 +378,10 @@ pub enum TileSpec {
         /// The name the values are pushed under, at /series/NAME: letters,
         /// digits, `.`, `_` and `-`.
         series: Option<String>,
+        /// On a table's repeat row: the column of the pushed rows the
+        /// values come from, an array of numbers, in place of `entity` and
+        /// `series`.
+        column: Option<String>,
         /// How far back an entity's line goes.
         #[serde(default = "default_hours")]
         hours: u32,
@@ -385,6 +397,10 @@ pub enum TileSpec {
         /// The name the values are pushed under, at /series/NAME: letters,
         /// digits, `.`, `_` and `-`.
         series: Option<String>,
+        /// On a table's repeat row: the column of the pushed rows the
+        /// values come from, an array of numbers, in place of `entity` and
+        /// `series`.
+        column: Option<String>,
         /// How far back an entity's line goes.
         #[serde(default = "default_hours")]
         hours: u32,
@@ -407,6 +423,10 @@ pub enum TileSpec {
         /// The name the values are pushed under, at /series/NAME: letters,
         /// digits, `.`, `_` and `-`.
         series: Option<String>,
+        /// On a table's repeat row: the column of the pushed rows the
+        /// values come from, an array of numbers, in place of `entity` and
+        /// `series`.
+        column: Option<String>,
         /// How far back an entity's bars go.
         #[serde(default = "default_hours")]
         hours: u32,
@@ -481,11 +501,28 @@ impl TileSpec {
         }
     }
 
+    /// The column of a table's pushed rows the tile takes its value from,
+    /// when it does.
+    pub fn column(&self) -> Option<&String> {
+        match self {
+            TileSpec::Text { column, .. }
+            | TileSpec::LineChart { column, .. }
+            | TileSpec::AreaChart { column, .. }
+            | TileSpec::BarChart { column, .. } => column.as_ref(),
+            _ => None,
+        }
+    }
+
     /// The checks a tile's own settings must pass, whatever the sources.
     pub fn check(&self) -> anyhow::Result<()> {
+        if let TileSpec::Text { text, column, .. } = self {
+            if text.is_some() == column.is_some() {
+                anyhow::bail!("a text tile takes either text or column")
+            }
+        }
         if let Some((entity, series, hours)) = self.chart() {
-            if entity.is_some() == series.is_some() {
-                anyhow::bail!("a chart takes either entity or series")
+            if [entity.is_some(), series.is_some(), self.column().is_some()].iter().filter(|set| **set).count() != 1 {
+                anyhow::bail!("a chart takes one of entity, series or column")
             }
             if !(1..=720).contains(&hours) {
                 anyhow::bail!("chart hours must be between 1 and 720")

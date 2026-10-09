@@ -9,6 +9,7 @@ use crate::config::{
 };
 use crate::palette::Palette;
 use embedded_graphics::{prelude::*, primitives::Rectangle};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 /// Reads a YAML configuration file. An older TOML or JSON one is refused,
@@ -92,6 +93,10 @@ pub struct Layer {
     pub area: Rectangle,
     pub tile: TileSpec,
     pub palette: Palette,
+    /// For a tile on a table's repeat row: the table's data name and which
+    /// of the pushed rows it shows. It draws nothing when there is no such
+    /// row.
+    pub record: Option<(String, usize)>,
 }
 
 impl Page {
@@ -158,6 +163,20 @@ impl Model {
         v.sort();
         v.dedup();
         v
+    }
+
+    /// For every table that draws pushed rows, by data name: the columns
+    /// its tiles read, each "text" or "numbers" (a chart's values).
+    pub fn table_columns(&self) -> BTreeMap<String, BTreeMap<String, &'static str>> {
+        let mut tables: BTreeMap<String, BTreeMap<String, &'static str>> = BTreeMap::new();
+        for layer in self.pages.iter().flat_map(|p| &p.layers) {
+            let Some((table, _)) = &layer.record else { continue };
+            let columns = tables.entry(table.clone()).or_default();
+            if let Some(column) = layer.tile.column() {
+                columns.insert(column.clone(), if layer.tile.chart().is_some() { "numbers" } else { "text" });
+            }
+        }
+        tables
     }
 
     /// The sizes album art is decoded at: every art tile's, smallest first.

@@ -6,7 +6,7 @@
 
 use crate::artcache::ArtCache;
 use crate::model::{Model, Page};
-use crate::data::Snapshot;
+use crate::data::{records, Snapshot};
 use crate::ha::{Art, Media, Sensor};
 use crate::weather::Weather;
 use anyhow::{bail, Result};
@@ -193,6 +193,10 @@ impl Pages {
                 }
                 _ => {}
             }
+        }
+        for (name, rows) in &data.tables {
+            let rows = serde_json::Value::Array(rows.iter().cloned().map(serde_json::Value::Object).collect());
+            snap.tables.insert(name.clone(), Arc::new(records(&rows).unwrap_or_default()));
         }
         if let Some(i) = data.cover {
             snap.media = Some(Media {
