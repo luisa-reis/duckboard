@@ -932,6 +932,83 @@
           ]
         },
         {
+          "description": "The values as bars rising from the bottom of the region, which\nstands for zero (or for the lowest value, when there are negative\nones); the same sources as a line chart.",
+          "type": "object",
+          "properties": {
+            "entity": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "series": {
+              "description": "The name the values are pushed under, at /series/NAME: letters,\ndigits, `.`, `_` and `-`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "hours": {
+              "description": "How far back an entity's bars go.",
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0,
+              "default": 24
+            },
+            "bar": {
+              "description": "The bars' colour; the `accent` colour unless set.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Colour"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "last": {
+              "description": "The latest bar's colour; that of the others unless set.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Colour"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "width": {
+              "description": "A bar's width in pixels.",
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0,
+              "default": 2
+            },
+            "gap": {
+              "description": "The pixels between two bars.",
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0,
+              "default": 1
+            },
+            "kind": {
+              "type": "string",
+              "const": "bar_chart"
+            },
+            "scheme": {
+              "description": "A colour scheme's name, over the page's.",
+              "type": "string"
+            },
+            "colors": {
+              "$ref": "#/definitions/Overrides"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
           "description": "Artist and title scrolling; needs sources.spotify or a Home Assistant media_player.",
           "type": "object",
           "properties": {

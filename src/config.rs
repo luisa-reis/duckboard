@@ -372,6 +372,28 @@ pub enum TileSpec {
         /// A dot at the latest value, in this colour; none unless set.
         dot: Option<Rgba>,
     },
+    /// The values as bars rising from the bottom of the region, which
+    /// stands for zero (or for the lowest value, when there are negative
+    /// ones); the same sources as a line chart.
+    BarChart {
+        entity: Option<String>,
+        /// The name the values are pushed under, at /series/NAME: letters,
+        /// digits, `.`, `_` and `-`.
+        series: Option<String>,
+        /// How far back an entity's bars go.
+        #[serde(default = "default_hours")]
+        hours: u32,
+        /// The bars' colour; the `accent` colour unless set.
+        bar: Option<Rgba>,
+        /// The latest bar's colour; that of the others unless set.
+        last: Option<Rgba>,
+        /// A bar's width in pixels.
+        #[serde(default = "default_bar_width")]
+        width: u32,
+        /// The pixels between two bars.
+        #[serde(default = "default_bar_gap")]
+        gap: u32,
+    },
     /// Artist and title scrolling; needs sources.spotify or a Home Assistant media_player.
     NowPlaying,
     /// The album art; needs sources.spotify or a Home Assistant media_player.
@@ -408,13 +430,44 @@ fn default_hours() -> u32 {
     24
 }
 
+fn default_bar_width() -> u32 {
+    2
+}
+
+fn default_bar_gap() -> u32 {
+    1
+}
+
 fn one() -> f32 {
     1.0
 }
 
 impl TileSpec {
+    /// Where a chart's values come from: its entity or its series, and its
+    /// hours. None for the kinds that are not charts.
+    pub fn chart(&self) -> Option<(Option<&String>, Option<&String>, u32)> {
+        match self {
+            TileSpec::LineChart { entity, series, hours, .. }
+            | TileSpec::AreaChart { entity, series, hours, .. }
+            | TileSpec::BarChart { entity, series, hours, .. } => Some((entity.as_ref(), series.as_ref(), *hours)),
+            _ => None,
+        }
+    }
+
     /// The checks a tile's own settings must pass, whatever the sources.
     pub fn check(&self) -> anyhow::Result<()> {
+        if let Some((entity, series, hours)) = self.chart() {
+            if entity.is_some() == series.is_some() {
+                anyhow::bail!("a chart takes either entity or series")
+            }
+            if !(1..=720).contains(&hours) {
+                anyhow::bail!("chart hours must be between 1 and 720")
+            }
+            let named = |name: &&String| !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c));
+            if let Some(name) = series.filter(|name| !named(name)) {
+                anyhow::bail!("chart series {name:?}: a name is letters, digits, '.', '_' and '-'")
+            }
+        }
         match self {
             TileSpec::Progress { max, label, .. } if max.is_nan() || *max <= 0.0 => {
                 anyhow::bail!("progress tile {label}: max must be positive")
@@ -427,18 +480,8 @@ impl TileSpec {
             {
                 anyhow::bail!("art tile alphas must be between 0 and 1")
             }
-            TileSpec::LineChart { entity, series, .. } | TileSpec::AreaChart { entity, series, .. }
-                if entity.is_some() == series.is_some() =>
-            {
-                anyhow::bail!("a chart takes either entity or series")
-            }
-            TileSpec::LineChart { hours, .. } | TileSpec::AreaChart { hours, .. } if !(1..=720).contains(hours) => {
-                anyhow::bail!("chart hours must be between 1 and 720")
-            }
-            TileSpec::LineChart { series: Some(name), .. } | TileSpec::AreaChart { series: Some(name), .. }
-                if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c)) =>
-            {
-                anyhow::bail!("chart series {name:?}: a name is letters, digits, '.', '_' and '-'")
+            TileSpec::BarChart { width, gap, .. } if !(1..=16).contains(width) || *gap > 8 => {
+                anyhow::bail!("a bar chart's width is 1 to 16 and its gap 0 to 8")
             }
             TileSpec::Picture { alpha } if !(0.0..=1.0).contains(alpha) => {
                 anyhow::bail!("picture tile alpha must be between 0 and 1")

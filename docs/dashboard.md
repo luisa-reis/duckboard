@@ -124,10 +124,20 @@ With `sources.home_assistant`:
   `area_bottom` on its bottom row; a colour with an alpha of `00` fades it
   out. The line is drawn over the area, so an alpha in `line` blends with
   it.
+- `bar_chart` — the same values as bars: as many as fit across the region
+  at `width` pixels each (default 2) and `gap` pixels apart (default 1),
+  centred, each the mean of its stretch of the values. `bar` is their
+  colour (the `accent` colour unless set) and `last` that of the latest
+  bar, when it should stand out. The bottom of the region is zero and the
+  highest value reaches its top, so the bars compare by height; with a
+  negative value among them the bottom is the lowest value instead. A bar
+  is never under a pixel, so a zero still shows where it is. It takes
+  `entity` or `series`, and `hours`, like a line chart.
 
 With `sources.http`:
 
-- `line_chart` or `area_chart` with a `series` in place of the `entity` —
+- `line_chart`, `area_chart` or `bar_chart` with a `series` in place of the
+  `entity` —
   the same chart, of values pushed to the panel under that name; see
   Pushing a series.
 
@@ -377,7 +387,7 @@ pages:
 
 ## Pushing a series
 
-A line chart or an area chart with a `series` draws values sent to the panel over HTTP, for
+A line, area or bar chart with a `series` draws values sent to the panel over HTTP, for
 anything Home Assistant does not hold: a script's output, a build's
 duration, a price.
 
@@ -502,12 +512,12 @@ target/release/panel-ddp run --config demo.yaml --target wled.local --once   # o
 in its own size and saying which, then lines too wide for the panel,
 scrolling. It needs no data.
 
-`demo-dashboards.yaml` is the dashboards demo: six dashboards built from
-line charts, area charts and text of different sizes on made-up series: one
-reading with its day under it, three readings each beside its chart, the
-clock and the date over a reading, text over a chart the size of the panel,
-and then area charts, one with a gradient under a reading and three beside
-theirs.
+`demo-dashboards.yaml` is the dashboards demo: eight dashboards built from
+line charts, area charts, bar charts and text of different sizes on made-up
+series: one reading with its day under it, three readings each beside its
+chart, the clock and the date over a reading, text over a chart the size of
+the panel, then area charts, one with a gradient under a reading and three
+beside theirs, and bar charts the same way.
 
 `art_file`, a top-level setting, keeps a JPEG at the album cover on show,
 the original as downloaded, black when no cover is on, and removes it when

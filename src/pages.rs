@@ -5,7 +5,6 @@
 //! without a time stays for good.
 
 use crate::artcache::ArtCache;
-use crate::config::TileSpec;
 use crate::model::{Model, Page};
 use crate::data::Snapshot;
 use crate::ha::{Art, Media, Sensor};
@@ -181,14 +180,13 @@ impl Pages {
         }
         for layer in &page.layers {
             let values = |name: &String| data.series.get(name).map(|v| Arc::new(v.clone()));
-            match &layer.tile {
-                TileSpec::LineChart { entity: Some(entity), hours, .. }
-                | TileSpec::AreaChart { entity: Some(entity), hours, .. } => {
+            match layer.tile.chart() {
+                Some((Some(entity), _, hours)) => {
                     if let Some(v) = values(entity) {
-                        snap.series.insert((entity.clone(), *hours), v);
+                        snap.series.insert((entity.clone(), hours), v);
                     }
                 }
-                TileSpec::LineChart { series: Some(name), .. } | TileSpec::AreaChart { series: Some(name), .. } => {
+                Some((_, Some(name), _)) => {
                     if let Some(v) = values(name) {
                         snap.pushed.insert(name.clone(), v);
                     }

@@ -64,14 +64,17 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Pal
         TileSpec::Progress { entity, label, max, decimals } => {
             progress(&mut clipped, area, ctx, p, entity, label, *max, *decimals)
         }
-        TileSpec::LineChart { entity, series, hours, line, dot } => {
-            let values = chart_values(ctx, entity.as_ref(), series.as_ref(), *hours);
-            chart(&mut clipped, area, p, values, *line, None, *dot)
+        TileSpec::LineChart { line, dot, .. } => {
+            chart(&mut clipped, area, p, chart_values(ctx, spec), *line, None, *dot)
         }
-        TileSpec::AreaChart { entity, series, hours, line, area: top, area_bottom, dot } => {
-            let values = chart_values(ctx, entity.as_ref(), series.as_ref(), *hours);
+        TileSpec::AreaChart { line, area: top, area_bottom, dot, .. } => {
             let top = top.unwrap_or(line.unwrap_or(p.accent).scaled(AREA_ALPHA));
-            chart(&mut clipped, area, p, values, *line, Some((top, area_bottom.unwrap_or(top))), *dot)
+            let fill_with = Some((top, area_bottom.unwrap_or(top)));
+            chart(&mut clipped, area, p, chart_values(ctx, spec), *line, fill_with, *dot)
+        }
+        TileSpec::BarChart { bar, last, width, gap, .. } => {
+            let bar = bar.unwrap_or(p.accent);
+            bars(&mut clipped, area, p, chart_values(ctx, spec), bar, last.unwrap_or(bar), *width, *gap)
         }
         TileSpec::NowPlaying => now_playing(&mut clipped, area, ctx, p),
         TileSpec::Art { .. } | TileSpec::Picture { .. } | TileSpec::Blank => {}
@@ -347,13 +350,59 @@ fn columns(values: &[f64], cols: usize) -> Vec<f64> {
 const AREA_ALPHA: f32 = 0.35;
 
 /// The values a chart draws: an entity's history, or a pushed series.
-fn chart_values<'a>(ctx: &Ctx<'a>, entity: Option<&String>, series: Option<&String>, hours: u32) -> Option<&'a [f64]> {
-    let values = match (entity, series) {
-        (Some(entity), _) => ctx.data.series.get(&(entity.clone(), hours)),
-        (None, Some(name)) => ctx.data.pushed.get(name),
-        (None, None) => None,
+fn chart_values<'a>(ctx: &Ctx<'a>, spec: &TileSpec) -> Option<&'a [f64]> {
+    let values = match spec.chart()? {
+        (Some(entity), _, hours) => ctx.data.series.get(&(entity.clone(), hours)),
+        (None, Some(name), _) => ctx.data.pushed.get(name),
+        (None, None, _) => None,
     };
     values.map(|v| v.as_slice())
+}
+
+/// How tall each of `values` stands in `rows` pixels, counted from zero, or
+/// from the lowest value when one is negative: the highest fills the rows,
+/// and none is under a pixel, so a bar shows where a value is.
+fn bar_heights(values: &[f64], rows: u32) -> Vec<u32> {
+    let base = values.iter().copied().fold(0.0, f64::min);
+    let high = values.iter().copied().fold(base, f64::max);
+    values
+        .iter()
+        .map(|v| {
+            let up = if high > base { (v - base) / (high - base) } else { 0.0 };
+            ((up * rows as f64).round() as u32).clamp(1, rows.max(1))
+        })
+        .collect()
+}
+
+/// A series as bars `width` wide and `gap` apart, as many as fit across
+/// the area, centred in it, the latest one in `last`; a flat line in the
+/// track colour on the bottom row while there is none.
+#[allow(clippy::too_many_arguments)]
+fn bars<D: DrawTarget<Color = Rgba>>(
+    t: &mut D,
+    area: Rectangle,
+    p: &Palette,
+    values: Option<&[f64]>,
+    bar: Rgba,
+    last: Rgba,
+    width: u32,
+    gap: u32,
+) {
+    let o = area.top_left;
+    let bottom = o.y + area.size.height as i32;
+    let Some(values) = values.filter(|v| !v.is_empty()) else {
+        fill(t, Rectangle::new(Point::new(o.x, bottom - 1), Size::new(area.size.width, 1)), p.track);
+        return;
+    };
+    let width = width.clamp(1, area.size.width.max(1));
+    let count = ((area.size.width + gap) / (width + gap)).max(1);
+    let left = o.x + (area.size.width as i32 - (count * (width + gap) - gap) as i32) / 2;
+    let heights = bar_heights(&columns(values, count as usize), area.size.height);
+    for (i, height) in heights.iter().enumerate() {
+        let x = left + (i as u32 * (width + gap)) as i32;
+        let colour = if i + 1 == heights.len() { last } else { bar };
+        fill(t, Rectangle::new(Point::new(x, bottom - *height as i32), Size::new(width, *height)), colour);
+    }
 }
 
 /// The colour `at` of the way from `from` (0) to `to` (1), alpha included.
@@ -427,8 +476,16 @@ fn now_playing<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ct
 
 #[cfg(test)]
 mod tests {
-    use super::{blend, columns};
+    use super::{bar_heights, blend, columns};
     use crate::palette::Rgba;
+
+    #[test]
+    fn bars_stand_on_zero() {
+        assert_eq!(bar_heights(&[0.0, 5.0, 10.0], 20), [1, 10, 20], "from zero, and never under a pixel");
+        assert_eq!(bar_heights(&[90.0, 100.0], 10), [9, 10], "not from the lowest");
+        assert_eq!(bar_heights(&[-10.0, 0.0, 10.0], 10), [1, 5, 10], "from the lowest when one is negative");
+        assert_eq!(bar_heights(&[0.0, 0.0], 10), [1, 1]);
+    }
 
     #[test]
     fn blends_every_channel() {

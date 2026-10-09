@@ -293,6 +293,7 @@ fn tile_base_name(spec: &TileSpec, slot: Slot) -> String {
         TileSpec::Sensor { .. } => "sensor".into(),
         TileSpec::LineChart { .. } => "line-chart".into(),
         TileSpec::AreaChart { .. } => "area-chart".into(),
+        TileSpec::BarChart { .. } => "bar-chart".into(),
         TileSpec::Progress { .. } => "progress".into(),
         TileSpec::Blank => "blank".into(),
     }

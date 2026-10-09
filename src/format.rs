@@ -615,14 +615,11 @@ impl File {
                     {
                         Some("sources.home_assistant")
                     }
-                    TileSpec::LineChart { entity: Some(entity), .. } | TileSpec::AreaChart { entity: Some(entity), .. }
-                        if s.home_assistant.is_none() && !d.series.contains_key(entity) =>
+                    t if matches!(t.chart(), Some((Some(entity), _, _)) if s.home_assistant.is_none() && !d.series.contains_key(entity)) =>
                     {
                         Some("sources.home_assistant")
                     }
-                    TileSpec::LineChart { series: Some(name), .. } | TileSpec::AreaChart { series: Some(name), .. }
-                        if s.http.is_none() && !d.series.contains_key(name) =>
-                    {
+                    t if matches!(t.chart(), Some((_, Some(name), _)) if s.http.is_none() && !d.series.contains_key(name)) => {
                         Some("sources.http")
                     }
                     TileSpec::NowPlaying | TileSpec::Art { .. } if !media && d.cover.is_none() => {
@@ -660,6 +657,7 @@ fn kind_name(t: &TileSpec) -> &'static str {
         TileSpec::Progress { .. } => "progress",
         TileSpec::LineChart { .. } => "line_chart",
         TileSpec::AreaChart { .. } => "area_chart",
+        TileSpec::BarChart { .. } => "bar_chart",
         TileSpec::NowPlaying => "now_playing",
         TileSpec::Art { .. } => "art",
         TileSpec::Picture { .. } => "picture",
@@ -777,6 +775,11 @@ pages:
         assert!(matches!(m.pages[0].layers[0].tile, TileSpec::AreaChart { area: Some(_), area_bottom: Some(_), line: None, .. }));
         assert!(err("{kind: area_chart, series: power}", "{}").contains("area_chart tile needs sources.http"));
         assert!(err("{kind: area_chart}", "{}").contains("either entity or series"));
+        let m = load(&page("{kind: bar_chart, entity: sensor.a, hours: 48, last: '#ffffff'}", "{series: {sensor.a: [1]}}")).unwrap();
+        assert_eq!(m.series(), [("sensor.a".to_string(), 48)]);
+        assert!(matches!(m.pages[0].layers[0].tile, TileSpec::BarChart { width: 2, gap: 1, bar: None, last: Some(_), .. }));
+        assert!(err("{kind: bar_chart, series: power, width: 0}", "{series: {power: [1]}}").contains("width is 1 to 16"));
+        assert!(err("{kind: bar_chart, series: power}", "{}").contains("bar_chart tile needs sources.http"));
         let m = load(&page("{kind: line_chart, series: power}", "{}").replace("target: t", "target: t\nsources: {http: {}}")).unwrap();
         assert_eq!(m.http.unwrap().listen, "127.0.0.1:4049");
     }

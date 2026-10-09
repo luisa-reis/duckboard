@@ -134,9 +134,8 @@ impl Model {
             .pages
             .iter()
             .flat_map(|p| &p.layers)
-            .filter_map(|l| match &l.tile {
-                TileSpec::LineChart { entity: Some(entity), hours, .. }
-                | TileSpec::AreaChart { entity: Some(entity), hours, .. } => Some((entity.clone(), *hours)),
+            .filter_map(|l| match l.tile.chart() {
+                Some((Some(entity), _, hours)) => Some((entity.clone(), hours)),
                 _ => None,
             })
             .collect();
@@ -151,10 +150,8 @@ impl Model {
             .pages
             .iter()
             .flat_map(|p| &p.layers)
-            .filter_map(|l| match &l.tile {
-                TileSpec::LineChart { series: Some(name), .. } | TileSpec::AreaChart { series: Some(name), .. } => {
-                    Some(name.clone())
-                }
+            .filter_map(|l| match l.tile.chart() {
+                Some((_, Some(name), _)) => Some(name.clone()),
                 _ => None,
             })
             .collect();
