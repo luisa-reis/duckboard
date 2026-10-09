@@ -127,7 +127,7 @@ impl Model {
         v
     }
 
-    /// Every history a line chart draws from Home Assistant: the entity and
+    /// Every history a chart draws from Home Assistant: the entity and
     /// its hours.
     pub fn series(&self) -> Vec<(String, u32)> {
         let mut v: Vec<(String, u32)> = self
@@ -135,7 +135,8 @@ impl Model {
             .iter()
             .flat_map(|p| &p.layers)
             .filter_map(|l| match &l.tile {
-                TileSpec::LineChart { entity: Some(entity), hours, .. } => Some((entity.clone(), *hours)),
+                TileSpec::LineChart { entity: Some(entity), hours, .. }
+                | TileSpec::AreaChart { entity: Some(entity), hours, .. } => Some((entity.clone(), *hours)),
                 _ => None,
             })
             .collect();
@@ -144,14 +145,16 @@ impl Model {
         v
     }
 
-    /// The name of every series a line chart draws that is pushed over HTTP.
+    /// The name of every series a chart draws that is pushed over HTTP.
     pub fn pushed(&self) -> Vec<String> {
         let mut v: Vec<String> = self
             .pages
             .iter()
             .flat_map(|p| &p.layers)
             .filter_map(|l| match &l.tile {
-                TileSpec::LineChart { series: Some(name), .. } => Some(name.clone()),
+                TileSpec::LineChart { series: Some(name), .. } | TileSpec::AreaChart { series: Some(name), .. } => {
+                    Some(name.clone())
+                }
                 _ => None,
             })
             .collect();

@@ -1,5 +1,5 @@
 //! Home Assistant's REST API: entity states for the sensor tiles, their
-//! history for the line charts, and the media player's title, artist and
+//! history for the charts, and the media player's title, artist and
 //! album art for the hub. One long-lived
 //! access token covers all of it.
 

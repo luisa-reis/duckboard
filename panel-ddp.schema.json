@@ -214,7 +214,7 @@
           ]
         },
         "http": {
-          "description": "An HTTP endpoint taking the values of line chart series.",
+          "description": "An HTTP endpoint taking the values of chart series.",
           "anyOf": [
             {
               "$ref": "#/definitions/Http"
@@ -847,6 +847,91 @@
           ]
         },
         {
+          "description": "A line chart with the area under the line filled, to the bottom of\nthe region; the same sources as a line chart.",
+          "type": "object",
+          "properties": {
+            "entity": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "series": {
+              "description": "The name the values are pushed under, at /series/NAME: letters,\ndigits, `.`, `_` and `-`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "hours": {
+              "description": "How far back an entity's line goes.",
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0,
+              "default": 24
+            },
+            "line": {
+              "description": "The line's colour; the `accent` colour unless set.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Colour"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "area": {
+              "description": "The area's colour; the line's at a third of its strength unless\nset.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Colour"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "area_bottom": {
+              "description": "Makes the area a gradient: `area` on the region's top row, this\ncolour on its bottom row. An alpha of 00 fades it out.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Colour"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "dot": {
+              "description": "A dot at the latest value, in this colour; none unless set.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Colour"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "const": "area_chart"
+            },
+            "scheme": {
+              "description": "A colour scheme's name, over the page's.",
+              "type": "string"
+            },
+            "colors": {
+              "$ref": "#/definitions/Overrides"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
           "description": "Artist and title scrolling; needs sources.spotify or a Home Assistant media_player.",
           "type": "object",
           "properties": {
@@ -1129,7 +1214,7 @@
           "default": {}
         },
         "series": {
-          "description": "By entity id or series name: the values a line chart of it draws,\noldest first, whatever its `hours`.",
+          "description": "By entity id or series name: the values a chart of it draws,\noldest first, whatever its `hours`.",
           "type": "object",
           "additionalProperties": {
             "type": "array",

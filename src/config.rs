@@ -18,7 +18,7 @@ pub struct PageData {
     /// over the page's time.
     #[serde(default)]
     pub sensors: std::collections::BTreeMap<String, SensorData>,
-    /// By entity id or series name: the values a line chart of it draws,
+    /// By entity id or series name: the values a chart of it draws,
     /// oldest first, whatever its `hours`.
     #[serde(default)]
     pub series: std::collections::BTreeMap<String, Vec<f64>>,
@@ -182,7 +182,7 @@ pub struct HomeAssistantConfig {
     pub refresh_seconds: u64,
 }
 
-/// The HTTP endpoint the values of line chart series are pushed to.
+/// The HTTP endpoint the values of chart series are pushed to.
 #[derive(Debug, Clone)]
 pub struct HttpConfig {
     /// The address and port to listen on.
@@ -351,6 +351,27 @@ pub enum TileSpec {
         /// A dot at the latest value, in this colour; none unless set.
         dot: Option<Rgba>,
     },
+    /// A line chart with the area under the line filled, to the bottom of
+    /// the region; the same sources as a line chart.
+    AreaChart {
+        entity: Option<String>,
+        /// The name the values are pushed under, at /series/NAME: letters,
+        /// digits, `.`, `_` and `-`.
+        series: Option<String>,
+        /// How far back an entity's line goes.
+        #[serde(default = "default_hours")]
+        hours: u32,
+        /// The line's colour; the `accent` colour unless set.
+        line: Option<Rgba>,
+        /// The area's colour; the line's at a third of its strength unless
+        /// set.
+        area: Option<Rgba>,
+        /// Makes the area a gradient: `area` on the region's top row, this
+        /// colour on its bottom row. An alpha of 00 fades it out.
+        area_bottom: Option<Rgba>,
+        /// A dot at the latest value, in this colour; none unless set.
+        dot: Option<Rgba>,
+    },
     /// Artist and title scrolling; needs sources.spotify or a Home Assistant media_player.
     NowPlaying,
     /// The album art; needs sources.spotify or a Home Assistant media_player.
@@ -406,16 +427,18 @@ impl TileSpec {
             {
                 anyhow::bail!("art tile alphas must be between 0 and 1")
             }
-            TileSpec::LineChart { entity, series, .. } if entity.is_some() == series.is_some() => {
-                anyhow::bail!("a line chart takes either entity or series")
+            TileSpec::LineChart { entity, series, .. } | TileSpec::AreaChart { entity, series, .. }
+                if entity.is_some() == series.is_some() =>
+            {
+                anyhow::bail!("a chart takes either entity or series")
             }
-            TileSpec::LineChart { hours, .. } if !(1..=720).contains(hours) => {
-                anyhow::bail!("line chart hours must be between 1 and 720")
+            TileSpec::LineChart { hours, .. } | TileSpec::AreaChart { hours, .. } if !(1..=720).contains(hours) => {
+                anyhow::bail!("chart hours must be between 1 and 720")
             }
-            TileSpec::LineChart { series: Some(name), .. }
+            TileSpec::LineChart { series: Some(name), .. } | TileSpec::AreaChart { series: Some(name), .. }
                 if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c)) =>
             {
-                anyhow::bail!("line chart series {name:?}: a name is letters, digits, '.', '_' and '-'")
+                anyhow::bail!("chart series {name:?}: a name is letters, digits, '.', '_' and '-'")
             }
             TileSpec::Picture { alpha } if !(0.0..=1.0).contains(alpha) => {
                 anyhow::bail!("picture tile alpha must be between 0 and 1")

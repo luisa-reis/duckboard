@@ -65,12 +65,13 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Pal
             progress(&mut clipped, area, ctx, p, entity, label, *max, *decimals)
         }
         TileSpec::LineChart { entity, series, hours, line, dot } => {
-            let values = match (entity, series) {
-                (Some(entity), _) => ctx.data.series.get(&(entity.clone(), *hours)),
-                (None, Some(name)) => ctx.data.pushed.get(name),
-                (None, None) => None,
-            };
-            line_chart(&mut clipped, area, p, values.map(|v| v.as_slice()), *line, *dot)
+            let values = chart_values(ctx, entity.as_ref(), series.as_ref(), *hours);
+            chart(&mut clipped, area, p, values, *line, None, *dot)
+        }
+        TileSpec::AreaChart { entity, series, hours, line, area: top, area_bottom, dot } => {
+            let values = chart_values(ctx, entity.as_ref(), series.as_ref(), *hours);
+            let top = top.unwrap_or(line.unwrap_or(p.accent).scaled(AREA_ALPHA));
+            chart(&mut clipped, area, p, values, *line, Some((top, area_bottom.unwrap_or(top))), *dot)
         }
         TileSpec::NowPlaying => now_playing(&mut clipped, area, ctx, p),
         TileSpec::Art { .. } | TileSpec::Picture { .. } | TileSpec::Blank => {}
@@ -341,15 +342,39 @@ fn columns(values: &[f64], cols: usize) -> Vec<f64> {
     }
 }
 
+/// The alpha of an area chart's area when it has no colour of its own,
+/// against the line's.
+const AREA_ALPHA: f32 = 0.35;
+
+/// The values a chart draws: an entity's history, or a pushed series.
+fn chart_values<'a>(ctx: &Ctx<'a>, entity: Option<&String>, series: Option<&String>, hours: u32) -> Option<&'a [f64]> {
+    let values = match (entity, series) {
+        (Some(entity), _) => ctx.data.series.get(&(entity.clone(), hours)),
+        (None, Some(name)) => ctx.data.pushed.get(name),
+        (None, None) => None,
+    };
+    values.map(|v| v.as_slice())
+}
+
+/// The colour `at` of the way from `from` (0) to `to` (1), alpha included.
+fn blend(from: Rgba, to: Rgba, at: f32) -> Rgba {
+    let mix = |a: u8, b: u8| (a as f32 + (b as f32 - a as f32) * at).round() as u8;
+    Rgba { r: mix(from.r, to.r), g: mix(from.g, to.g), b: mix(from.b, to.b), a: mix(from.a, to.a) }
+}
+
 /// A series as a line across the area, its lowest value on the
 /// bottom row and its highest on the top one, with a dot on its end when
 /// `dot` is set; a flat line in the track colour while there is none.
-fn line_chart<D: DrawTarget<Color = Rgba>>(
+/// `fill` colours what is under the line, down to the bottom of the area:
+/// its first colour on the area's top row, its second on the bottom one,
+/// and a gradient between when they differ.
+fn chart<D: DrawTarget<Color = Rgba>>(
     t: &mut D,
     area: Rectangle,
     p: &Palette,
     values: Option<&[f64]>,
     line: Option<Rgba>,
+    fill_with: Option<(Rgba, Rgba)>,
     dot: Option<Rgba>,
 ) {
     let o = area.top_left;
@@ -373,6 +398,12 @@ fn line_chart<D: DrawTarget<Color = Rgba>>(
             o + Point::new(pad as i32 + i as i32, pad as i32 + ((1.0 - up) * (rows - 1) as f64).round() as i32)
         })
         .collect();
+    if let Some((top, bottom)) = fill_with {
+        let height = area.size.height as i32;
+        let colour_of = |y: i32| blend(top, bottom, (y - o.y) as f32 / (height - 1).max(1) as f32);
+        let under = points.iter().flat_map(|q| (q.y + 1..o.y + height).map(|y| Pixel(Point::new(q.x, y), colour_of(y))));
+        let _ = t.draw_iter(under);
+    }
     let colour = line.unwrap_or(p.accent);
     if let [only] = points[..] {
         let _ = Pixel(only, colour).draw(t);
@@ -396,7 +427,16 @@ fn now_playing<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ct
 
 #[cfg(test)]
 mod tests {
-    use super::columns;
+    use super::{blend, columns};
+    use crate::palette::Rgba;
+
+    #[test]
+    fn blends_every_channel() {
+        let (from, to) = (Rgba { r: 0, g: 100, b: 255, a: 255 }, Rgba { r: 200, g: 100, b: 55, a: 0 });
+        assert_eq!(blend(from, to, 0.0), from);
+        assert_eq!(blend(from, to, 1.0), to);
+        assert_eq!(blend(from, to, 0.5), Rgba { r: 100, g: 100, b: 155, a: 128 });
+    }
 
     #[test]
     fn columns_average_or_stretch() {

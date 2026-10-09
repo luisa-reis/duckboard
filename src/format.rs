@@ -142,7 +142,7 @@ pub struct Sources {
     pub spotify: Option<SpotifyConfig>,
     /// A folder of pictures for picture tiles.
     pub pictures: Option<Pictures>,
-    /// An HTTP endpoint taking the values of line chart series.
+    /// An HTTP endpoint taking the values of chart series.
     pub http: Option<Http>,
 }
 
@@ -615,12 +615,12 @@ impl File {
                     {
                         Some("sources.home_assistant")
                     }
-                    TileSpec::LineChart { entity: Some(entity), .. }
+                    TileSpec::LineChart { entity: Some(entity), .. } | TileSpec::AreaChart { entity: Some(entity), .. }
                         if s.home_assistant.is_none() && !d.series.contains_key(entity) =>
                     {
                         Some("sources.home_assistant")
                     }
-                    TileSpec::LineChart { series: Some(name), .. }
+                    TileSpec::LineChart { series: Some(name), .. } | TileSpec::AreaChart { series: Some(name), .. }
                         if s.http.is_none() && !d.series.contains_key(name) =>
                     {
                         Some("sources.http")
@@ -659,6 +659,7 @@ fn kind_name(t: &TileSpec) -> &'static str {
         TileSpec::Sensor { .. } => "sensor",
         TileSpec::Progress { .. } => "progress",
         TileSpec::LineChart { .. } => "line_chart",
+        TileSpec::AreaChart { .. } => "area_chart",
         TileSpec::NowPlaying => "now_playing",
         TileSpec::Art { .. } => "art",
         TileSpec::Picture { .. } => "picture",
@@ -770,6 +771,12 @@ pages:
         assert!(err("{kind: line_chart, series: a/b}", "{}").contains("a name is"));
         let m = load(&page("{kind: line_chart, series: power}", "{series: {power: [1]}}")).unwrap();
         assert_eq!((m.series(), m.pushed()), (vec![], vec!["power".to_string()]));
+        let area = "{kind: area_chart, series: power, area: '#00ff0080', area_bottom: '#00ff0000'}";
+        let m = load(&page(area, "{series: {power: [1]}}")).unwrap();
+        assert_eq!(m.pushed(), ["power"]);
+        assert!(matches!(m.pages[0].layers[0].tile, TileSpec::AreaChart { area: Some(_), area_bottom: Some(_), line: None, .. }));
+        assert!(err("{kind: area_chart, series: power}", "{}").contains("area_chart tile needs sources.http"));
+        assert!(err("{kind: area_chart}", "{}").contains("either entity or series"));
         let m = load(&page("{kind: line_chart, series: power}", "{}").replace("target: t", "target: t\nsources: {http: {}}")).unwrap();
         assert_eq!(m.http.unwrap().listen, "127.0.0.1:4049");
     }
