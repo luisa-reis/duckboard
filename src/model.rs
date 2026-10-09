@@ -126,6 +126,22 @@ impl Model {
         v
     }
 
+    /// Every history a sparkline draws: the entity and its hours.
+    pub fn series(&self) -> Vec<(String, u32)> {
+        let mut v: Vec<(String, u32)> = self
+            .pages
+            .iter()
+            .flat_map(|p| &p.layers)
+            .filter_map(|l| match &l.tile {
+                TileSpec::Sparkline { entity, hours, .. } => Some((entity.clone(), *hours)),
+                _ => None,
+            })
+            .collect();
+        v.sort();
+        v.dedup();
+        v
+    }
+
     /// The sizes album art is decoded at: every art tile's, smallest first.
     pub fn art_sizes(&self) -> Vec<Size> {
         self.sizes_of(|t| matches!(t, TileSpec::Art { .. }))

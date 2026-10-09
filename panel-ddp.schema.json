@@ -751,6 +751,60 @@
           ]
         },
         {
+          "description": "A Home Assistant entity's numeric history as a line, low at the\nbottom of the region and high at the top; needs sources.home_assistant.",
+          "type": "object",
+          "properties": {
+            "entity": {
+              "type": "string"
+            },
+            "hours": {
+              "description": "How far back the line goes.",
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0,
+              "default": 24
+            },
+            "line": {
+              "description": "The line's colour; the `accent` colour unless set.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Colour"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "dot": {
+              "description": "A dot at the latest value, in this colour; none unless set.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Colour"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "const": "sparkline"
+            },
+            "scheme": {
+              "description": "A colour scheme's name, over the page's.",
+              "type": "string"
+            },
+            "colors": {
+              "$ref": "#/definitions/Overrides"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "entity"
+          ]
+        },
+        {
           "description": "Artist and title scrolling; needs sources.spotify or a Home Assistant media_player.",
           "type": "object",
           "properties": {
@@ -983,6 +1037,7 @@
           "default": {
             "weather": null,
             "sensors": {},
+            "series": {},
             "cover": null,
             "picture": null
           },
@@ -1028,6 +1083,18 @@
           "type": "object",
           "additionalProperties": {
             "$ref": "#/definitions/SensorData"
+          },
+          "default": {}
+        },
+        "series": {
+          "description": "By entity id: the values a sparkline of the entity draws, oldest\nfirst, whatever its `hours`.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "double"
+            }
           },
           "default": {}
         },

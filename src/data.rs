@@ -13,7 +13,10 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+/// How often the sparklines' histories are fetched again.
+const HISTORY_REFRESH: Duration = Duration::from_secs(60);
 
 #[derive(Clone, Debug, Default)]
 pub struct Snapshot {
@@ -21,12 +24,16 @@ pub struct Snapshot {
     /// By entity id.
     pub sensors: HashMap<String, Sensor>,
     pub media: Option<Media>,
+    /// An entity's history over some hours, oldest first, for the
+    /// sparklines; shared, since the snapshot is copied every frame.
+    pub series: HashMap<(String, u32), Arc<Vec<f64>>>,
 }
 
 impl Snapshot {
     /// Made-up data for previews and demos that must not touch the network:
     /// every sensor the config names sweeps 0..100 over `SWEEP_SECONDS` and
-    /// holds full for `HOLD_SECONDS`, alerts raise for five seconds of every
+    /// holds full for `HOLD_SECONDS`, every sparkline draws the same two
+    /// waves, alerts raise for five seconds of every
     /// thirty, and a gradient plays as album art. Timed in seconds, so it
     /// runs the same at any frame rate.
     pub fn sample(cfg: &Model, frame: u32) -> Self {
@@ -52,10 +59,14 @@ impl Snapshot {
             }
             rgb
         };
+        let waves: Arc<Vec<f64>> =
+            Arc::new((0..96).map(|i| (i as f64 / 7.0).sin() * 3.0 + (i as f64 / 2.3).sin() + i as f64 / 24.0).collect());
+        let series = cfg.series().into_iter().map(|key| (key, Arc::clone(&waves))).collect();
         let scaled = Scaled::from_fn(&cfg.art_sizes(), gradient);
         let mut snap = Self {
             weather: Some(Weather { temperature: 21.4, code: 61, is_day: true }),
             sensors,
+            series,
             media: Some(Media {
                 playing: true,
                 title: "Sample Song Title".into(),
@@ -166,6 +177,7 @@ pub fn spawn_sources(cfg: &Model, shared: &Shared) -> Sources {
     if let Some(h) = cfg.home_assistant.clone() {
         let shared = Arc::clone(shared);
         let entities = cfg.sensor_entities();
+        let series = cfg.series();
         // With Spotify configured, the media player here is left alone.
         let player = if cfg.spotify.is_some() { None } else { h.media_player.clone() };
         let cache = cache.clone();
@@ -175,6 +187,8 @@ pub fn spawn_sources(cfg: &Model, shared: &Shared) -> Sources {
             // One error slot per request, so a missing entity is reported
             // once and a working one next to it does not reset that.
             let mut errors = vec![None; entities.len() + 1];
+            let mut series_errors = vec![None; series.len()];
+            let mut histories_at: Option<Instant> = None;
             loop {
                 for (entity, last_err) in entities.iter().zip(errors.iter_mut()) {
                     match client.sensor(entity) {
@@ -183,6 +197,19 @@ pub fn spawn_sources(cfg: &Model, shared: &Shared) -> Sources {
                             *last_err = None;
                         }
                         Err(e) => log_changed(last_err, "home assistant", e),
+                    }
+                }
+                // The histories move slowly: once every `HISTORY_REFRESH`.
+                if histories_at.is_none_or(|at| at.elapsed() >= HISTORY_REFRESH) {
+                    histories_at = Some(Instant::now());
+                    for (key, last_err) in series.iter().zip(series_errors.iter_mut()) {
+                        match client.history(&key.0, key.1) {
+                            Ok(v) => {
+                                shared.lock().unwrap().series.insert(key.clone(), Arc::new(v));
+                                *last_err = None;
+                            }
+                            Err(e) => log_changed(last_err, "home assistant", e),
+                        }
                     }
                 }
                 if let Some(player) = &player {

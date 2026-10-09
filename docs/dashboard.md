@@ -108,6 +108,15 @@ With `sources.home_assistant`:
 - `progress` — one entity as a label, the value with its unit beside it, and
   a bar that is full at `max` (default 100), amber on the way and green when
   full.
+- `sparkline` — one entity's numeric history over the last `hours` (default
+  24, up to 720) as a line across the region, the lowest value on the
+  bottom row and the highest on the top one, with nothing else: no axes
+  and no labels. `line` is its colour (the `accent` colour unless set);
+  `dot` puts a three-pixel dot of that colour on the latest value, and
+  without it there is none. The history is fetched once a minute; states
+  that are not numbers are skipped, and a flat line in the `track` colour
+  shows while there is nothing to draw. Text tiles beside it name it and
+  give the value; `demo-dashboards.yaml` has examples.
 
 With `sources.pictures`:
 
@@ -404,6 +413,8 @@ source is missing is allowed when its page brings the data:
 - `sensors: {sensor.x: {state: "29", unit: "°C"}}`, or `{sweep: [0, 100]}`
   to move the value linearly across the page. An alert's entity set to its
   state raises the alert.
+- `series: {sensor.x: [3, 4, 6, 5]}` — the values a sparkline of the
+  entity draws, oldest first, whatever its `hours`.
 - `cover: N` — the Nth newest cover in the art cache, playing. With
   `keep_originals`, only covers with an original count.
 - `picture: N` — the Nth picture, for a picture tile.
@@ -426,6 +437,11 @@ target/release/panel-ddp run --config demo.yaml --target wled.local --once   # o
 `demo-text.yaml` is the text demo: every size of the `text` tile, each line
 in its own size and saying which, then lines too wide for the panel,
 scrolling. It needs no data.
+
+`demo-dashboards.yaml` is the dashboards demo: four dashboards built from
+sparklines and text of different sizes on made-up series: one reading with
+its day under it, three readings each beside its chart, the clock and the
+date over a reading, and text over a chart the size of the panel.
 
 `art_file`, a top-level setting, keeps a JPEG at the album cover on show,
 the original as downloaded, black when no cover is on, and removes it when

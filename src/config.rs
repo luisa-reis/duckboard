@@ -18,6 +18,10 @@ pub struct PageData {
     /// over the page's time.
     #[serde(default)]
     pub sensors: std::collections::BTreeMap<String, SensorData>,
+    /// By entity id: the values a sparkline of the entity draws, oldest
+    /// first, whatever its `hours`.
+    #[serde(default)]
+    pub series: std::collections::BTreeMap<String, Vec<f64>>,
     /// A cover from the art cache, newest first (0 is the newest), played.
     pub cover: Option<usize>,
     /// The picture from `sources.pictures`, by position, for picture tiles.
@@ -317,6 +321,18 @@ pub enum TileSpec {
         #[serde(default)]
         decimals: u8,
     },
+    /// A Home Assistant entity's numeric history as a line, low at the
+    /// bottom of the region and high at the top; needs sources.home_assistant.
+    Sparkline {
+        entity: String,
+        /// How far back the line goes.
+        #[serde(default = "default_hours")]
+        hours: u32,
+        /// The line's colour; the `accent` colour unless set.
+        line: Option<Rgba>,
+        /// A dot at the latest value, in this colour; none unless set.
+        dot: Option<Rgba>,
+    },
     /// Artist and title scrolling; needs sources.spotify or a Home Assistant media_player.
     NowPlaying,
     /// The album art; needs sources.spotify or a Home Assistant media_player.
@@ -349,6 +365,10 @@ pub enum TileSpec {
     Blank,
 }
 
+fn default_hours() -> u32 {
+    24
+}
+
 fn one() -> f32 {
     1.0
 }
@@ -367,6 +387,9 @@ impl TileSpec {
                 if ![paused_alpha, corner_alpha, alpha].iter().all(|a| (0.0..=1.0).contains(*a)) =>
             {
                 anyhow::bail!("art tile alphas must be between 0 and 1")
+            }
+            TileSpec::Sparkline { entity, hours, .. } if !(1..=720).contains(hours) => {
+                anyhow::bail!("sparkline {entity}: hours must be between 1 and 720")
             }
             TileSpec::Picture { alpha } if !(0.0..=1.0).contains(alpha) => {
                 anyhow::bail!("picture tile alpha must be between 0 and 1")

@@ -15,7 +15,7 @@ use chrono::{DateTime, Datelike, Local, Timelike};
 use embedded_graphics::{
     mono_font::{iso_8859_1::FONT_4X6, iso_8859_1::FONT_5X8, iso_8859_1::FONT_6X10, iso_8859_1 as fonts, MonoFont, MonoTextStyle},
     prelude::*,
-    primitives::{Circle, PrimitiveStyle, Rectangle},
+    primitives::{Circle, Polyline, PrimitiveStyle, Rectangle},
     text::{Alignment, Baseline, Text, TextStyleBuilder},
 };
 
@@ -63,6 +63,9 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Pal
         }
         TileSpec::Progress { entity, label, max, decimals } => {
             progress(&mut clipped, area, ctx, p, entity, label, *max, *decimals)
+        }
+        TileSpec::Sparkline { entity, hours, line, dot } => {
+            sparkline(&mut clipped, area, ctx, p, entity, *hours, *line, *dot)
         }
         TileSpec::NowPlaying => now_playing(&mut clipped, area, ctx, p),
         TileSpec::Art { .. } | TileSpec::Picture { .. } | TileSpec::Blank => {}
@@ -311,6 +314,74 @@ fn line<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ctx, p: &
     marquee(t, text, area, top, ctx, font, p.text);
 }
 
+/// `values` as `cols` values: the mean of each stretch when there are
+/// more, a straight line between neighbours when there are fewer.
+fn columns(values: &[f64], cols: usize) -> Vec<f64> {
+    let n = values.len();
+    if n >= cols {
+        (0..cols)
+            .map(|i| {
+                let stretch = &values[i * n / cols..((i + 1) * n / cols).max(i * n / cols + 1)];
+                stretch.iter().sum::<f64>() / stretch.len() as f64
+            })
+            .collect()
+    } else {
+        (0..cols)
+            .map(|i| {
+                let at = i as f64 * (n - 1) as f64 / (cols - 1) as f64;
+                let (k, f) = (at as usize, at.fract());
+                values[k] + (values[(k + 1).min(n - 1)] - values[k]) * f
+            })
+            .collect()
+    }
+}
+
+/// An entity's history as a line across the area, its lowest value on the
+/// bottom row and its highest on the top one, with a dot on its end when
+/// `dot` is set; a flat line in the track colour while there is none.
+#[allow(clippy::too_many_arguments)]
+fn sparkline<D: DrawTarget<Color = Rgba>>(
+    t: &mut D,
+    area: Rectangle,
+    ctx: &Ctx,
+    p: &Palette,
+    entity: &str,
+    hours: u32,
+    line: Option<Rgba>,
+    dot: Option<Rgba>,
+) {
+    let o = area.top_left;
+    let Some(values) = ctx.data.series.get(&(entity.to_string(), hours)).filter(|v| !v.is_empty()) else {
+        fill(t, Rectangle::new(o + Point::new(0, area.size.height as i32 / 2), Size::new(area.size.width, 1)), p.track);
+        return;
+    };
+    // The dot is three pixels across, so with one the line keeps a pixel
+    // clear of every edge.
+    let pad = if dot.is_some() { 1 } else { 0 };
+    let cols = area.size.width.saturating_sub(2 * pad).max(1);
+    let rows = area.size.height.saturating_sub(2 * pad).max(1);
+    let values = columns(values, cols as usize);
+    let low = values.iter().copied().fold(f64::INFINITY, f64::min);
+    let high = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let points: Vec<Point> = values
+        .iter()
+        .enumerate()
+        .map(|(i, v)| {
+            let up = if high > low { (v - low) / (high - low) } else { 0.5 };
+            o + Point::new(pad as i32 + i as i32, pad as i32 + ((1.0 - up) * (rows - 1) as f64).round() as i32)
+        })
+        .collect();
+    let colour = line.unwrap_or(p.accent);
+    if let [only] = points[..] {
+        let _ = Pixel(only, colour).draw(t);
+    } else {
+        let _ = Polyline::new(&points).into_styled(PrimitiveStyle::with_stroke(colour, 1)).draw(t);
+    }
+    if let (Some(dot), Some(&end)) = (dot, points.last()) {
+        fill(t, Rectangle::with_center(end, Size::new(3, 3)), dot);
+    }
+}
+
 fn now_playing<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ctx, p: &Palette) {
     let (cx, top) = anchor(area);
     let Some(m) = ctx.data.media.as_ref().filter(|m| m.playing) else {
@@ -319,4 +390,17 @@ fn now_playing<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ct
     };
     marquee(t, &m.artist, area, top + 4, ctx, &FONT_4X6, p.label);
     marquee(t, &m.title, area, top + 13, ctx, &FONT_4X6, p.text);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::columns;
+
+    #[test]
+    fn columns_average_or_stretch() {
+        assert_eq!(columns(&[1.0, 3.0, 5.0, 7.0], 2), [2.0, 6.0], "the mean of each stretch");
+        assert_eq!(columns(&[1.0, 3.0], 5), [1.0, 1.5, 2.0, 2.5, 3.0], "a straight line between");
+        assert_eq!(columns(&[4.0], 3), [4.0, 4.0, 4.0]);
+        assert_eq!(columns(&[1.0, 2.0, 3.0], 3), [1.0, 2.0, 3.0]);
+    }
 }

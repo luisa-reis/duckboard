@@ -291,6 +291,7 @@ fn tile_base_name(spec: &TileSpec, slot: Slot) -> String {
         TileSpec::Art { .. } => "art".into(),
         TileSpec::Picture { .. } => "pictures".into(),
         TileSpec::Sensor { .. } => "sensor".into(),
+        TileSpec::Sparkline { .. } => "sparkline".into(),
         TileSpec::Progress { .. } => "progress".into(),
         TileSpec::Blank => "blank".into(),
     }

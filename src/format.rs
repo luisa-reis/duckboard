@@ -499,6 +499,9 @@ impl File {
                 bail!("sensor {entity} takes either state or sweep");
             }
         }
+        if let Some((entity, _)) = p.data.series.iter().find(|(_, v)| v.is_empty() || v.iter().any(|x| !x.is_finite())) {
+            bail!("series {entity} takes one or more numbers");
+        }
         if let Some(region) = p.tiles.keys().find(|r| !layout.contains_key(*r)) {
             bail!("layout {} has no region {region}{}", p.layout, known(layout.keys()));
         }
@@ -586,6 +589,11 @@ impl File {
                     {
                         Some("sources.home_assistant")
                     }
+                    TileSpec::Sparkline { entity, .. }
+                        if s.home_assistant.is_none() && !d.series.contains_key(entity) =>
+                    {
+                        Some("sources.home_assistant")
+                    }
                     TileSpec::NowPlaying | TileSpec::Art { .. } if !media && d.cover.is_none() => {
                         Some("sources.spotify or sources.home_assistant.media_player")
                     }
@@ -619,6 +627,7 @@ fn kind_name(t: &TileSpec) -> &'static str {
         TileSpec::Weather => "weather",
         TileSpec::Sensor { .. } => "sensor",
         TileSpec::Progress { .. } => "progress",
+        TileSpec::Sparkline { .. } => "sparkline",
         TileSpec::NowPlaying => "now_playing",
         TileSpec::Art { .. } => "art",
         TileSpec::Picture { .. } => "picture",
@@ -707,6 +716,23 @@ pages:
         assert_eq!(size("{kind: text, text: hello, size: 10x20}"), TextSize::S10X20);
         assert!(load(&page("{kind: text, text: hello, size: 3x5}")).is_err(), "not a size");
         assert!(load(&page("{kind: text}")).is_err(), "no text");
+    }
+
+    #[test]
+    fn sparkline_needs_its_history() {
+        let page = |tile: &str, data: &str| format!("target: t\nlayouts: {{l: {{a: {{x: 0, y: 0, width: 64, height: 20}}}}}}\npages: {{p: {{layout: l, tiles: {{a: {tile}}}, data: {data}}}}}\n");
+        let m = load(&page("{kind: sparkline, entity: sensor.a, dot: '#ff0000'}", "{series: {sensor.a: [1, 2]}}")).unwrap();
+        match m.pages[0].layers[0].tile {
+            TileSpec::Sparkline { hours, line, dot, .. } => {
+                assert_eq!((hours, line, dot), (24, None, Some(Rgba::rgb(255, 0, 0))));
+            }
+            ref other => panic!("{other:?}"),
+        }
+        assert_eq!(m.series(), [("sensor.a".to_string(), 24)]);
+        let err = |tile: &str, data: &str| format!("{:#}", load(&page(tile, data)).unwrap_err());
+        assert!(err("{kind: sparkline, entity: sensor.a}", "{}").contains("sources.home_assistant"));
+        assert!(err("{kind: sparkline, entity: sensor.a}", "{series: {sensor.a: []}}").contains("series sensor.a"));
+        assert!(err("{kind: sparkline, entity: sensor.a, hours: 0}", "{series: {sensor.a: [1]}}").contains("hours"));
     }
 
     #[test]

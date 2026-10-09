@@ -5,7 +5,7 @@
 //! without a time stays for good.
 
 use crate::artcache::ArtCache;
-use crate::config::PageData;
+use crate::config::TileSpec;
 use crate::model::{Model, Page};
 use crate::data::Snapshot;
 use crate::ha::{Art, Media, Sensor};
@@ -166,7 +166,8 @@ impl Pages {
     }
 
     /// Lays a page's data over the snapshot.
-    pub fn apply(&self, data: &PageData, t: f32, snap: &mut Snapshot) {
+    pub fn apply(&self, page: &Page, t: f32, snap: &mut Snapshot) {
+        let data = &page.data;
         if let Some(w) = &data.weather {
             snap.weather = Some(Weather { temperature: w.temperature, code: w.code, is_day: w.is_day });
         }
@@ -177,6 +178,13 @@ impl Pages {
                 (None, None) => continue,
             };
             snap.sensors.insert(entity.clone(), Sensor { state, unit: s.unit.clone() });
+        }
+        for layer in &page.layers {
+            if let TileSpec::Sparkline { entity, hours, .. } = &layer.tile {
+                if let Some(values) = data.series.get(entity) {
+                    snap.series.insert((entity.clone(), *hours), Arc::new(values.clone()));
+                }
+            }
         }
         if let Some(i) = data.cover {
             snap.media = Some(Media {

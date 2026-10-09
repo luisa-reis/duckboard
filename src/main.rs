@@ -230,7 +230,7 @@ impl Show {
     fn draw(&self, c: &mut Canvas, frame: u32, now: chrono::DateTime<chrono::Local>, data: &mut data::Snapshot) -> Option<&model::Page> {
         let pictures = self.pictures.as_ref();
         let at = self.pages.at(frame, &now)?;
-        self.pages.apply(&at.page.data, at.t, data);
+        self.pages.apply(at.page, at.t, data);
         let picture = match at.page.data.picture {
             Some(i) => pictures.map(|f| f.picture_at(i)),
             None => pictures.map(|f| f.picture(frame)),
@@ -253,7 +253,7 @@ impl Show {
 fn sources_key(m: &Model) -> String {
     format!(
         "{:?}",
-        (&m.weather, &m.spotify, &m.home_assistant, &m.art_cache, m.gamma, m.art_sizes(), m.sensor_entities())
+        (&m.weather, &m.spotify, &m.home_assistant, &m.art_cache, m.gamma, m.art_sizes(), m.sensor_entities(), m.series())
     )
 }
 

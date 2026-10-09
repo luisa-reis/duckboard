@@ -44,7 +44,7 @@ layouts:
     clock: {x: 8, y: 8, width: 48, height: 48}
 
 # Tiles by name. Kinds: clock, date, text, weather, sensor, progress,
-# now_playing, art, picture, blank; each may add a `scheme` and its own
+# sparkline, now_playing, art, picture, blank; each may add a `scheme` and its own
 # `colors`.
 tiles:
   clock: {kind: clock}

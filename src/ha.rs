@@ -1,11 +1,13 @@
-//! Home Assistant's REST API: entity states for the sensor tiles, and the
-//! media player's title, artist and album art for the hub. One long-lived
+//! Home Assistant's REST API: entity states for the sensor tiles, their
+//! history for the sparklines, and the media player's title, artist and
+//! album art for the hub. One long-lived
 //! access token covers all of it.
 
 use crate::artcache::ArtCache;
 use crate::config::HomeAssistantConfig;
 use crate::picture::{self, Scaled};
 use anyhow::{Context, Result};
+use chrono::{DateTime, SecondsFormat, Utc};
 use serde::Deserialize;
 use std::io::Read;
 use std::time::Duration;
@@ -36,6 +38,16 @@ pub struct Art {
     /// The picture as downloaded, for the art file; shared, since the
     /// snapshot is copied every frame.
     pub original: Option<std::sync::Arc<Vec<u8>>>,
+}
+
+/// How many values a history is kept as, evenly spaced over its span.
+const HISTORY_POINTS: usize = 256;
+
+/// A past state, as the history API gives it.
+#[derive(Deserialize)]
+struct Past {
+    state: String,
+    last_changed: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -78,6 +90,37 @@ impl Client {
         let s = self.state(entity)?;
         let unit = s.attributes.get("unit_of_measurement").and_then(|v| v.as_str()).map(str::to_string);
         Ok(Sensor { state: s.state, unit })
+    }
+
+    /// The entity's numeric states over the last `hours`, oldest first, as
+    /// `HISTORY_POINTS` evenly spaced values; empty when it had none.
+    pub fn history(&self, entity: &str, hours: u32) -> Result<Vec<f64>> {
+        let end = Utc::now();
+        let start = end - chrono::Duration::hours(hours.into());
+        let stamp = |t: DateTime<Utc>| t.to_rfc3339_opts(SecondsFormat::Secs, true);
+        let rows: Vec<Vec<Past>> = self
+            .agent
+            .get(&format!("{}/api/history/period/{}", self.base, stamp(start)))
+            .query("filter_entity_id", entity)
+            .query("end_time", &stamp(end))
+            .query("minimal_response", "")
+            .query("no_attributes", "")
+            .set("Authorization", &format!("Bearer {}", self.token))
+            .call()
+            .with_context(|| format!("GET history of {entity}"))?
+            .into_json()
+            .with_context(|| format!("parsing history of {entity}"))?;
+        let span = (end - start).num_milliseconds() as f64;
+        let points: Vec<(f64, f64)> = rows
+            .into_iter()
+            .flatten()
+            .filter_map(|p| {
+                let value = p.state.parse::<f64>().ok().filter(|v| v.is_finite())?;
+                let at = DateTime::parse_from_rfc3339(&p.last_changed?).ok()?.with_timezone(&Utc);
+                Some(((at - start).num_milliseconds() as f64 / span, value))
+            })
+            .collect();
+        Ok(spread(&points, HISTORY_POINTS))
     }
 
     /// The player's current item. `previous` supplies the art to keep when
@@ -134,10 +177,46 @@ impl Client {
     }
 }
 
+/// `points`, each a place along the span (0 its start, 1 its end) and a
+/// value, in time order, as `n` evenly spaced values: the mean of those in
+/// each step, a step without any keeping the one before, and the steps
+/// before the first point taking its value. Empty without points.
+fn spread(points: &[(f64, f64)], n: usize) -> Vec<f64> {
+    let Some(&(_, first)) = points.first() else { return Vec::new() };
+    let mut steps = vec![(0.0, 0u32); n];
+    for &(at, value) in points {
+        let step = &mut steps[((at.clamp(0.0, 1.0) * n as f64) as usize).min(n - 1)];
+        *step = (step.0 + value, step.1 + 1);
+    }
+    let mut last = first;
+    steps
+        .into_iter()
+        .map(|(sum, count)| {
+            if count > 0 {
+                last = sum / f64::from(count);
+            }
+            last
+        })
+        .collect()
+}
+
 /// "Artist - Album" when both are known, for naming a cached original.
 pub fn name_for(artist: &str, album: &str) -> Option<String> {
     match (artist.trim(), album.trim()) {
         ("", _) | (_, "") => None,
         (a, b) => Some(format!("{a} - {b}")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::spread;
+
+    #[test]
+    fn spreads_points_evenly() {
+        assert!(spread(&[], 4).is_empty());
+        assert_eq!(spread(&[(0.6, 3.0)], 4), [3.0, 3.0, 3.0, 3.0], "one value all along");
+        let points = [(0.0, 1.0), (0.1, 3.0), (0.8, 5.0), (1.0, 7.0)];
+        assert_eq!(spread(&points, 4), [2.0, 2.0, 2.0, 6.0], "means, kept through empty steps");
     }
 }
