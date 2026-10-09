@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=panel-ddp.schema.json
+#
+# The dashboards demo: a few dashboards built from sparklines and text of
+# different sizes, on made-up data. It needs no accounts: every page brings
+# its own series, and the text is fixed.
+#
+#   target/release/panel-ddp run --config demo-dashboards.yaml --target <board> --once
+
+target: "4.3.2.1"
+
+layouts:
+  # One reading: its name, the value large, and its day under it.
+  reading:
+    name: {x: 0, y: 2, width: 64, height: 6}
+    value: {x: 0, y: 10, width: 64, height: 20}
+    chart: {x: 2, y: 33, width: 60, height: 21}
+    foot: {x: 0, y: 57, width: 64, height: 6}
+  # Three readings, each a name over its value with its chart beside it.
+  rows:
+    name_1: {x: 1, y: 2, width: 30, height: 6}
+    value_1: {x: 1, y: 9, width: 30, height: 10}
+    chart_1: {x: 33, y: 3, width: 30, height: 15}
+    name_2: {x: 1, y: 23, width: 30, height: 6}
+    value_2: {x: 1, y: 30, width: 30, height: 10}
+    chart_2: {x: 33, y: 24, width: 30, height: 15}
+    name_3: {x: 1, y: 44, width: 30, height: 6}
+    value_3: {x: 1, y: 51, width: 30, height: 10}
+    chart_3: {x: 33, y: 45, width: 30, height: 15}
+  # The clock and the date over one reading.
+  home:
+    top_left: {x: 2, y: 2, width: 24, height: 24}
+    top_right: {x: 38, y: 2, width: 24, height: 24}
+    name: {x: 0, y: 29, width: 64, height: 8}
+    chart: {x: 2, y: 39, width: 60, height: 13}
+    value: {x: 0, y: 54, width: 64, height: 9}
+  # Text over a chart the size of the panel.
+  over:
+    chart: {x: 0, y: 6, width: 64, height: 52, z: -1}
+    name: {x: 0, y: 4, width: 64, height: 14}
+    value: {x: 0, y: 40, width: 64, height: 18}
+
+tiles:
+  clock: {kind: clock}
+  date: {kind: date}
+  # Sparklines: the line alone, in the accent colour or one of its own, and
+  # a dot of another colour on the latest value.
+  outside-chart: {kind: sparkline, entity: sensor.demo_outside, line: "#50aaff", dot: "#ff4060"}
+  solar-chart: {kind: sparkline, entity: sensor.demo_solar, dot: "#ffffff"}
+  house-chart: {kind: sparkline, entity: sensor.demo_house, line: "#50aaff"}
+  battery-chart: {kind: sparkline, entity: sensor.demo_battery, line: "#3cdc5a", dot: "#ffffff"}
+  co2-chart: {kind: sparkline, entity: sensor.demo_co2, line: "#c080ff", dot: "#ffffff"}
+  week-chart: {kind: sparkline, entity: sensor.demo_week, hours: 168, line: "#3cdc5a70"}
+  # The text beside them, from 4x6 to 10x20.
+  outside-name: {kind: text, text: "OUTSIDE", size: 4x6, colors: {text: "#6e6e6e"}}
+  outside-value: {kind: text, text: "21.4°", size: 10x20}
+  outside-foot: {kind: text, text: "LAST 24 HOURS", size: 4x6, colors: {text: "#6e6e6e"}}
+  solar-name: {kind: text, text: "SOLAR", size: 4x6, colors: {text: "#6e6e6e"}}
+  solar-value: {kind: text, text: "3.2kW", size: 6x10}
+  house-name: {kind: text, text: "HOUSE", size: 4x6, colors: {text: "#6e6e6e"}}
+  house-value: {kind: text, text: "640W", size: 6x10}
+  battery-name: {kind: text, text: "BATTERY", size: 4x6, colors: {text: "#6e6e6e"}}
+  battery-value: {kind: text, text: "81%", size: 6x10}
+  co2-name: {kind: text, text: "INDOOR CO2", size: 5x8, colors: {text: "#6e6e6e"}}
+  co2-value: {kind: text, text: "612 ppm", size: 6x9}
+  week-name: {kind: text, text: "THIS WEEK", size: 7x14, colors: {text: "#6e6e6e"}}
+  week-value: {kind: text, text: "+4.2%", size: 9x18}
+
+page_seconds: 8.0
+
+pages:
+  outside:
+    layout: reading
+    tiles: {name: outside-name, value: outside-value, chart: outside-chart, foot: outside-foot}
+    data:
+      series:
+        sensor.demo_outside: [11.1, 11.1, 11.0, 10.8, 10.4, 10.3, 10.5, 11.4, 12.8, 14.5, 16.2, 17.5, 18.4, 19.0, 19.6, 20.4, 21.4, 22.5, 23.4, 23.7, 23.3, 22.4, 21.2, 20.1, 19.2, 18.6, 18.0, 17.3, 16.1, 14.7, 13.2, 12.0]
+  energy:
+    layout: rows
+    tiles:
+      name_1: solar-name
+      value_1: solar-value
+      chart_1: solar-chart
+      name_2: house-name
+      value_2: house-value
+      chart_2: house-chart
+      name_3: battery-name
+      value_3: battery-value
+      chart_3: battery-chart
+    data:
+      series:
+        sensor.demo_solar: [0.0, 0.0, 0.1, 0.1, 0.1, 0.2, 0.3, 0.6, 0.8, 0.9, 0.8, 0.8, 1.1, 1.6, 2.0, 2.1, 1.8, 1.6, 1.8, 2.5, 3.1, 3.2, 2.7, 2.2, 2.2, 2.8, 3.4, 3.6, 3.0, 2.3, 2.0, 2.3]
+        sensor.demo_house: [420.0, 552.0, 595.0, 579.0, 604.0, 688.0, 736.0, 676.0, 563.0, 502.0, 501.0, 493.0, 521.0, 521.0, 585.0, 693.0, 738.0, 677.0, 970.0, 946.0, 957.0, 904.0, 440.0, 461.0, 558.0, 680.0, 719.0, 663.0, 610.0, 623.0, 641.0, 572.0]
+        sensor.demo_battery: [38.0, 38.0, 38.0, 38.0, 38.0, 38.0, 39.0, 40.0, 41.0, 42.0, 45.0, 48.0, 51.0, 56.0, 60.0, 65.0, 69.0, 72.0, 75.0, 78.0, 79.0, 80.0, 81.0, 81.0, 82.0, 82.0, 82.0, 82.0, 81.0, 81.0, 81.0, 81.0]
+  home:
+    layout: home
+    tiles: {top_left: clock, top_right: date, name: co2-name, chart: co2-chart, value: co2-value}
+    data:
+      series:
+        sensor.demo_co2: [520.0, 543.0, 559.0, 566.0, 560.0, 545.0, 526.0, 508.0, 498.0, 499.0, 512.0, 534.0, 563.0, 594.0, 625.0, 657.0, 686.0, 707.0, 713.0, 701.0, 675.0, 645.0, 621.0, 611.0, 611.0, 614.0, 613.0, 605.0, 588.0, 568.0, 551.0, 542.0]
+  week:
+    layout: over
+    tiles: {chart: week-chart, name: week-name, value: week-value}
+    data:
+      series:
+        sensor.demo_week: [100.0, 101.2, 101.98, 102.15, 101.84, 101.4, 101.2, 101.39, 101.83, 102.16, 102.05, 101.39, 100.38, 99.44, 98.98, 99.17, 99.86, 100.67, 101.23, 101.38, 101.24, 101.17, 101.49, 102.31, 103.4, 104.37, 104.81, 104.59, 103.87, 103.05, 102.53, 102.47, 102.74, 102.99, 102.9, 102.37, 101.62, 101.03, 100.98, 101.6, 102.67, 103.79, 104.56, 104.81, 104.68, 104.52, 104.66, 105.21]
