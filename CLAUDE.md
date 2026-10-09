@@ -59,8 +59,8 @@ Context for Claude Code sessions working on panel-ddp.
 - `src/mask.rs` — the gap file, for previews only.
 - `src/ha.rs`, `spotify.rs`, `weather.rs`, `data.rs` — data sources, each on
   its own thread keeping the last good reading.
-- `src/http.rs` — the HTTP endpoint line chart series are pushed to
-  (`sources.http`), on its own thread, a thread per request.
+- `src/http.rs` — the HTTP endpoint chart series and table rows are pushed
+  to (`sources.http`), on its own thread, a thread per request.
 - `tools/DemoArtViewer/` — a Processing sketch for the demo art.
 
 ## Building
@@ -73,7 +73,7 @@ cargo build --release
 cargo clippy --all-targets
 cargo test
 target/release/panel-ddp check dashboard.example.yaml demo.yaml
-target/release/panel-ddp preview --out preview.png   # check a change without the board
+target/release/panel-ddp preview --out preview.png   # check a change without the board (--page NAME, --all)
 target/release/panel-ddp render --config demo.yaml --out /tmp/before   # frame hashes; diff before/after a refactor
 ```
 
@@ -93,8 +93,19 @@ and the launchd plist are in `docs/dashboard.md` under "Installing".
 
 ## Conventions
 
-- `docs/dashboard.md` owns the documentation, `docs/ddp.md` the protocol and
-  what WLED does with it; the README only points at them. Update the docs
+- `docs/dashboard.md` owns the documentation, `docs/charts.md` the text,
+  chart and table tiles by example, `docs/designing-dashboards.md` how to design a page
+  (the check-and-preview loop, pixel budgets, layouts to copy; written for
+  an agent asked for a dashboard), `docs/pushing-data.md` the HTTP
+  endpoint (written to stand alone, for a program or an agent in another
+  repository that pushes data here) and `docs/ddp.md` the protocol and what
+  WLED does with it; the README introduces the project and points at them.
+  `charts.example.yaml` and `tools/push_example.py` are the working example
+  of pushed data: keep them running against each other.
+- The README's GIFs are `preview` output of `demo.yaml` (its first 53
+  seconds, before the album art) and `demo-dashboards.yaml` (at 3 seconds
+  a page), made from copies of the configs in an empty directory so that no
+  gap file, cover or picture is in them. Update the docs
   alongside behaviour or config changes, the schema alongside the format's
   types, and `dashboard.example.yaml` alongside new settings.
 - When editing a config, run `panel-ddp check` on it; refactors of the

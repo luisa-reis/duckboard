@@ -13,3 +13,5 @@ secrets.yaml
 preview*.png
 *.gif
 *.apng
+# the README's demos
+!docs/*.gif
