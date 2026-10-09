@@ -10,8 +10,8 @@
 
 use crate::canvas::{DEFAULT_HEIGHT, DEFAULT_WIDTH};
 use crate::config::{
-    Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, HttpConfig, PageData, SpotifyConfig, TileSpec, Units, WeatherConfig,
-    When,
+    default_listen, Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, HttpConfig, PageData, SpotifyConfig, TileSpec,
+    Units, WeatherConfig, When,
 };
 use crate::model::{self, Layer, Model};
 use crate::palette::{Overrides, Palette};
@@ -143,7 +143,7 @@ pub struct Sources {
     /// A folder of pictures for picture tiles.
     pub pictures: Option<Pictures>,
     /// An HTTP endpoint taking the values of sparkline series.
-    pub http: Option<HttpConfig>,
+    pub http: Option<Http>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -159,6 +159,19 @@ pub struct HomeAssistant {
     pub media_player: Option<String>,
     #[serde(default = "default_ha_refresh")]
     pub refresh_seconds: u64,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Http {
+    /// The address and port to listen on. The default takes requests from
+    /// this machine only; "0.0.0.0:4049" takes them from the network.
+    #[serde(default = "default_listen")]
+    pub listen: String,
+    /// A token every request must then carry, as the header
+    /// `Authorization: Bearer TOKEN`, kept in the secrets file. Without
+    /// one, anything that reaches the port can change the series.
+    pub token: Option<SecretRef>,
 }
 
 fn default_ha_refresh() -> u64 {
@@ -394,6 +407,16 @@ impl File {
             }),
             None => None,
         };
+        let http = match self.sources.http.take() {
+            Some(h) => Some(HttpConfig {
+                token: h.token.map(|t| secrets.get(&t).context("sources.http.token")).transpose()?,
+                listen: h.listen,
+            }),
+            None => None,
+        };
+        if http.as_ref().is_some_and(|h| h.token.as_deref() == Some("")) {
+            bail!("sources.http.token: the secret is empty");
+        }
         let pictures = self.sources.pictures.take();
         let frame = FrameConfig {
             dir: rel(pictures.as_ref().map_or_else(default_pictures_dir, |p| p.dir.clone())),
@@ -413,7 +436,7 @@ impl File {
             weather: self.sources.weather,
             spotify: self.sources.spotify,
             home_assistant,
-            http: self.sources.http,
+            http,
             art_cache,
             frame,
             alerts: self.alerts,
@@ -830,6 +853,14 @@ pages:
         std::fs::write(dir.join("test-secrets.yaml"), "ha_token: abc123\n").unwrap();
         assert_eq!(load(&yaml).unwrap().home_assistant.unwrap().token, "abc123");
         assert!(load(&BASE.replace("sources:\n", "sources:\n  home_assistant: {url: x, token: abc}\n")).is_err(), "no literal tokens");
+        let http = |token: &str| {
+            let yaml = BASE.replace("sources:\n", &format!("secrets: test-secrets.yaml\nsources:\n  http: {{{token}}}\n"));
+            load(&yaml).map(|m| m.http.unwrap().token)
+        };
+        assert_eq!(http("").unwrap(), None, "the token is optional");
+        assert_eq!(http("token: {secret: ha_token}").unwrap().as_deref(), Some("abc123"));
+        assert!(http("token: {secret: missing}").is_err());
+        assert!(http("token: abc").is_err(), "no literal tokens");
     }
 
     #[test]

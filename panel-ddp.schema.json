@@ -217,7 +217,7 @@
           "description": "An HTTP endpoint taking the values of sparkline series.",
           "anyOf": [
             {
-              "$ref": "#/definitions/HttpConfig"
+              "$ref": "#/definitions/Http"
             },
             {
               "type": "null"
@@ -357,14 +357,24 @@
       },
       "additionalProperties": false
     },
-    "HttpConfig": {
-      "description": "The HTTP endpoint the values of sparkline series are pushed to.",
+    "Http": {
       "type": "object",
       "properties": {
         "listen": {
-          "description": "The address and port to listen on. The default takes requests from\nthis machine only; \"0.0.0.0:4049\" takes them from the network, and\nanything that reaches it can change the series: there is no\npassword.",
+          "description": "The address and port to listen on. The default takes requests from\nthis machine only; \"0.0.0.0:4049\" takes them from the network.",
           "type": "string",
           "default": "127.0.0.1:4049"
+        },
+        "token": {
+          "description": "A token every request must then carry, as the header\n`Authorization: Bearer TOKEN`, kept in the secrets file. Without\none, anything that reaches the port can change the series.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SecretRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false

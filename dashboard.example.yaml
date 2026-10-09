@@ -24,7 +24,8 @@ sources:
   #   token: {secret: home_assistant_token}
   #   media_player: media_player.living_room   # when there is no Spotify
   # pictures: {dir: frame, seconds: 10}        # for picture tiles
-  # http: {listen: "127.0.0.1:4049"}           # for sparklines of a pushed `series`
+  # http: {listen: "127.0.0.1:4049"}           # for sparklines of a pushed `series`;
+  #                                            # add token: {secret: http_token} to ask for one
 
 # Colour schemes by name; `default` applies to every tile, and a page or a
 # tile can name another over it.

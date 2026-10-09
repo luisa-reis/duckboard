@@ -301,7 +301,8 @@ target/release/panel-ddp run > panel-ddp.log 2>&1 &` is enough.
   page, Security tab) as a secret, the `media_player` entity to use as the
   media source when there is no Spotify, `refresh_seconds`.
 - `sources.http` — `listen`, the address and port the series of sparklines
-  are pushed to (default `127.0.0.1:4049`); see Pushing a series.
+  are pushed to (default `127.0.0.1:4049`), and optionally a `token`, as a
+  secret, that every request must carry; see Pushing a series.
 - `sources.pictures` — `dir` (default `frame`), `seconds` each picture
   shows (default 10) and `shuffle`; see Picture frame.
 - `art_cache` — `dir` (default `art-cache` next to the config),
@@ -396,8 +397,20 @@ curl -X DELETE                         http://127.0.0.1:4049/series/power   # em
 - The values are kept in memory: a reload of the config keeps them, and
   they are gone when the program restarts.
 - `listen` defaults to this machine only. `0.0.0.0:4049` takes requests
-  from the network, and there is no password: anything that reaches the
-  port can change the lines, so keep it to a network you trust.
+  from the network; without a token, anything that reaches the port can
+  change the lines.
+- `token: {secret: http_token}` asks every request for that secret as a
+  bearer token, and answers 401 without it. It goes over plain HTTP, so it
+  keeps out what merely reaches the port, not what can read the traffic.
+
+  ```yaml
+  sources:
+    http: {listen: "0.0.0.0:4049", token: {secret: http_token}}
+  ```
+
+  ```sh
+  curl -X POST -d '640' -H "Authorization: Bearer $TOKEN" http://panel.local:4049/series/power
+  ```
 - The endpoint has its own thread and answers each request on another, so
   a slow or stuck client never delays a frame.
 

@@ -183,18 +183,15 @@ pub struct HomeAssistantConfig {
 }
 
 /// The HTTP endpoint the values of sparkline series are pushed to.
-#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone)]
 pub struct HttpConfig {
-    /// The address and port to listen on. The default takes requests from
-    /// this machine only; "0.0.0.0:4049" takes them from the network, and
-    /// anything that reaches it can change the series: there is no
-    /// password.
-    #[serde(default = "default_listen")]
+    /// The address and port to listen on.
     pub listen: String,
+    /// What a request must carry as `Authorization: Bearer`, when set.
+    pub token: Option<String>,
 }
 
-fn default_listen() -> String {
+pub(crate) fn default_listen() -> String {
     "127.0.0.1:4049".into()
 }
 

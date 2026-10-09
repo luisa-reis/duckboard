@@ -6,6 +6,9 @@
 //!   end, the oldest going once there are more than `MAX_VALUES`;
 //! - `GET /series/NAME` gives it back; `DELETE /series/NAME` empties it.
 //!
+//! With a token set, a request must carry it as `Authorization: Bearer
+//! TOKEN`, or it is a 401.
+//!
 //! It listens on its own thread and answers each request on another, so a
 //! slow client stalls neither the frames nor the next request. The body is
 //! read and parsed before the snapshot is locked.
@@ -17,7 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
-use tiny_http::{Method, Request, Response, Server};
+use tiny_http::{Header, Method, Request, Response, Server};
 
 /// The most values a series keeps.
 pub const MAX_VALUES: usize = 1024;
@@ -42,17 +45,38 @@ pub fn spawn(cfg: HttpConfig, names: Vec<String>, shared: Shared, stop: Arc<Atom
             }
         };
         eprintln!("panel-ddp: http: listening on {}", server.server_addr());
-        serve(&server, Arc::new(names), &shared, &stop);
+        serve(&server, Arc::new(Allowed { names, token: cfg.token }), &shared, &stop);
     });
 }
 
+/// What a request may do: the series that exist, and the token it must
+/// carry, if any.
+struct Allowed {
+    names: Vec<String>,
+    token: Option<String>,
+}
+
+impl Allowed {
+    /// Whether the `Authorization` header a request came with, if any, lets
+    /// it in. The comparison takes the same time wherever the first
+    /// difference is, so the time taken does not give the token away.
+    fn lets_in(&self, authorization: Option<&str>) -> bool {
+        let Some(token) = &self.token else { return true };
+        let Some((scheme, given)) = authorization.and_then(|a| a.trim().split_once(' ')) else { return false };
+        let (token, given) = (token.as_bytes(), given.trim().as_bytes());
+        scheme.eq_ignore_ascii_case("bearer")
+            && token.len() == given.len()
+            && token.iter().zip(given).fold(0, |acc, (a, b)| acc | (a ^ b)) == 0
+    }
+}
+
 /// Answers requests until `stop` is set, each on a thread of its own.
-fn serve(server: &Server, names: Arc<Vec<String>>, shared: &Shared, stop: &AtomicBool) {
+fn serve(server: &Server, allowed: Arc<Allowed>, shared: &Shared, stop: &AtomicBool) {
     while !stop.load(Ordering::SeqCst) {
         match server.recv_timeout(Duration::from_secs(1)) {
             Ok(Some(request)) => {
-                let (names, shared) = (Arc::clone(&names), Arc::clone(shared));
-                thread::spawn(move || handle(request, &names, &shared));
+                let (allowed, shared) = (Arc::clone(&allowed), Arc::clone(shared));
+                thread::spawn(move || handle(request, &allowed, &shared));
             }
             Ok(None) => {}
             Err(e) => {
@@ -63,13 +87,21 @@ fn serve(server: &Server, names: Arc<Vec<String>>, shared: &Shared, stop: &Atomi
     }
 }
 
-fn handle(mut request: Request, names: &[String], shared: &Shared) {
+fn handle(mut request: Request, allowed: &Allowed, shared: &Shared) {
+    let authorization =
+        request.headers().iter().find(|h| h.field.equiv("Authorization")).map(|h| h.value.as_str().to_string());
+    if !allowed.lets_in(authorization.as_deref()) {
+        let challenge = Header::from_bytes("WWW-Authenticate", "Bearer").expect("a valid header");
+        let refusal = Response::from_string("a bearer token is needed\n").with_status_code(401).with_header(challenge);
+        let _ = request.respond(refusal);
+        return;
+    }
     let mut body = String::new();
     let read = request.as_reader().take(MAX_BODY as u64 + 1).read_to_string(&mut body);
     let (status, text) = match read {
         Err(_) => (400, "the body is not UTF-8 text\n".to_string()),
         Ok(_) if body.len() > MAX_BODY => (413, format!("the body is over {MAX_BODY} bytes\n")),
-        Ok(_) => answer(request.method(), request.url(), &body, names, shared),
+        Ok(_) => answer(request.method(), request.url(), &body, &allowed.names, shared),
     };
     let _ = request.respond(Response::from_string(text).with_status_code(status));
 }
@@ -154,6 +186,19 @@ mod tests {
     }
 
     #[test]
+    fn a_token_is_asked_for_only_when_set() {
+        let allowed = |token: Option<&str>| Allowed { names: Vec::new(), token: token.map(str::to_string) };
+        assert!(allowed(None).lets_in(None));
+        assert!(allowed(None).lets_in(Some("Bearer anything")));
+        let with = allowed(Some("s3cret"));
+        assert!(with.lets_in(Some("Bearer s3cret")));
+        assert!(with.lets_in(Some("bearer  s3cret ")));
+        for wrong in [None, Some(""), Some("s3cret"), Some("Bearer"), Some("Bearer s3cre"), Some("Bearer s3cretx"), Some("Basic s3cret")] {
+            assert!(!with.lets_in(wrong), "{wrong:?}");
+        }
+    }
+
+    #[test]
     fn keeps_the_newest_values() {
         let shared = Shared::default();
         let names = ["n".to_string()];
@@ -173,11 +218,17 @@ mod tests {
         let stop = Arc::new(AtomicBool::new(false));
         let thread = {
             let (shared, stop) = (Arc::clone(&shared), Arc::clone(&stop));
-            thread::spawn(move || serve(&server, Arc::new(vec!["power".to_string()]), &shared, &stop))
+            let allowed = Allowed { names: vec!["power".to_string()], token: Some("s3cret".into()) };
+            thread::spawn(move || serve(&server, Arc::new(allowed), &shared, &stop))
         };
-        assert_eq!(ureq::put(&url).send_string("[3, 1, 2]").unwrap().into_string().unwrap(), "3 values\n");
+        let status = |r: Result<ureq::Response, ureq::Error>| r.unwrap_err().into_response().unwrap().status();
+        assert_eq!(status(ureq::put(&url).send_string("[3, 1, 2]")), 401, "no token");
+        assert_eq!(status(ureq::put(&url).set("Authorization", "Bearer wrong!").send_string("[3]")), 401);
+        assert!(pushed(&shared, "power").is_empty(), "nothing is taken without the token");
+        let put = ureq::put(&url).set("Authorization", "Bearer s3cret").send_string("[3, 1, 2]");
+        assert_eq!(put.unwrap().into_string().unwrap(), "3 values\n");
         assert_eq!(pushed(&shared, "power"), [3.0, 1.0, 2.0]);
-        assert_eq!(ureq::post(&url).send_string("nope").unwrap_err().into_response().unwrap().status(), 400);
+        assert_eq!(status(ureq::post(&url).set("Authorization", "bearer s3cret").send_string("nope")), 400);
         stop.store(true, Ordering::SeqCst);
         thread.join().unwrap();
         assert!(ureq::get(&url).call().is_err(), "the listener goes with its server");
