@@ -1,7 +1,7 @@
 //! panel-ddp: draws dashboard frames and streams them to a WLED matrix.
 //!
 //!     panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
-//!     panel-ddp preview [--config FILE] [--out FILE] [--seconds S] [--test | --alert]
+//!     panel-ddp preview [--config FILE] [--out FILE] [--page NAME | --all] [--seconds S] [--test | --alert]
 //!     panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
 //!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N] [--size WxH]
 //!     panel-ddp spotify-login [--config FILE] [--port N]
@@ -55,7 +55,7 @@ use mask::Mask;
 use model::Model;
 use palette::Rgba;
 use sha2::{Digest, Sha256};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -70,7 +70,7 @@ fn stop_flag() -> Arc<AtomicBool> {
 
 const USAGE: &str = "usage:
   panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
-  panel-ddp preview [--config FILE] [--out FILE] [--seconds S] [--test | --weather-code N | --alert]
+  panel-ddp preview [--config FILE] [--out FILE] [--page NAME | --all] [--seconds S] [--test | --weather-code N | --alert]
   panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
   panel-ddp test [HOST[:PORT]] [--fps N] [--frames N] [--size WxH]
   panel-ddp spotify-login [--config FILE] [--port N]
@@ -419,11 +419,15 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     let mut alert_preview = false;
     let mut weather_code = None;
     let mut seconds = None;
+    let mut page: Option<String> = None;
+    let mut all = false;
     let mut it = args.iter();
     while let Some(a) = it.next() {
         match a.as_str() {
             "--config" => config = it.next().context("--config needs a file")?.into(),
             "--out" => out = it.next().context("--out needs a file")?.into(),
+            "--page" => page = Some(it.next().context("--page needs a page's name")?.clone()),
+            "--all" => all = true,
             "--seconds" => {
                 seconds = Some(it.next().and_then(|v| v.parse::<f32>().ok()).filter(|s| *s > 0.0).context("--seconds needs a number above 0")?)
             }
@@ -444,13 +448,49 @@ fn cmd_preview(args: &[String]) -> Result<()> {
         eprintln!("panel-ddp: no gap file at {}; the preview shows the whole panel", cfg.gaps.display());
         Mask::none(cfg.size())
     };
+    let opts = PreviewOpts { test, alert: alert_preview, weather_code, seconds };
+    // One page alone, or each in turn into a file of its own, named after it.
+    let only = |cfg: &Model, name: &str| -> Result<Model> {
+        let known: Vec<&str> = cfg.pages.iter().map(|p| p.name.as_str()).collect();
+        let i = known.iter().position(|p| *p == name).with_context(|| format!("no page named {name} (known: {})", known.join(", ")))?;
+        let mut cfg = cfg.clone();
+        cfg.playlists = vec![model::Playlist { name: name.to_string(), pages: vec![i] }];
+        cfg.schedule = vec![model::Rule { playlist: 0, when: None }];
+        Ok(cfg)
+    };
+    if all {
+        let stem = out.file_stem().and_then(|s| s.to_str()).unwrap_or("preview").to_string();
+        let ext = out.extension().and_then(|e| e.to_str()).unwrap_or("png").to_string();
+        for name in cfg.pages.iter().map(|p| p.name.clone()) {
+            preview_one(only(&cfg, &name)?, &mask, &out.with_file_name(format!("{stem}-{name}.{ext}")), &opts)?;
+        }
+        return Ok(());
+    }
+    let cfg = match &page {
+        Some(name) => only(&cfg, name)?,
+        None => cfg,
+    };
+    preview_one(cfg, &mask, &out, &opts)
+}
+
+/// What `preview` was asked for, beyond the config and the file.
+struct PreviewOpts {
+    test: bool,
+    alert: bool,
+    weather_code: Option<u16>,
+    seconds: Option<f32>,
+}
+
+/// One preview: the first page `cfg` has on now, as a picture or animated.
+fn preview_one(cfg: Model, mask: &Mask, out: &Path, opts: &PreviewOpts) -> Result<()> {
+    let PreviewOpts { test, alert: alert_preview, weather_code, seconds } = *opts;
     let animated = out.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).filter(|e| e == "gif" || e == "apng");
     let (size, fps) = (cfg.size(), cfg.fps.max(1));
     let show = if test { None } else { Some(Show::new(cfg)?) };
     let start = chrono::Local::now();
     let draw = |frame: u32| {
         let mut canvas = Canvas::new(size);
-        mask::draw_outline(&mut canvas, &mask, Rgba::rgb(20, 20, 20));
+        mask::draw_outline(&mut canvas, mask, Rgba::rgb(20, 20, 20));
         let Some(show) = &show else {
             testframe::draw(&mut canvas, frame);
             return (canvas, true);
@@ -480,13 +520,13 @@ fn cmd_preview(args: &[String]) -> Result<()> {
         let mut first = Some(first);
         let canvases = (0..frames).map(|f| first.take().unwrap_or_else(|| draw(f).0));
         if ext == "gif" {
-            mask.preview_gif(canvases, 4, fps, &out)?;
+            mask.preview_gif(canvases, 4, fps, out)?;
         } else {
-            mask.preview_apng(canvases, 4, fps, &out)?;
+            mask.preview_apng(canvases, 4, fps, out)?;
         }
         eprintln!("panel-ddp: wrote {} ({frames} frames, {:.1} s)", out.display(), frames as f32 / fps as f32);
     } else {
-        mask.preview_png(&first, 4, &out)?;
+        mask.preview_png(&first, 4, out)?;
         eprintln!("panel-ddp: wrote {}", out.display());
     }
     Ok(())
