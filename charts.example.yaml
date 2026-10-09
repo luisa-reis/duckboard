@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=panel-ddp.schema.json
+#
+# Charts and a table that draw what another program pushes over HTTP: the
+# example docs/pushing-data.md and docs/charts.md go by. Nothing here has
+# data of its own; tools/push_example.py sends some.
+#
+#   target/release/panel-ddp run --config charts.example.yaml --target <board>
+#   python3 tools/push_example.py                       # in another terminal
+#   curl http://127.0.0.1:4049/                         # what it takes
+
+target: "4.3.2.1"
+
+# The endpoint the data is pushed to. This machine only; "0.0.0.0:4049" and
+# a token for the network (see docs/pushing-data.md).
+sources:
+  http: {listen: "127.0.0.1:4049"}
+
+layouts:
+  # Three charts, each under its name.
+  charts:
+    name_1: {x: 1, y: 1, width: 62, height: 6}
+    chart_1: {x: 1, y: 8, width: 62, height: 12}
+    name_2: {x: 1, y: 22, width: 62, height: 6}
+    chart_2: {x: 1, y: 29, width: 62, height: 12}
+    name_3: {x: 1, y: 43, width: 62, height: 6}
+    chart_3: {x: 1, y: 50, width: 62, height: 13}
+  # A table across the panel.
+  sheet:
+    table: {x: 1, y: 1, width: 62, height: 62}
+
+tiles:
+  # A series each, pushed to /series/power, /series/solar and /series/rain.
+  power: {kind: line_chart, series: power, line: "#50aaff", dot: "#ffffff"}
+  solar: {kind: area_chart, series: solar, line: "#ffaa00", area: "#ffaa00a0", area_bottom: "#ffaa0000"}
+  rain: {kind: bar_chart, series: rain, bar: "#2c6cd0", last: "#50aaff", width: 3, gap: 1}
+  power-name: {kind: text, text: "POWER", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  solar-name: {kind: text, text: "SOLAR", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  rain-name: {kind: text, text: "RAIN", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  # A table whose rows are pushed to /tables/services: a header, then a
+  # row for each pushed one, with a line chart and a bar chart on it.
+  services:
+    kind: table
+    data: services
+    gap: 1
+    rows:
+      - height: 7
+        tiles:
+          - {x: 0, width: 24, tile: {kind: text, text: "NAME", size: 4x6, align: left, colors: {text: "#6e6e6e"}}}
+          - {x: 25, width: 11, tile: {kind: text, text: "MS", size: 4x6, align: right, colors: {text: "#6e6e6e"}}}
+          - {x: 38, width: 11, tile: {kind: text, text: "LAT", size: 4x6, align: right, colors: {text: "#6e6e6e"}}}
+          - {x: 51, width: 11, tile: {kind: text, text: "REQ", size: 4x6, align: right, colors: {text: "#6e6e6e"}}}
+      - height: 10
+        repeat: true
+        tiles:
+          - {x: 0, width: 24, tile: {kind: text, column: name, size: 4x6, align: left, overflow: truncate}}
+          - {x: 25, width: 11, tile: {kind: text, column: ms, size: 4x6, align: right, overflow: truncate}}
+          - {x: 38, y: 1, width: 11, height: 8, tile: {kind: line_chart, column: latency, line: "#50aaff"}}
+          - {x: 51, y: 1, width: 11, height: 8, tile: {kind: bar_chart, column: requests, bar: "#3cdc5a", width: 1, gap: 1}}
+
+page_seconds: 10
+
+pages:
+  charts:
+    layout: charts
+    tiles: {name_1: power-name, chart_1: power, name_2: solar-name, chart_2: solar, name_3: rain-name, chart_3: rain}
+  services:
+    layout: sheet
+    tiles: {table: services}
