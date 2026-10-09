@@ -677,7 +677,7 @@ fn known<'a>(names: impl Iterator<Item = &'a String>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::{TextSize, TileSpec};
+    use crate::config::{Align, Overflow, TextSize, TileSpec};
     use crate::palette::{Palette, Rgba};
 
     fn load(yaml: &str) -> anyhow::Result<crate::model::Model> {
@@ -743,6 +743,13 @@ pages:
             ref other => panic!("{other:?}"),
         };
         assert_eq!(size("{kind: text, text: hello}"), TextSize::S6X10, "the default");
+        let placed = |tile: &str| match load(&page(tile)).unwrap().pages[0].layers[0].tile {
+            TileSpec::Text { align, overflow, .. } => (align, overflow),
+            ref other => panic!("{other:?}"),
+        };
+        assert_eq!(placed("{kind: text, text: hello}"), (Align::Center, Overflow::Scroll), "the defaults");
+        assert_eq!(placed("{kind: text, text: hello, align: right, overflow: truncate}"), (Align::Right, Overflow::Truncate));
+        assert!(load(&page("{kind: text, text: hello, align: middle}")).is_err());
         assert_eq!(size("{kind: text, text: hello, size: 10x20}"), TextSize::S10X20);
         assert!(load(&page("{kind: text, text: hello, size: 3x5}")).is_err(), "not a size");
         assert!(load(&page("{kind: text}")).is_err(), "no text");

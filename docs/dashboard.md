@@ -72,8 +72,11 @@ No source needed:
   pixels (default 2) round it like a second hand, `seconds: ring` fills
   it clockwise from twelve.
 - `date` — weekday, day of month, month.
-- `text` — one line, `text`, centred in the region and scrolling at 5
-  pixels a second when wider than it. `size` is the font, by the width and
+- `text` — one line, `text`. `align` sets it against the `left` or the
+  `right` of the region, or in its `center` (the default). Wider than the
+  region, it scrolls at 5 pixels a second whatever the alignment; with
+  `overflow: truncate` it is cut to the whole characters that fit instead,
+  and aligned. `size` is the font, by the width and
   height of a character in pixels: `4x6`, `5x7`, `5x8`, `6x9`, `6x10` (the
   default), `6x12`, `6x13`, `7x13`, `7x14`, `8x13`, `9x15`, `9x18` or
   `10x20`. It is drawn in the `text` colour. The fonts cover Latin-1; any

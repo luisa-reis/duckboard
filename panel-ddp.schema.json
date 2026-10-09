@@ -642,7 +642,7 @@
           "additionalProperties": false
         },
         {
-          "description": "One line of text, centred; it scrolls when wider than the region.",
+          "description": "One line of text.",
           "type": "object",
           "properties": {
             "text": {
@@ -653,6 +653,24 @@
               "allOf": [
                 {
                   "$ref": "#/definitions/TextSize"
+                }
+              ]
+            },
+            "align": {
+              "description": "Which side of the region the line is set against.",
+              "default": "center",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Align"
+                }
+              ]
+            },
+            "overflow": {
+              "description": "What happens to a line wider than the region.",
+              "default": "scroll",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Overflow"
                 }
               ]
             },
@@ -1171,6 +1189,30 @@
         "9x15",
         "9x18",
         "10x20"
+      ]
+    },
+    "Align": {
+      "description": "Where a text tile's line sits across its region.",
+      "type": "string",
+      "enum": [
+        "left",
+        "center",
+        "right"
+      ]
+    },
+    "Overflow": {
+      "description": "What a text tile does with a line wider than its region.",
+      "oneOf": [
+        {
+          "description": "It scrolls, whatever the alignment.",
+          "type": "string",
+          "const": "scroll"
+        },
+        {
+          "description": "It is cut to the whole characters that fit, and aligned.",
+          "type": "string",
+          "const": "truncate"
+        }
       ]
     },
     "ArtShape": {

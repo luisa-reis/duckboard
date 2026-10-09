@@ -261,6 +261,27 @@ pub enum Seconds {
     Dot,
 }
 
+/// Where a text tile's line sits across its region.
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Align {
+    Left,
+    #[default]
+    Center,
+    Right,
+}
+
+/// What a text tile does with a line wider than its region.
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Overflow {
+    /// It scrolls, whatever the alignment.
+    #[default]
+    Scroll,
+    /// It is cut to the whole characters that fit, and aligned.
+    Truncate,
+}
+
 /// A text tile's font, by the width and height of a character in pixels.
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq, JsonSchema)]
 pub enum TextSize {
@@ -306,11 +327,17 @@ pub enum TileSpec {
     },
     /// Weekday, day of month, month.
     Date,
-    /// One line of text, centred; it scrolls when wider than the region.
+    /// One line of text.
     Text {
         text: String,
         #[serde(default)]
         size: TextSize,
+        /// Which side of the region the line is set against.
+        #[serde(default)]
+        align: Align,
+        /// What happens to a line wider than the region.
+        #[serde(default)]
+        overflow: Overflow,
     },
     /// Sky icon and temperature; needs sources.weather.
     Weather,

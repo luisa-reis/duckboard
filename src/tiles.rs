@@ -5,7 +5,7 @@
 
 use crate::art;
 use crate::canvas::Canvas;
-use crate::config::{Seconds, TextSize, TileSpec, Units};
+use crate::config::{Align, Overflow, Seconds, TextSize, TileSpec, Units};
 use crate::data::Snapshot;
 use crate::icons;
 use crate::palette::{Palette, Rgba};
@@ -56,7 +56,9 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Pal
     match spec {
         TileSpec::Clock { seconds, dot_size } => clock(&mut clipped, area, ctx, p, *seconds, *dot_size),
         TileSpec::Date => date(&mut clipped, area, ctx, p),
-        TileSpec::Text { text, size } => line(&mut clipped, area, ctx, p, text, *size),
+        TileSpec::Text { text, size, align, overflow } => {
+            line(&mut clipped, area, ctx, p, text, *size, *align, *overflow)
+        }
         TileSpec::Weather => weather(&mut clipped, area, ctx, p),
         TileSpec::Sensor { entity, label, unit, decimals } => {
             sensor(&mut clipped, area, ctx, p, entity, label, unit.as_deref(), *decimals)
@@ -315,12 +317,43 @@ fn font(size: TextSize) -> &'static MonoFont<'static> {
     }
 }
 
-/// A text tile: one line in the font of `size`, centred in the area by the
-/// font's own height.
-fn line<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ctx, p: &Palette, text: &str, size: TextSize) {
+/// As much of `text` as fits `width` pixels in characters `cw` wide: all of
+/// it, or its first whole characters.
+fn truncated(text: &str, cw: i32, width: i32) -> &str {
+    let fit = ((width + 1) / cw).max(0) as usize;
+    text.char_indices().nth(fit).map_or(text, |(end, _)| &text[..end])
+}
+
+/// A text tile: one line in the font of `size`, centred in the area's
+/// height by the font's own and set against the side `align` says. Wider
+/// than the area, it scrolls or is cut short, as `overflow` says.
+#[allow(clippy::too_many_arguments)]
+fn line<D: DrawTarget<Color = Rgba>>(
+    t: &mut D,
+    area: Rectangle,
+    ctx: &Ctx,
+    p: &Palette,
+    text: &str,
+    size: TextSize,
+    align: Align,
+    overflow: Overflow,
+) {
     let font = font(size);
+    let cw = font.character_size.width as i32;
+    let (left, width) = (area.top_left.x, area.size.width as i32);
     let top = area.top_left.y + (area.size.height as i32 - font.character_size.height as i32) / 2;
-    marquee(t, text, area, top, ctx, font, p.text);
+    if overflow == Overflow::Scroll && text_width(text, cw) > width {
+        return marquee(t, text, area, top, ctx, font, p.text);
+    }
+    let text = truncated(text, cw, width);
+    let style = MonoTextStyle::new(font, p.text);
+    let x = match align {
+        Align::Left => left,
+        Align::Center => return centred(t, text, left + width / 2, top, style),
+        Align::Right => left + width - text_width(text, cw),
+    };
+    let ts = TextStyleBuilder::new().alignment(Alignment::Left).baseline(Baseline::Top).build();
+    let _ = Text::with_text_style(text, Point::new(x, top), style, ts).draw(t);
 }
 
 /// `values` as `cols` values: the mean of each stretch when there are
@@ -476,8 +509,16 @@ fn now_playing<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ct
 
 #[cfg(test)]
 mod tests {
-    use super::{bar_heights, blend, columns};
+    use super::{bar_heights, blend, columns, truncated};
     use crate::palette::Rgba;
+
+    #[test]
+    fn truncates_to_whole_characters() {
+        assert_eq!(truncated("KITCHEN", 4, 27), "KITCHEN", "seven of four, less the last gap");
+        assert_eq!(truncated("KITCHEN", 4, 26), "KITCHE");
+        assert_eq!(truncated("°C today", 6, 12), "°C", "by character, not byte");
+        assert_eq!(truncated("abc", 6, 3), "");
+    }
 
     #[test]
     fn bars_stand_on_zero() {
