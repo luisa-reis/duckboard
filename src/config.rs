@@ -244,6 +244,38 @@ pub enum Seconds {
     Dot,
 }
 
+/// A text tile's font, by the width and height of a character in pixels.
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq, JsonSchema)]
+pub enum TextSize {
+    #[serde(rename = "4x6")]
+    S4X6,
+    #[serde(rename = "5x7")]
+    S5X7,
+    #[serde(rename = "5x8")]
+    S5X8,
+    #[serde(rename = "6x9")]
+    S6X9,
+    #[default]
+    #[serde(rename = "6x10")]
+    S6X10,
+    #[serde(rename = "6x12")]
+    S6X12,
+    #[serde(rename = "6x13")]
+    S6X13,
+    #[serde(rename = "7x13")]
+    S7X13,
+    #[serde(rename = "7x14")]
+    S7X14,
+    #[serde(rename = "8x13")]
+    S8X13,
+    #[serde(rename = "9x15")]
+    S9X15,
+    #[serde(rename = "9x18")]
+    S9X18,
+    #[serde(rename = "10x20")]
+    S10X20,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum TileSpec {
@@ -257,6 +289,12 @@ pub enum TileSpec {
     },
     /// Weekday, day of month, month.
     Date,
+    /// One line of text, centred; it scrolls when wider than the region.
+    Text {
+        text: String,
+        #[serde(default)]
+        size: TextSize,
+    },
     /// Sky icon and temperature; needs sources.weather.
     Weather,
     /// A Home Assistant entity's state under a label; needs sources.home_assistant.

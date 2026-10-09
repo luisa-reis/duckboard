@@ -72,6 +72,12 @@ No source needed:
   pixels (default 2) round it like a second hand, `seconds: ring` fills
   it clockwise from twelve.
 - `date` — weekday, day of month, month.
+- `text` — one line, `text`, centred in the region and scrolling at 5
+  pixels a second when wider than it. `size` is the font, by the width and
+  height of a character in pixels: `4x6`, `5x7`, `5x8`, `6x9`, `6x10` (the
+  default), `6x12`, `6x13`, `7x13`, `7x14`, `8x13`, `9x15`, `9x18` or
+  `10x20`. It is drawn in the `text` colour. The fonts cover Latin-1; any
+  other character shows as `?`. `demo-text.yaml` shows every size.
 - `blank`
 
 With `sources.weather`, which is just a location:
@@ -416,6 +422,10 @@ it at a board with `--target`:
 target/release/panel-ddp run --config demo.yaml --target wled.local          # loops
 target/release/panel-ddp run --config demo.yaml --target wled.local --once   # one pass
 ```
+
+`demo-text.yaml` is the text demo: every size of the `text` tile, each line
+in its own size and saying which, then lines too wide for the panel,
+scrolling. It needs no data.
 
 `art_file`, a top-level setting, keeps a JPEG at the album cover on show,
 the original as downloaded, black when no cover is on, and removes it when

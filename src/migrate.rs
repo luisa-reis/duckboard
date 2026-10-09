@@ -285,6 +285,7 @@ fn tile_base_name(spec: &TileSpec, slot: Slot) -> String {
         TileSpec::Art { .. } if slot == Slot::Hub => "cover".into(),
         TileSpec::Clock { .. } => "clock".into(),
         TileSpec::Date => "date".into(),
+        TileSpec::Text { .. } => "text".into(),
         TileSpec::Weather => "weather".into(),
         TileSpec::NowPlaying => "now-playing".into(),
         TileSpec::Art { .. } => "art".into(),

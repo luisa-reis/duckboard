@@ -615,6 +615,7 @@ fn kind_name(t: &TileSpec) -> &'static str {
     match t {
         TileSpec::Clock { .. } => "clock",
         TileSpec::Date => "date",
+        TileSpec::Text { .. } => "text",
         TileSpec::Weather => "weather",
         TileSpec::Sensor { .. } => "sensor",
         TileSpec::Progress { .. } => "progress",
@@ -637,7 +638,7 @@ fn known<'a>(names: impl Iterator<Item = &'a String>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::TileSpec;
+    use crate::config::{TextSize, TileSpec};
     use crate::palette::{Palette, Rgba};
 
     fn load(yaml: &str) -> anyhow::Result<crate::model::Model> {
@@ -693,6 +694,19 @@ pages:
         assert_eq!(m.playlists.len(), 1, "every page, in order");
         assert_eq!(m.playlists[0].pages, [0, 1]);
         assert_eq!(m.schedule.len(), 1);
+    }
+
+    #[test]
+    fn text_tile_sizes() {
+        let page = |tile: &str| format!("target: t\nlayouts: {{l: {{a: {{x: 0, y: 0, width: 64, height: 20}}}}}}\npages: {{p: {{layout: l, tiles: {{a: {tile}}}}}}}\n");
+        let size = |tile: &str| match load(&page(tile)).unwrap().pages[0].layers[0].tile {
+            TileSpec::Text { size, .. } => size,
+            ref other => panic!("{other:?}"),
+        };
+        assert_eq!(size("{kind: text, text: hello}"), TextSize::S6X10, "the default");
+        assert_eq!(size("{kind: text, text: hello, size: 10x20}"), TextSize::S10X20);
+        assert!(load(&page("{kind: text, text: hello, size: 3x5}")).is_err(), "not a size");
+        assert!(load(&page("{kind: text}")).is_err(), "no text");
     }
 
     #[test]

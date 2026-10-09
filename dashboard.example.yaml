@@ -43,8 +43,9 @@ layouts:
   big-clock:
     clock: {x: 8, y: 8, width: 48, height: 48}
 
-# Tiles by name. Kinds: clock, date, weather, sensor, progress, now_playing,
-# art, picture, blank; each may add a `scheme` and its own `colors`.
+# Tiles by name. Kinds: clock, date, text, weather, sensor, progress,
+# now_playing, art, picture, blank; each may add a `scheme` and its own
+# `colors`.
 tiles:
   clock: {kind: clock}
   date: {kind: date}

@@ -1,11 +1,11 @@
 //! The tiles, each drawn into its region (24x24 by default); anything that
 //! would spill over is clipped to it. A tile's content is laid out for 24
-//! pixels of height and centred in taller or shorter regions; widths follow
-//! the region. Colours come from the layer's palette, by role.
+//! pixels of height and centred in taller or shorter regions (a text tile's
+//! line by its font's height); widths follow the region. Colours come from the layer's palette, by role.
 
 use crate::art;
 use crate::canvas::Canvas;
-use crate::config::{Seconds, TileSpec, Units};
+use crate::config::{Seconds, TextSize, TileSpec, Units};
 use crate::data::Snapshot;
 use crate::icons;
 use crate::palette::{Palette, Rgba};
@@ -13,7 +13,7 @@ use crate::picture::Scaled;
 use crate::weather::Sky;
 use chrono::{DateTime, Datelike, Local, Timelike};
 use embedded_graphics::{
-    mono_font::{iso_8859_1::FONT_4X6, iso_8859_1::FONT_5X8, iso_8859_1::FONT_6X10, MonoTextStyle},
+    mono_font::{iso_8859_1::FONT_4X6, iso_8859_1::FONT_5X8, iso_8859_1::FONT_6X10, iso_8859_1 as fonts, MonoFont, MonoTextStyle},
     prelude::*,
     primitives::{Circle, PrimitiveStyle, Rectangle},
     text::{Alignment, Baseline, Text, TextStyleBuilder},
@@ -56,6 +56,7 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Pal
     match spec {
         TileSpec::Clock { seconds, dot_size } => clock(&mut clipped, area, ctx, p, *seconds, *dot_size),
         TileSpec::Date => date(&mut clipped, area, ctx, p),
+        TileSpec::Text { text, size } => line(&mut clipped, area, ctx, p, text, *size),
         TileSpec::Weather => weather(&mut clipped, area, ctx, p),
         TileSpec::Sensor { entity, label, unit, decimals } => {
             sensor(&mut clipped, area, ctx, p, entity, label, unit.as_deref(), *decimals)
@@ -259,10 +260,18 @@ fn progress<D: DrawTarget<Color = Rgba>>(
 }
 
 /// Text on one line, scrolling left when wider than the tile.
-fn marquee<D: DrawTarget<Color = Rgba>>(t: &mut D, text: &str, area: Rectangle, top: i32, ctx: &Ctx, colour: Rgba) {
-    let style = MonoTextStyle::new(&FONT_4X6, colour);
+fn marquee<D: DrawTarget<Color = Rgba>>(
+    t: &mut D,
+    text: &str,
+    area: Rectangle,
+    top: i32,
+    ctx: &Ctx,
+    font: &MonoFont<'static>,
+    colour: Rgba,
+) {
+    let style = MonoTextStyle::new(font, colour);
     let o = area.top_left;
-    let w = text_width(text, 4);
+    let w = text_width(text, font.character_size.width as i32);
     let width = area.size.width as i32;
     if w <= width {
         centred(t, text, o.x + width / 2, top, style);
@@ -276,12 +285,38 @@ fn marquee<D: DrawTarget<Color = Rgba>>(t: &mut D, text: &str, area: Rectangle, 
     }
 }
 
+fn font(size: TextSize) -> &'static MonoFont<'static> {
+    match size {
+        TextSize::S4X6 => &fonts::FONT_4X6,
+        TextSize::S5X7 => &fonts::FONT_5X7,
+        TextSize::S5X8 => &fonts::FONT_5X8,
+        TextSize::S6X9 => &fonts::FONT_6X9,
+        TextSize::S6X10 => &fonts::FONT_6X10,
+        TextSize::S6X12 => &fonts::FONT_6X12,
+        TextSize::S6X13 => &fonts::FONT_6X13,
+        TextSize::S7X13 => &fonts::FONT_7X13,
+        TextSize::S7X14 => &fonts::FONT_7X14,
+        TextSize::S8X13 => &fonts::FONT_8X13,
+        TextSize::S9X15 => &fonts::FONT_9X15,
+        TextSize::S9X18 => &fonts::FONT_9X18,
+        TextSize::S10X20 => &fonts::FONT_10X20,
+    }
+}
+
+/// A text tile: one line in the font of `size`, centred in the area by the
+/// font's own height.
+fn line<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ctx, p: &Palette, text: &str, size: TextSize) {
+    let font = font(size);
+    let top = area.top_left.y + (area.size.height as i32 - font.character_size.height as i32) / 2;
+    marquee(t, text, area, top, ctx, font, p.text);
+}
+
 fn now_playing<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ctx, p: &Palette) {
     let (cx, top) = anchor(area);
     let Some(m) = ctx.data.media.as_ref().filter(|m| m.playing) else {
         centred(t, "--", cx, top + 8, MonoTextStyle::new(&FONT_6X10, p.track));
         return;
     };
-    marquee(t, &m.artist, area, top + 4, ctx, p.label);
-    marquee(t, &m.title, area, top + 13, ctx, p.text);
+    marquee(t, &m.artist, area, top + 4, ctx, &FONT_4X6, p.label);
+    marquee(t, &m.title, area, top + 13, ctx, &FONT_4X6, p.text);
 }
