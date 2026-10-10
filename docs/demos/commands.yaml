@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=panel-ddp.schema.json
+# yaml-language-server: $schema=../../panel-ddp.schema.json
 #
 # A table and two charts filled by commands: the panel runs each one on a
 # timer and draws the JSON it prints. Here they are SQLite queries, made up
@@ -6,9 +6,13 @@
 # `duckdb -json` or `psql`, for real ones (docs/dashboard.md, "Data from a
 # command").
 #
-#   target/release/panel-ddp run --config commands.example.yaml --target <board>
+#   target/release/panel-ddp run --config docs/demos/commands.yaml --target <board>
 
 target: "4.3.2.1"
+
+# The gap file is at the top of the repository; paths are relative to this
+# file.
+gaps: ../../2d-gaps.json
 
 sources:
   commands:

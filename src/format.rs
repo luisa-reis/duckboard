@@ -1253,7 +1253,7 @@ pages:
     #[test]
     fn the_committed_configs_load_and_follow_the_schema() {
         let v = validator();
-        for name in ["demo.yaml", "dashboard.example.yaml"] {
+        for name in ["docs/demos/demo.yaml", "dashboard.example.yaml"] {
             let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(name);
             super::load(&path).unwrap_or_else(|e| panic!("{name}: {e:#}"));
             let text = std::fs::read_to_string(&path).unwrap();

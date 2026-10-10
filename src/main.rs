@@ -12,7 +12,7 @@
 //! The config file, YAML, defaults to dashboard.yaml in the current
 //! directory. `run` plays the playlist its schedule picks, reloading the
 //! file when it changes; `--once` plays that playlist through a single
-//! time: `run --config demo.yaml --once` is the demo. `preview` renders the
+//! time: `run --config docs/demos/demo.yaml --once` is the demo. `preview` renders the
 //! first page's first frame from sample data into a PNG with the mask
 //! applied, or with `--out` naming a .gif or .apng the whole page
 //! (`--seconds` long) animated; `--test` renders the test frame instead.

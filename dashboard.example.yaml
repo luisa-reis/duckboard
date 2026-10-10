@@ -15,7 +15,7 @@ fps: 10
 temperature: fahrenheit    # or celsius
 
 # Where the data comes from. A tile needing a source that is not here is
-# refused, unless its page brings the data itself (see demo.yaml).
+# refused, unless its page brings the data itself (see docs/demos/demo.yaml).
 sources:
   weather: {latitude: 37.77, longitude: -122.42}
   spotify: {client_id: PASTE-CLIENT-ID}   # then: panel-ddp spotify-login --config dashboard.yaml

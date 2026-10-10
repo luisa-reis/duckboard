@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=panel-ddp.schema.json
+# yaml-language-server: $schema=../../panel-ddp.schema.json
 #
 # The demo for a 128×64 panel (demo.yaml is the 64×64 one): a crescendo
 # from one tile to the whole dashboard on made-up data, then album art and
@@ -6,7 +6,7 @@
 # its own data, the covers come from the art cache (pages naming a cover
 # that is not there are left out) and the pictures from frame/.
 #
-#   target/release/panel-ddp run --config demo-128x64.yaml --target <board> --once
+#   target/release/panel-ddp run --config docs/demos/demo-128x64.yaml --target <board> --once
 
 target: "4.3.2.1"
 
@@ -14,14 +14,16 @@ width: 128
 height: 64
 
 # The gap file of a 128×64 board, for previews; without it they show the
-# whole panel (2d-gaps.json is for the 64×64 board).
-gaps: 2d-gaps-128x64.json
+# whole panel (2d-gaps.json is for the 64×64 board). It, the cover cache and
+# the pictures stay at the top of the repository; paths are relative to
+# this file.
+gaps: ../../2d-gaps-128x64.json
 
-sources: {pictures: {}}
+sources: {pictures: {dir: ../../frame}}
 
-art_cache: {keep_originals: true}
+art_cache: {dir: ../../art-cache, keep_originals: true}
 
-art_file: demo-art.jpg
+art_file: ../../demo-art.jpg
 
 # The regions: four tiles in the corners and a hub between them, and a
 # background under all. The corner tiles take the extra width; the hub is

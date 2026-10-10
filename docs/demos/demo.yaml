@@ -1,19 +1,23 @@
-# yaml-language-server: $schema=panel-ddp.schema.json
+# yaml-language-server: $schema=../../panel-ddp.schema.json
 #
 # The demo: a crescendo from one tile to the whole dashboard on made-up
 # data, then album art and pictures. It needs no accounts: every page brings
 # its own data, the covers come from the art cache (pages naming a cover
 # that is not there are left out) and the pictures from frame/.
 #
-#   target/release/panel-ddp run --config demo.yaml --target <board> --once
+#   target/release/panel-ddp run --config docs/demos/demo.yaml --target <board> --once
 
 target: "4.3.2.1"
 
-sources: {pictures: {}}
+# The gap file, the cover cache and the pictures stay at the top of the
+# repository; paths are relative to this file.
+gaps: ../../2d-gaps.json
 
-art_cache: {keep_originals: true}
+sources: {pictures: {dir: ../../frame}}
 
-art_file: demo-art.jpg
+art_cache: {dir: ../../art-cache, keep_originals: true}
+
+art_file: ../../demo-art.jpg
 
 # The regions: four tiles and a hub over them, and a background under all.
 layouts:

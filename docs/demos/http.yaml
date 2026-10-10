@@ -1,14 +1,18 @@
-# yaml-language-server: $schema=panel-ddp.schema.json
+# yaml-language-server: $schema=../../panel-ddp.schema.json
 #
 # Charts and a table that draw what another program pushes over HTTP: the
 # example docs/pushing-data.md and docs/charts.md go by. Nothing here has
 # data of its own; tools/push_example.py sends some.
 #
-#   target/release/panel-ddp run --config charts.example.yaml --target <board>
+#   target/release/panel-ddp run --config docs/demos/http.yaml --target <board>
 #   python3 tools/push_example.py                       # in another terminal
 #   curl http://127.0.0.1:4049/                         # what it takes
 
 target: "4.3.2.1"
+
+# The gap file is at the top of the repository; paths are relative to this
+# file.
+gaps: ../../2d-gaps.json
 
 # The endpoint the data is pushed to. This machine only; "0.0.0.0:4049" and
 # a token for the network (see docs/pushing-data.md).

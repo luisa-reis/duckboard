@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pushes made-up data to a panel running charts.example.yaml.
+"""Pushes made-up data to a panel running docs/demos/http.yaml.
 
 A reference for pushing from another program: the standard library only,
 one request per series or table. See docs/pushing-data.md.

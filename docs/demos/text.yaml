@@ -1,12 +1,16 @@
-# yaml-language-server: $schema=panel-ddp.schema.json
+# yaml-language-server: $schema=../../panel-ddp.schema.json
 #
 # The text demo: every size a text tile comes in, each line in its own
 # size and saying which, then lines too wide for the panel, scrolling. It
 # needs no accounts and no data.
 #
-#   target/release/panel-ddp run --config demo-text.yaml --target <board> --once
+#   target/release/panel-ddp run --config docs/demos/text.yaml --target <board> --once
 
 target: "4.3.2.1"
+
+# The gap file is at the top of the repository; paths are relative to this
+# file.
+gaps: ../../2d-gaps.json
 
 # The regions: rows across the panel, each as tall as the size it holds.
 layouts:
