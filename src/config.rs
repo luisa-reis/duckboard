@@ -3,6 +3,7 @@
 //! over the live one. `format` reads them from the YAML file (and `legacy`
 //! from older ones, to migrate them); `model` is what a file resolves into.
 
+use crate::fonts::Font;
 use crate::palette::Rgba;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -356,8 +357,12 @@ pub enum TileSpec {
         /// On a table's repeat row: the column of the pushed rows the line
         /// comes from, in place of `text`.
         column: Option<String>,
-        #[serde(default)]
-        size: TextSize,
+        /// One of the built-in fonts, by the width and height of a
+        /// character: 6x10 unless this or `font` says otherwise.
+        size: Option<TextSize>,
+        /// A U8g2 font by name, in place of `size`: most are proportional,
+        /// and there are bolder, narrower and larger ones.
+        font: Option<Font>,
         /// Which side of the region the line is set against.
         #[serde(default)]
         align: Align,
@@ -614,9 +619,12 @@ impl TileSpec {
         if let Some(name) = self.pushed_series().filter(|name| !is_name(name)) {
             anyhow::bail!("chart series {name:?}: a name is letters, digits, '.', '_' and '-'")
         }
-        if let TileSpec::Text { text, column, .. } = self {
+        if let TileSpec::Text { text, column, size, font, .. } = self {
             if text.is_some() == column.is_some() {
                 anyhow::bail!("a text tile takes either text or column")
+            }
+            if size.is_some() && font.is_some() {
+                anyhow::bail!("a text tile takes either size or font")
             }
         }
         if let Some((entity, series, hours)) = self.chart() {

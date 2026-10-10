@@ -978,7 +978,7 @@ pages:
     fn text_tile_sizes() {
         let page = |tile: &str| format!("target: t\nlayouts: {{l: {{a: {{x: 0, y: 0, width: 64, height: 20}}}}}}\npages: {{p: {{layout: l, tiles: {{a: {tile}}}}}}}\n");
         let size = |tile: &str| match load(&page(tile)).unwrap().pages[0].layers[0].tile {
-            TileSpec::Text { size, .. } => size,
+            TileSpec::Text { size, .. } => size.unwrap_or_default(),
             ref other => panic!("{other:?}"),
         };
         assert_eq!(size("{kind: text, text: hello}"), TextSize::S6X10, "the default");
@@ -992,6 +992,15 @@ pages:
         assert_eq!(size("{kind: text, text: hello, size: 10x20}"), TextSize::S10X20);
         assert!(load(&page("{kind: text, text: hello, size: 3x5}")).is_err(), "not a size");
         assert!(load(&page("{kind: text}")).is_err(), "no text");
+        let font = |tile: &str| match load(&page(tile)).unwrap().pages[0].layers[0].tile {
+            TileSpec::Text { font, .. } => font.map(|f| f.name()),
+            ref other => panic!("{other:?}"),
+        };
+        assert_eq!(font("{kind: text, text: hello}"), None);
+        assert_eq!(font("{kind: text, text: hello, font: helvB08}"), Some("helvB08"));
+        assert!(load(&page("{kind: text, text: hello, font: comic_sans}")).is_err(), "not a font");
+        let err = format!("{:#}", load(&page("{kind: text, text: hello, font: helvB08, size: 4x6}")).unwrap_err());
+        assert!(err.contains("either size or font"), "{err}");
     }
 
     #[test]

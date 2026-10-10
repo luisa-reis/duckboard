@@ -726,10 +726,24 @@
               ]
             },
             "size": {
-              "default": "6x10",
-              "allOf": [
+              "description": "One of the built-in fonts, by the width and height of a\ncharacter: 6x10 unless this or `font` says otherwise.",
+              "anyOf": [
                 {
                   "$ref": "#/definitions/TextSize"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "font": {
+              "description": "A U8g2 font by name, in place of `size`: most are proportional,\nand there are bolder, narrower and larger ones.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Font"
+                },
+                {
+                  "type": "null"
                 }
               ]
             },
@@ -1438,6 +1452,68 @@
         "9x15",
         "9x18",
         "10x20"
+      ]
+    },
+    "Font": {
+      "description": "A U8g2 font, by its U8g2 name.",
+      "type": "string",
+      "enum": [
+        "tom_thumb_4x6",
+        "micro",
+        "pixelle_micro",
+        "tinytim",
+        "haxrcorp4089",
+        "squeezed_r7",
+        "squeezed_b7",
+        "nokiafc22",
+        "mozart_nbp",
+        "glasstown_nbp",
+        "smart_patrol_nbp",
+        "bitcasual",
+        "tenthinguys",
+        "tenfatguys",
+        "fewture",
+        "halftone",
+        "Born2bSportyV2",
+        "DigitalDiscoThin",
+        "Pixellari",
+        "VCR_OSD",
+        "helvR08",
+        "helvB08",
+        "helvR10",
+        "helvB10",
+        "helvR12",
+        "helvB12",
+        "helvB14",
+        "helvB18",
+        "helvB24",
+        "ncenR08",
+        "ncenB08",
+        "ncenB10",
+        "ncenB14",
+        "timR08",
+        "timB10",
+        "timB14",
+        "profont10",
+        "profont12",
+        "profont15",
+        "profont17",
+        "profont22",
+        "profont29",
+        "t0_11",
+        "t0_11b",
+        "t0_14b",
+        "logisoso16",
+        "logisoso20",
+        "logisoso24",
+        "logisoso28",
+        "fub11",
+        "fub14",
+        "fub17",
+        "fub20",
+        "open_iconic_weather_1x",
+        "open_iconic_weather_2x",
+        "open_iconic_all_1x"
       ]
     },
     "Align": {

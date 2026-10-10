@@ -8,6 +8,7 @@
 //!     panel-ddp check FILE...
 //!     panel-ddp migrate OLD [--out NEW.yaml] [--secrets FILE]
 //!     panel-ddp schema
+//!     panel-ddp fonts
 //!
 //! The config file, YAML, defaults to dashboard.yaml in the current
 //! directory. `run` plays the playlist its schedule picks, reloading the
@@ -31,6 +32,7 @@ mod config;
 mod dashboard;
 mod data;
 mod ddp;
+mod fonts;
 mod format;
 mod frame;
 mod ha;
@@ -77,7 +79,8 @@ const USAGE: &str = "usage:
   panel-ddp spotify-login [--config FILE] [--port N]
   panel-ddp check FILE...
   panel-ddp migrate OLD [--out NEW.yaml] [--secrets FILE]
-  panel-ddp schema";
+  panel-ddp schema
+  panel-ddp fonts";
 
 const DEFAULT_CONFIG: &str = "dashboard.yaml";
 
@@ -777,6 +780,15 @@ fn main() {
         "migrate" => cmd_migrate(rest),
         "schema" => {
             print!("{}", format::schema());
+            Ok(())
+        }
+        "fonts" => {
+            // What a text tile's `font` can be, and the height a line of it
+            // takes: how far it goes above the baseline and below it.
+            for font in fonts::Font::ALL {
+                let (up, down) = font.extent();
+                println!("{:<24} {:>2}  ({up} up, {down} down)", font.name(), up + down);
+            }
             Ok(())
         }
         "-h" | "--help" => {

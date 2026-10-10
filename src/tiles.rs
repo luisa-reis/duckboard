@@ -6,6 +6,8 @@
 use crate::art;
 use crate::canvas::Canvas;
 use crate::config::{Align, Overflow, Seconds, TextSize, TileSpec, Units};
+use crate::fonts::Font;
+use u8g2_fonts::types::{FontColor, VerticalPosition};
 use crate::data::{Record, Snapshot, Value};
 use crate::icons;
 use crate::palette::{Palette, Rgba};
@@ -58,13 +60,16 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Pal
     match spec {
         TileSpec::Clock { seconds, dot_size } => clock(&mut clipped, area, ctx, p, *seconds, *dot_size),
         TileSpec::Date => date(&mut clipped, area, ctx, p),
-        TileSpec::Text { text, column, size, align, overflow } => {
+        TileSpec::Text { text, column, size, font, align, overflow } => {
             let text = match (text, column.as_ref().and_then(|c| record?.get(c))) {
                 (Some(text), _) => text.as_str(),
                 (None, Some(Value::Text(text))) => text.as_str(),
                 _ => "",
             };
-            line(&mut clipped, area, ctx, p, text, *size, *align, *overflow)
+            match font {
+                Some(font) => proportional(&mut clipped, area, ctx, p, text, *font, *align, *overflow),
+                None => line(&mut clipped, area, ctx, p, text, size.unwrap_or_default(), *align, *overflow),
+            }
         }
         TileSpec::Weather => weather(&mut clipped, area, ctx, p),
         TileSpec::Sensor { entity, label, unit, decimals } => {
@@ -366,6 +371,49 @@ fn line<D: DrawTarget<Color = Rgba>>(
     };
     let ts = TextStyleBuilder::new().alignment(Alignment::Left).baseline(Baseline::Top).build();
     let _ = Text::with_text_style(text, Point::new(x, top), style, ts).draw(t);
+}
+
+/// A text tile in a U8g2 font: one line, as `line` sets it, but each
+/// character as wide as the font makes it. It is centred in the area's
+/// height by how far the font goes above its baseline and below it.
+#[allow(clippy::too_many_arguments)]
+fn proportional<D: DrawTarget<Color = Rgba>>(
+    t: &mut D,
+    area: Rectangle,
+    ctx: &Ctx,
+    p: &Palette,
+    text: &str,
+    font: Font,
+    align: Align,
+    overflow: Overflow,
+) {
+    let (up, down) = font.extent();
+    let font = font.renderer();
+    let wide = |text: &str| font.get_rendered_dimensions(text, Point::zero(), VerticalPosition::Baseline).map_or(0, |d| d.advance.x);
+    let (left, width) = (area.top_left.x, area.size.width as i32);
+    let baseline = area.top_left.y + (area.size.height as i32 - (up + down)) / 2 + up;
+    let mut draw = |text: &str, x: i32| {
+        let _ = font.render(text, Point::new(x, baseline), VerticalPosition::Baseline, FontColor::Transparent(p.text), t);
+    };
+    let w = wide(text);
+    if overflow == Overflow::Scroll && w > width {
+        let gap = 12;
+        let offset = (ctx.elapsed_ms() * SCROLL_PX_PER_SECOND / 1000 % (w + gap) as u64) as i32;
+        draw(text, left - offset);
+        return draw(text, left - offset + w + gap);
+    }
+    // Cut to the whole characters that fit.
+    let ends = text.char_indices().map(|(at, c)| at + c.len_utf8());
+    let fit = ends.take_while(|end| wide(&text[..*end]) <= width).last().unwrap_or(0);
+    let (text, w) = if w > width { (&text[..fit], wide(&text[..fit])) } else { (text, w) };
+    draw(
+        text,
+        match align {
+            Align::Left => left,
+            Align::Center => left + (width - w) / 2,
+            Align::Right => left + width - w,
+        },
+    );
 }
 
 /// `values` as `cols` values: the mean of each stretch when there are

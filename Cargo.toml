@@ -26,6 +26,7 @@ serde_yaml_ng = "0.10.0"
 indexmap = { version = "2.14.2", features = ["serde"] }
 schemars = { version = "1.2.2", features = ["indexmap2", "preserve_order"] }
 tiny_http = { version = "0.12", default-features = false }
+u8g2-fonts = "0.8.0"
 
 [profile.release]
 opt-level = 2
