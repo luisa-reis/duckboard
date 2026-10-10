@@ -103,7 +103,7 @@ and the launchd plist are in `docs/dashboard.md` under "Installing".
   `charts.example.yaml` and `tools/push_example.py` are the working example
   of pushed data: keep them running against each other.
 - The README's GIFs are `preview` output of `demo.yaml` (its first 53
-  seconds, before the album art) and `demo-dashboards.yaml` (at 3 seconds
+  seconds, before the album art) and `demo-dashboards.yaml` (at 2.5 seconds
   a page), made from copies of the configs in an empty directory so that no
   gap file, cover or picture is in them. Update the docs
   alongside behaviour or config changes, the schema alongside the format's
