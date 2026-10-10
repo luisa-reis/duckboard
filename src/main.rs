@@ -1,7 +1,7 @@
 //! panel-ddp: draws dashboard frames and streams them to a WLED matrix.
 //!
 //!     panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
-//!     panel-ddp preview [--config FILE] [--out FILE] [--page NAME | --all] [--seconds S] [--test | --alert]
+//!     panel-ddp preview [--config FILE] [--out FILE] [--page NAME | --all] [--commands] [--push COMMAND] [--seconds S] [--test | --alert]
 //!     panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
 //!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N] [--size WxH]
 //!     panel-ddp spotify-login [--config FILE] [--port N]
@@ -71,7 +71,7 @@ fn stop_flag() -> Arc<AtomicBool> {
 
 const USAGE: &str = "usage:
   panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
-  panel-ddp preview [--config FILE] [--out FILE] [--page NAME | --all] [--seconds S] [--test | --weather-code N | --alert]
+  panel-ddp preview [--config FILE] [--out FILE] [--page NAME | --all] [--commands] [--push COMMAND] [--seconds S] [--test | --weather-code N | --alert]
   panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
   panel-ddp test [HOST[:PORT]] [--fps N] [--frames N] [--size WxH]
   panel-ddp spotify-login [--config FILE] [--port N]
@@ -422,6 +422,8 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     let mut seconds = None;
     let mut page: Option<String> = None;
     let mut all = false;
+    let mut commands = false;
+    let mut push: Option<String> = None;
     let mut it = args.iter();
     while let Some(a) = it.next() {
         match a.as_str() {
@@ -429,6 +431,8 @@ fn cmd_preview(args: &[String]) -> Result<()> {
             "--out" => out = it.next().context("--out needs a file")?.into(),
             "--page" => page = Some(it.next().context("--page needs a page's name")?.clone()),
             "--all" => all = true,
+            "--commands" => commands = true,
+            "--push" => push = Some(it.next().context("--push needs a command")?.clone()),
             "--seconds" => {
                 seconds = Some(it.next().and_then(|v| v.parse::<f32>().ok()).filter(|s| *s > 0.0).context("--seconds needs a number above 0")?)
             }
@@ -450,6 +454,16 @@ fn cmd_preview(args: &[String]) -> Result<()> {
         Mask::none(cfg.size())
     };
     let opts = PreviewOpts { test, alert: alert_preview, weather_code, seconds };
+    // What the config's commands print now, and what a command pushes, in
+    // place of made-up values.
+    let mut ran = commands.then(|| command::once(&cfg.commands, &cfg.table_columns())).transpose()?;
+    if let Some(command) = &push {
+        let pushed = pushed_by(&cfg, command)?;
+        let ran = ran.get_or_insert_with(Default::default);
+        ran.pushed.extend(pushed.pushed);
+        ran.tables.extend(pushed.tables);
+    }
+    let ran = ran.as_ref();
     // One page alone, or each in turn into a file of its own, named after it.
     let only = |cfg: &Model, name: &str| -> Result<Model> {
         let known: Vec<&str> = cfg.pages.iter().map(|p| p.name.as_str()).collect();
@@ -463,7 +477,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
         let stem = out.file_stem().and_then(|s| s.to_str()).unwrap_or("preview").to_string();
         let ext = out.extension().and_then(|e| e.to_str()).unwrap_or("png").to_string();
         for name in cfg.pages.iter().map(|p| p.name.clone()) {
-            preview_one(only(&cfg, &name)?, &mask, &out.with_file_name(format!("{stem}-{name}.{ext}")), &opts)?;
+            preview_one(only(&cfg, &name)?, &mask, &out.with_file_name(format!("{stem}-{name}.{ext}")), &opts, ran)?;
         }
         return Ok(());
     }
@@ -471,7 +485,33 @@ fn cmd_preview(args: &[String]) -> Result<()> {
         Some(name) => only(&cfg, name)?,
         None => cfg,
     };
-    preview_one(cfg, &mask, &out, &opts)
+    preview_one(cfg, &mask, &out, &opts, ran)
+}
+
+/// Serves the config's HTTP endpoint while `command` runs in a shell, and
+/// gives the series and rows it pushed: `preview --push`.
+fn pushed_by(cfg: &Model, command: &str) -> Result<data::Snapshot> {
+    let http = cfg.http.clone().context("--push needs sources.http in the config")?;
+    let (shared, stop) = (data::Shared::default(), Arc::new(AtomicBool::new(false)));
+    http::spawn(http.clone(), cfg.pushed(), cfg.table_columns(), Arc::clone(&shared), Arc::clone(&stop));
+    // The command starts once the endpoint answers.
+    let listening = (0..50).any(|_| {
+        std::net::TcpStream::connect(&http.listen).is_ok() || {
+            std::thread::sleep(Duration::from_millis(100));
+            false
+        }
+    });
+    let status = if listening {
+        std::process::Command::new("sh").args(["-c", command]).status().with_context(|| format!("running {command}"))
+    } else {
+        Err(anyhow::anyhow!("nothing is listening on {}", http.listen))
+    };
+    stop.store(true, Ordering::SeqCst);
+    if !status?.success() {
+        bail!("{command} failed");
+    }
+    let snapshot = shared.lock().unwrap().clone();
+    Ok(snapshot)
 }
 
 /// What `preview` was asked for, beyond the config and the file.
@@ -483,7 +523,8 @@ struct PreviewOpts {
 }
 
 /// One preview: the first page `cfg` has on now, as a picture or animated.
-fn preview_one(cfg: Model, mask: &Mask, out: &Path, opts: &PreviewOpts) -> Result<()> {
+/// The series and rows of `ran` take the place of the made-up ones.
+fn preview_one(cfg: Model, mask: &Mask, out: &Path, opts: &PreviewOpts, ran: Option<&data::Snapshot>) -> Result<()> {
     let PreviewOpts { test, alert: alert_preview, weather_code, seconds } = *opts;
     let animated = out.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).filter(|e| e == "gif" || e == "apng");
     if let Some(dir) = out.parent().filter(|d| !d.as_os_str().is_empty()) {
@@ -503,6 +544,10 @@ fn preview_one(cfg: Model, mask: &Mask, out: &Path, opts: &PreviewOpts) -> Resul
         // only with --alert (a page's own data may still raise one).
         let mut data = data::Snapshot::sample(&show.cfg, frame);
         data.set_alerts(&show.cfg, alert_preview);
+        if let Some(ran) = ran {
+            data.pushed.extend(ran.pushed.clone());
+            data.tables.extend(ran.tables.clone());
+        }
         if let (Some(code), Some(w)) = (weather_code, data.weather.as_mut()) {
             w.code = code;
             w.is_day = code < 1000;

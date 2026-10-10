@@ -8,7 +8,7 @@
 //! killed when it outlasts its timeout or the run ends.
 
 use crate::config::CommandConfig;
-use crate::data::{log_changed, nap, records, Record, Shared, Value, MAX_ROWS};
+use crate::data::{log_changed, nap, records, Record, Shared, Snapshot, Value, MAX_ROWS};
 use crate::http::MAX_VALUES;
 use anyhow::{anyhow, bail, Context, Result};
 use std::collections::BTreeMap;
@@ -60,6 +60,22 @@ pub fn spawn(
             }
         });
     }
+}
+
+/// Runs each command once and gives the series and rows they printed, for
+/// `preview --commands`. Any that fails is an error.
+pub fn once(commands: &[CommandConfig], columns: &BTreeMap<String, BTreeMap<String, &'static str>>) -> Result<Snapshot> {
+    let (shared, stop) = (Shared::default(), AtomicBool::new(false));
+    for cmd in commands {
+        let none = BTreeMap::new();
+        let columns = match &cmd.feed {
+            Feed::Table(name) => columns.get(name.as_str()).unwrap_or(&none),
+            Feed::Series(_) => &none,
+        };
+        run(cmd, &stop).and_then(|out| store(cmd, columns, &out, &shared)).with_context(|| cmd.run.join(" "))?;
+    }
+    let snapshot = shared.lock().unwrap().clone();
+    Ok(snapshot)
 }
 
 /// Runs the command to its end and gives what it printed. It is killed,
