@@ -17,7 +17,7 @@ repository.
 
 | `demo.yaml` |
 |---|
-| ![The tour](demo.gif) |
+| ![The tour](demo.png) |
 
 One tile, then the whole dashboard: the `date` touring the corners, the
 `clock` joining it, the `weather` under every kind of sky, a `progress` bar
@@ -27,20 +27,20 @@ behind the dashboard.
 
 | `demo-128x64.yaml` |
 |---|
-| ![The tour on a 128×64 panel](demo-128x64.gif) |
+| ![The tour on a 128×64 panel](demo-128x64.png) |
 
-The same for a 128×64 panel; the picture is its first half minute.
+The same for a 128×64 panel.
 
 ## The starting point
 
-| `home` | `music` | `night` |
-|---|---|---|
-| ![The home page](dashboard-example-home.png) | ![The music page](dashboard-example-music.png) | ![The night page](dashboard-example-night.png) |
+| `dashboard.example.yaml` |
+|---|
+| ![The example's home, music and night pages](dashboard-example.png) |
 
 `dashboard.example.yaml`, at the top of the repository, is the config to
 copy and edit: the weather, Home Assistant and Spotify as sources, a day
-and a night playlist and a schedule. Its pages are drawn here on sample
-data, since it needs accounts to run.
+and a night playlist and a schedule. Its three pages, `home`, `music` and
+`night`, are drawn here on sample data, since it needs accounts to run.
 
 ## Tile kinds
 
@@ -48,7 +48,7 @@ data, since it needs accounts to run.
 
 | `text.yaml` |
 |---|
-| ![Text in every size](text.gif) |
+| ![Text in every size](text.png) |
 
 Every size a `text` tile comes in, from `4x6` to `10x20`, each line in its
 own size and saying which, then lines too wide for the panel, scrolling.
@@ -60,7 +60,7 @@ The other kinds (`clock`, `date`, `weather`, `sensor`, `progress`, `art`,
 
 | `line-charts.yaml` | `area-charts.yaml` | `bar-charts.yaml` | `bullet-charts.yaml` |
 |---|---|---|---|
-| ![Line charts](line-charts.gif) | ![Area charts](area-charts.gif) | ![Bar charts](bar-charts.gif) | ![Bullet charts](bullet-charts.gif) |
+| ![Line charts](line-charts.png) | ![Area charts](area-charts.png) | ![Bar charts](bar-charts.png) | ![Bullet charts](bullet-charts.png) |
 
 - **Line charts**, `line_chart`: a reading over its day, three readings
   with theirs beside them, one under the clock, and text over a chart the
@@ -80,7 +80,7 @@ The other kinds (`clock`, `date`, `weather`, `sensor`, `progress`, `art`,
 
 | `tables.yaml` |
 |---|
-| ![Tables](tables.gif) |
+| ![Tables](tables.png) |
 
 Rows of a height, each with tiles placed from the row's corner: names set
 left and cut short, numbers set right, a chart on the end. The first table
@@ -96,7 +96,7 @@ rows written in the file. These three get theirs while running.
 
 | `http.yaml` |
 |---|
-| ![Charts and a table, pushed](http.gif) |
+| ![Charts and a table, pushed](http.png) |
 
 `http.yaml` draws what another program pushes to it: three charts, and a
 table with a line chart and a bar chart on each row. `http-push.sh` is that
@@ -114,7 +114,7 @@ sh docs/demos/http-push.sh               # in another terminal
 
 | `commands.yaml` |
 |---|
-| ![A table and charts from SQLite](commands.gif) |
+| ![A table and charts from SQLite](commands.png) |
 
 The panel runs `sqlite3 -json` on a timer and draws the rows: a table with
 a line chart and a bullet chart on each row, a bar chart from a query, and
@@ -145,8 +145,12 @@ sh docs/demos/render.sh
 `render.sh` draws them all again with `preview --all-in-one`, which goes
 through every page of a config for its time, from copies of the demos in an
 empty directory, so that this machine's gap file, covers and pictures are
-not in them, and `dashboard.example.yaml`'s pages with `--all`.
-`commands.gif` and `uptime.png` are drawn with `--commands`,
+not in them. `commands.png` and `uptime.png` are drawn with `--commands`,
 which runs the config's commands once and draws what they print in place of
-made-up values; `http.gif` with `--push "sh http-push.sh"`, which serves
+made-up values; `http.png` with `--push "sh http-push.sh"`, which serves
 the config's endpoint while that command runs and draws what it pushed.
+
+The moving ones are animated PNGs: in full colour, and smaller than a GIF.
+`preview` writes one when the file is named `.apng`; `render.sh` renames
+them `.png`, the name GitHub serves as a PNG, which a browser then
+animates. A viewer that does not know them shows the first frame.

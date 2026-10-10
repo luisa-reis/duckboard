@@ -17,18 +17,23 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 cp "$here"/*.yaml "$here"/uptime.sh "$here"/http-push.sh "$here"/../../dashboard.example.yaml "$work"
 
-# One pass through each demo's pages (demo.yaml: up to the album art, which
-# is not there).
-for name in demo text line-charts area-charts bar-charts bullet-charts tables; do
-  "$bin" preview --config "$work/$name.yaml" --all-in-one --out "$here/$name.gif"
+# An animated PNG of one pass through a config's pages, named .png: GitHub
+# serves that as a PNG, which a browser animates, and does not know .apng.
+# `preview` goes by the name, so it is drawn as .apng and then renamed.
+animate() {
+  name=$1
+  shift
+  "$bin" preview --config "$work/$name.yaml" --all-in-one --out "$work/$name.apng" "$@"
+  mv "$work/$name.apng" "$here/$(echo "$name" | tr . -).png"
+}
+
+# The tours go up to the album art, which is not there; the example is on
+# sample data.
+for name in demo demo-128x64 text line-charts area-charts bar-charts bullet-charts tables dashboard.example; do
+  animate "$name"
 done
+animate commands --commands
+animate http --push "sh $work/http-push.sh"
 
-"$bin" preview --config "$work/commands.yaml" --commands --all-in-one --out "$here/commands.gif"
+# One page that does not move: a still.
 "$bin" preview --config "$work/uptime.yaml" --commands --out "$here/uptime.png"
-"$bin" preview --config "$work/http.yaml" --push "sh $work/http-push.sh" --all-in-one --out "$here/http.gif"
-
-# Two that are too large as one animation of everything (jujutsu takes no
-# new file over 1 MiB): the first half minute of the 128×64 tour, and the
-# example's pages as a still each, on sample data.
-"$bin" preview --config "$work/demo-128x64.yaml" --seconds 30 --out "$here/demo-128x64.gif"
-"$bin" preview --config "$work/dashboard.example.yaml" --all --out "$here/dashboard-example.png"
