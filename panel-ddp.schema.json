@@ -223,6 +223,13 @@
               "type": "null"
             }
           ]
+        },
+        "commands": {
+          "description": "Commands run again and again, each for a table's rows or a chart's\nseries: what it prints, as JSON.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CommandSource"
+          }
         }
       },
       "additionalProperties": false
@@ -378,6 +385,65 @@
         }
       },
       "additionalProperties": false
+    },
+    "CommandSource": {
+      "description": "A command whose output, JSON, is a table's rows or a chart's series. It\nruns in the config file's directory, when the panel starts and then\nevery `every` seconds, with the panel's own rights.",
+      "type": "object",
+      "properties": {
+        "run": {
+          "description": "The program and its arguments, each on its own: no shell reads\nthem. For a pipeline, run `[\"sh\", \"-c\", \"…\"]`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "table": {
+          "description": "The `data` name of the table its output fills: a JSON array of\nobjects, a row each, as `sqlite3 -json` and `duckdb -json` print.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "series": {
+          "description": "The name of the series its output is: a JSON array of numbers, or\nof rows with the numbers in one column.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "column": {
+          "description": "For a series from rows of several columns: the one to take.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "every": {
+          "description": "Seconds from the end of one run to the start of the next.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "default": 60
+        },
+        "timeout": {
+          "description": "Seconds a run may take; it is stopped after that, and what was\nthere stays.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "default": 30
+        },
+        "env": {
+          "description": "Secrets for its environment, by variable: `PGPASSWORD: {secret:\npg_password}`. It has the panel's environment besides.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/SecretRef"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "run"
+      ]
     },
     "ArtCacheConfig": {
       "description": "Where decoded album art is kept between runs, and how much of it.",

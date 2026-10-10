@@ -26,6 +26,7 @@ mod art;
 mod artcache;
 mod artfile;
 mod canvas;
+mod command;
 mod config;
 mod dashboard;
 mod data;
@@ -255,7 +256,7 @@ fn sources_key(m: &Model) -> String {
     format!(
         "{:?}",
         (
-            (&m.weather, &m.spotify, &m.home_assistant, &m.http, &m.art_cache),
+            (&m.weather, &m.spotify, &m.home_assistant, &m.http, &m.commands, &m.art_cache),
             (m.gamma, m.art_sizes(), m.sensor_entities(), m.series(), m.pushed(), m.table_columns()),
         )
     )

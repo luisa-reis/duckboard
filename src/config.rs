@@ -195,6 +195,24 @@ pub struct HttpConfig {
     pub token: Option<String>,
 }
 
+/// A command run again and again for a table's rows or a chart's series.
+#[derive(Debug, Clone)]
+pub struct CommandConfig {
+    /// The program and its arguments.
+    pub run: Vec<String>,
+    pub feed: crate::command::Feed,
+    /// For a series from rows: the column to take.
+    pub column: Option<String>,
+    /// Seconds between two runs.
+    pub every: u64,
+    /// Seconds a run may take before it is stopped.
+    pub timeout: u64,
+    /// Variables added to its environment, secrets resolved.
+    pub env: Vec<(String, String)>,
+    /// Where it runs: the config file's directory.
+    pub dir: PathBuf,
+}
+
 pub(crate) fn default_listen() -> String {
     "127.0.0.1:4049".into()
 }

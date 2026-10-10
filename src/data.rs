@@ -4,6 +4,7 @@
 //! so a slow or dead service never stalls a frame.
 
 use crate::artcache::ArtCache;
+use crate::command;
 use crate::model::Model;
 use crate::picture::Scaled;
 use crate::ha::{self, Art, Media, Sensor};
@@ -178,7 +179,7 @@ impl Drop for Sources {
 }
 
 /// Sleeps for `d`, a second at a time; false once `stop` is set.
-fn nap(stop: &AtomicBool, d: Duration) -> bool {
+pub(crate) fn nap(stop: &AtomicBool, d: Duration) -> bool {
     let mut left = d;
     while !left.is_zero() {
         if stop.load(Ordering::SeqCst) {
@@ -305,6 +306,7 @@ pub fn spawn_sources(cfg: &Model, shared: &Shared) -> Sources {
     if let Some(h) = cfg.http.clone() {
         http::spawn(h, cfg.pushed(), cfg.table_columns(), Arc::clone(shared), Arc::clone(&stop));
     }
+    command::spawn(&cfg.commands, &cfg.table_columns(), shared, &stop);
     Sources { stop }
 }
 

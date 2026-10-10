@@ -212,8 +212,8 @@ pages:
 | a Home Assistant entity's state | `sensor` or `progress` | their own 24-pixel layout: label, value, unit |
 | a Home Assistant entity's history | `line_chart`, `area_chart`, `bar_chart` with `entity` | fetched once a minute |
 | one number against a target, or against good and bad | `bullet_chart` with `entity`, `series` or `column` | in place of a gauge; `target` and `ranges` in the config |
-| numbers another program has | a chart with `series` | pushed to `/series/NAME` |
-| text another program has, a query's result | a `table` with `data` and a `repeat` row of `text` tiles with `column` | pushed to `/tables/NAME`; one row and one column is fine for a single value |
+| numbers another program has | a chart with `series` | pushed to `/series/NAME`, or printed by a command in `sources.commands` |
+| text another program has, a query's result | a `table` with `data` and a `repeat` row of `text` tiles with `column` | pushed to `/tables/NAME`, or a query the panel runs itself (`sources.commands`); one row and one column is fine for a single value |
 | the time, the date, the weather, what is playing | `clock`, `date`, `weather`, `now_playing`, `art` | |
 
 A `text` tile's own text never changes while the panel runs. A number that
@@ -241,7 +241,8 @@ And in the file:
 - `panel-ddp check` says `ok`.
 - The page's design-time `data` is gone, unless the page is a demo.
 - Every tile's source is configured: `sources.home_assistant` for
-  `entity`, `sources.http` for `series` and for tables with `data`.
+  `entity`; `sources.http`, or a command in `sources.commands`, for
+  `series` and for tables with `data`.
   `check` refuses a tile whose source is missing.
 
 ## Rules for an agent working here

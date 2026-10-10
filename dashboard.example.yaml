@@ -26,6 +26,8 @@ sources:
   # pictures: {dir: frame, seconds: 10}        # for picture tiles
   # http: {listen: "127.0.0.1:4049"}           # for charts of a pushed `series`, tables of pushed `data`;
   #                                            # add token: {secret: http_token} to ask for one
+  # commands:                                  # or run a query for them, every so often
+  #   - {table: rooms, every: 60, run: [sqlite3, -json, house.db, "SELECT room, temp FROM rooms"]}
 
 # Colour schemes by name; `default` applies to every tile, and a page or a
 # tile can name another over it.

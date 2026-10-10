@@ -61,6 +61,9 @@ Context for Claude Code sessions working on panel-ddp.
   its own thread keeping the last good reading.
 - `src/http.rs` — the HTTP endpoint chart series and table rows are pushed
   to (`sources.http`), on its own thread, a thread per request.
+- `src/command.rs` — commands run on a timer for the same series and rows
+  (`sources.commands`): how a database is read, through its CLI, with
+  nothing linked in. `commands.example.yaml` is the working example.
 - `tools/DemoArtViewer/` — a Processing sketch for the demo art.
 
 ## Building

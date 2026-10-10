@@ -10,11 +10,12 @@
 
 use crate::canvas::{DEFAULT_HEIGHT, DEFAULT_WIDTH};
 use crate::config::{
-    default_listen, is_name, Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, HttpConfig, PageData, SpotifyConfig, TileSpec,
+    default_listen, is_name, Alert, ArtCacheConfig, CommandConfig, FrameConfig, HomeAssistantConfig, HttpConfig, PageData, SpotifyConfig, TileSpec,
     Units, WeatherConfig, When,
 };
 use crate::model::{self, Layer, Model};
 use crate::palette::{Overrides, Palette};
+use crate::command::Feed;
 use crate::data::{records, MAX_ROWS};
 use crate::secrets::{SecretRef, Secrets};
 use anyhow::{bail, Context, Result};
@@ -145,6 +146,10 @@ pub struct Sources {
     pub pictures: Option<Pictures>,
     /// An HTTP endpoint taking the values of chart series.
     pub http: Option<Http>,
+    /// Commands run again and again, each for a table's rows or a chart's
+    /// series: what it prints, as JSON.
+    #[serde(default)]
+    pub commands: Vec<CommandSource>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -173,6 +178,44 @@ pub struct Http {
     /// `Authorization: Bearer TOKEN`, kept in the secrets file. Without
     /// one, anything that reaches the port can change the series.
     pub token: Option<SecretRef>,
+}
+
+/// A command whose output, JSON, is a table's rows or a chart's series. It
+/// runs in the config file's directory, when the panel starts and then
+/// every `every` seconds, with the panel's own rights.
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CommandSource {
+    /// The program and its arguments, each on its own: no shell reads
+    /// them. For a pipeline, run `["sh", "-c", "…"]`.
+    pub run: Vec<String>,
+    /// The `data` name of the table its output fills: a JSON array of
+    /// objects, a row each, as `sqlite3 -json` and `duckdb -json` print.
+    pub table: Option<String>,
+    /// The name of the series its output is: a JSON array of numbers, or
+    /// of rows with the numbers in one column.
+    pub series: Option<String>,
+    /// For a series from rows of several columns: the one to take.
+    pub column: Option<String>,
+    /// Seconds from the end of one run to the start of the next.
+    #[serde(default = "default_command_every")]
+    pub every: u64,
+    /// Seconds a run may take; it is stopped after that, and what was
+    /// there stays.
+    #[serde(default = "default_command_timeout")]
+    pub timeout: u64,
+    /// Secrets for its environment, by variable: `PGPASSWORD: {secret:
+    /// pg_password}`. It has the panel's environment besides.
+    #[serde(default)]
+    pub env: IndexMap<String, SecretRef>,
+}
+
+fn default_command_every() -> u64 {
+    60
+}
+
+fn default_command_timeout() -> u64 {
+    30
 }
 
 fn default_ha_refresh() -> u64 {
@@ -484,6 +527,42 @@ impl File {
         if http.as_ref().is_some_and(|h| h.token.as_deref() == Some("")) {
             bail!("sources.http.token: the secret is empty");
         }
+        let commands = std::mem::take(&mut self.sources.commands)
+            .into_iter()
+            .enumerate()
+            .map(|(i, c)| {
+                let at = || format!("sources.commands, entry {}", i + 1);
+                let feed = match (c.table, c.series) {
+                    (Some(name), None) => Feed::Table(name),
+                    (None, Some(name)) => Feed::Series(name),
+                    _ => bail!("{}: takes either table or series", at()),
+                };
+                if c.run.is_empty() || c.run[0].trim().is_empty() {
+                    bail!("{}: run needs a program", at());
+                }
+                if c.every == 0 || c.timeout == 0 {
+                    bail!("{}: every and timeout must be at least 1", at());
+                }
+                if c.column.is_some() && matches!(feed, Feed::Table(_)) {
+                    bail!("{}: column is for a series", at());
+                }
+                let env = c
+                    .env
+                    .iter()
+                    .map(|(name, secret)| Ok((name.clone(), secrets.get(secret).with_context(|| format!("{}: env {name}", at()))?)))
+                    .collect::<Result<_>>()?;
+                Ok(CommandConfig { run: c.run, feed, column: c.column, every: c.every, timeout: c.timeout, env, dir: dir.to_path_buf() })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        for c in &commands {
+            let (what, name, drawn) = match &c.feed {
+                Feed::Table(name) => ("table", name, pages.iter().flat_map(|p| &p.layers).any(|l| l.record.as_ref().is_some_and(|r| r.0 == *name))),
+                Feed::Series(name) => ("series", name, pages.iter().flat_map(|p| &p.layers).any(|l| l.tile.pushed_series() == Some(name))),
+            };
+            if !drawn {
+                bail!("sources.commands: nothing draws the {what} {name}");
+            }
+        }
         let pictures = self.sources.pictures.take();
         let frame = FrameConfig {
             dir: rel(pictures.as_ref().map_or_else(default_pictures_dir, |p| p.dir.clone())),
@@ -504,6 +583,7 @@ impl File {
             spotify: self.sources.spotify,
             home_assistant,
             http,
+            commands,
             art_cache,
             frame,
             alerts: self.alerts,
@@ -750,6 +830,10 @@ impl File {
     fn check_sources(&self, pages: &[model::Page]) -> Result<()> {
         let s = &self.sources;
         let media = s.spotify.is_some() || s.home_assistant.as_ref().is_some_and(|h| h.media_player.is_some());
+        // Whether a command fills the table, or is the series, of that name.
+        let fed = |name: &String, table: bool| {
+            s.commands.iter().any(|c| if table { c.table.as_ref() } else { c.series.as_ref() } == Some(name))
+        };
         for page in pages {
             let d = &page.data;
             for layer in &page.layers {
@@ -766,8 +850,9 @@ impl File {
                     {
                         Some("sources.home_assistant")
                     }
-                    t if matches!(t.pushed_series(), Some(name) if s.http.is_none() && !d.series.contains_key(name)) => {
-                        Some("sources.http")
+                    t if matches!(t.pushed_series(), Some(name) if s.http.is_none() && !d.series.contains_key(name) && !fed(name, false)) =>
+                    {
+                        Some("sources.http or a command in sources.commands")
                     }
                     TileSpec::NowPlaying | TileSpec::Art { .. } if !media && d.cover.is_none() => {
                         Some("sources.spotify or sources.home_assistant.media_player")
@@ -776,7 +861,9 @@ impl File {
                     _ => None,
                 };
                 let missing = match &layer.record {
-                    Some((table, _)) if s.http.is_none() && !d.tables.contains_key(table) => Some("sources.http"),
+                    Some((table, _)) if s.http.is_none() && !d.tables.contains_key(table) && !fed(table, true) => {
+                        Some("sources.http or a command in sources.commands")
+                    }
                     _ => missing,
                 };
                 if let Some(source) = missing {
@@ -1033,6 +1120,45 @@ pages:
         let m = load(&page(table, "{tables: {kpis: [{v: 5, t: 9}]}}")).unwrap();
         let columns: Vec<(String, &str)> = m.table_columns()["kpis"].clone().into_iter().collect();
         assert_eq!(columns, [("t".to_string(), "number"), ("v".to_string(), "number")]);
+    }
+
+    #[test]
+    fn commands_feed_tables_and_series() {
+        use crate::command::Feed;
+        let yaml = |commands: &str| {
+            format!(
+                "target: t\nsecrets: command-secrets.yaml\nsources: {{commands: {commands}}}\n\
+                 layouts: {{l: {{a: {{x: 0, y: 0, width: 60, height: 20}}, b: {{x: 0, y: 30, width: 60, height: 20}}}}}}\n\
+                 tiles: {{sheet: {{kind: table, data: rows, rows: [{{height: 6, repeat: true, tiles: [{{x: 0, width: 60, tile: {{kind: text, column: n}}}}]}}]}}}}\n\
+                 pages: {{p: {{layout: l, tiles: {{a: sheet, b: {{kind: bar_chart, series: orders}}}}}}}}\n"
+            )
+        };
+        let dir = std::env::temp_dir().join(format!("panel-ddp-format-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("command-secrets.yaml"), "ha_token: abc123\n").unwrap();
+        let both = "[{table: rows, run: [sqlite3, -json, x.db, 'select 1'], every: 5, env: {PGPASSWORD: {secret: ha_token}}}, \
+                    {series: orders, column: n, run: [sh, -c, 'echo 1']}]";
+        let m = load(&yaml(both)).unwrap();
+        assert!(m.http.is_none(), "the names are fed without the endpoint");
+        let c = &m.commands[0];
+        assert_eq!((&c.feed, c.every, c.timeout), (&Feed::Table("rows".into()), 5, 30));
+        assert_eq!(c.run, ["sqlite3", "-json", "x.db", "select 1"]);
+        assert_eq!(c.env, [("PGPASSWORD".to_string(), "abc123".to_string())]);
+        assert_eq!(c.dir, dir, "it runs beside the config");
+        assert_eq!((&m.commands[1].feed, m.commands[1].every), (&Feed::Series("orders".into()), 60));
+        let err = |commands: &str| format!("{:#}", load(&yaml(commands)).unwrap_err());
+        assert!(err("[{table: rows, run: [a]}]").contains("a bar_chart tile needs sources.http or a command"));
+        assert!(err("[{series: orders, run: [a]}]").contains("needs sources.http or a command"), "the table is not fed");
+        let rest = "{table: rows, run: [a]}, {series: orders, run: [a]}";
+        assert!(err(&format!("[{rest}, {{series: other, run: [a]}}]")).contains("nothing draws the series other"));
+        assert!(err(&format!("[{rest}, {{table: other, run: [a]}}]")).contains("nothing draws the table other"));
+        assert!(err(&format!("[{rest}, {{run: [a]}}]")).contains("entry 3: takes either table or series"));
+        assert!(err(&format!("[{rest}, {{table: rows, series: orders, run: [a]}}]")).contains("takes either table or series"));
+        assert!(err(&format!("[{rest}, {{table: rows, run: []}}]")).contains("run needs a program"));
+        assert!(err(&format!("[{rest}, {{table: rows, run: [a], every: 0}}]")).contains("at least 1"));
+        assert!(err(&format!("[{rest}, {{table: rows, run: [a], column: n}}]")).contains("column is for a series"));
+        assert!(err(&format!("[{rest}, {{table: rows, run: [a], env: {{X: {{secret: missing}}}}}}]")).contains("env X"));
+        assert!(err(&format!("[{rest}, {{table: rows, run: a b}}]")).contains("sources"), "run is a list");
     }
 
     #[test]

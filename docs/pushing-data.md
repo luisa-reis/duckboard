@@ -6,6 +6,11 @@ what is sent to it. This page stands on its own; the tiles themselves are
 in [charts.md](charts.md) and the rest of the configuration in
 [dashboard.md](dashboard.md).
 
+If the data is in a database or behind a command on the panel's own
+machine, nothing needs to push: the panel can run the query itself on a
+timer. That is `sources.commands`, under Data from a command in
+[dashboard.md](dashboard.md). This page is for a program that sends.
+
 ## In short
 
 1. The panel's config turns the endpoint on and names what it takes: a

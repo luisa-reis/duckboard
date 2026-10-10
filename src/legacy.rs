@@ -578,6 +578,7 @@ impl Config {
             spotify: self.spotify,
             home_assistant: self.home_assistant,
             http: None,
+            commands: Vec::new(),
             art_cache: self.art_cache,
             frame: self.frame,
             alerts: self.alerts,

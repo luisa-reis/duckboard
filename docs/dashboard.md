@@ -340,6 +340,8 @@ target/release/panel-ddp run > panel-ddp.log 2>&1 &` is enough.
   the rows of tables are pushed to (default `127.0.0.1:4049`), and
   optionally a `token`, as a secret, that every request must carry; see
   Pushing data.
+- `sources.commands` — a list of commands run on a timer, each for a
+  table's rows or a chart's series; see Data from a command.
 - `sources.pictures` — `dir` (default `frame`), `seconds` each picture
   shows (default 10) and `shuffle`; see Picture frame.
 - `art_cache` — `dir` (default `art-cache` next to the config),
@@ -495,7 +497,7 @@ curl -X PUT http://127.0.0.1:4049/tables/rooms -d '[
 ## Pushing data
 
 Charts and tables can draw what another program sends to the panel over
-HTTP: a chart with `series: NAME` what is `PUT` to `/series/NAME`, a table
+HTTP (or what the panel fetches by itself: see Data from a command): a chart with `series: NAME` what is `PUT` to `/series/NAME`, a table
 with `data: NAME` the rows `PUT` to `/tables/NAME`. Both need
 `sources.http`:
 
@@ -526,6 +528,110 @@ program on the other end: every request and answer, the shape of the data,
 and an example that pushes a query's results. `charts.example.yaml` is a
 config that takes pushed data and `tools/push_example.py` a program that
 sends it.
+
+## Data from a command
+
+The panel can fetch its own data: a command in `sources.commands` is run
+when the panel starts and then on a timer, and the JSON it prints becomes a
+table's rows or a chart's series, exactly as if it had been pushed. A
+database is read this way through its own command-line client, so none is
+built into the program.
+
+```yaml
+sources:
+  commands:
+    - table: rooms
+      every: 60
+      run: [sqlite3, -json, house.db, "SELECT room, printf('%.1f', temp) AS temp FROM rooms ORDER BY room LIMIT 5"]
+    - series: power
+      every: 30
+      run: [duckdb, -json, -readonly, metrics.duckdb, "SELECT watts FROM power ORDER BY at DESC LIMIT 120"]
+```
+
+- `run` is the program and its arguments, each its own item; no shell
+  reads them, so a query needs no escaping beyond YAML's. For a pipeline
+  or a redirect, run a shell: `[sh, -c, "…"]`. A long query reads best as
+  a YAML block (`- |`); `commands.example.yaml` has some.
+- `table: NAME` fills the table whose `data` is that name; `series: NAME`
+  is the series of that name, for a chart. One or the other.
+- `every` is the seconds from the end of one run to the start of the next
+  (default 60). `timeout` is how long a run may take (default 30); it is
+  stopped after that.
+- `env` adds secrets to its environment: `env: {PGPASSWORD: {secret:
+  pg_password}}`. It has the panel's own environment besides.
+- It runs in the config file's directory, so `house.db` is beside the
+  config, and with the rights of the panel itself: the config decides what
+  the machine runs, so keep it writable only by you.
+- A run that fails (a non-zero exit, a timeout, output that is not JSON)
+  is logged once, with what the command said, and what was there stays on
+  the panel. Each command has its own thread: a slow query never delays a
+  frame or another command.
+- A table or a chart may be fed by a command without `sources.http`. With
+  both, whichever wrote last shows.
+- `check` does not run the commands: run one by hand to see what it
+  prints.
+
+### What a command prints
+
+For a **table**, a JSON array of objects, a row each, column to value:
+what `sqlite3 -json` and `duckdb -json` print for any query.
+
+```json
+[{"room": "Kitchen", "temp": "22.8"}, {"room": "Office", "temp": "23.1"}]
+```
+
+- Text shows as printed, so round and format in the query. Rows show in
+  the order printed, as many as fit the table; `ORDER BY` and `LIMIT`.
+- Nothing printed is no rows, as `sqlite3 -json` does for an empty result.
+- A column a chart on the row draws (`column:` on a `line_chart`, say) is
+  a JSON array of numbers. Where the client prints an array as text, as
+  SQLite does for `json_group_array(…)` and Postgres for an `int[]`, it is
+  read as numbers: `"[1,2,3]"` and `"{1,2,3}"` both work.
+- A bullet chart's `column` and `target_column` are one number each.
+
+For a **series**, the numbers, oldest first: a JSON array of them, or rows
+with the numbers in a column, the only one or the one named by `column:`
+on the command. One number is a series of one, which is what a
+`bullet_chart` shows.
+
+```yaml
+    - series: orders
+      column: n
+      run: [sqlite3, -json, shop.db, "SELECT hour, count(*) AS n FROM orders GROUP BY hour ORDER BY hour"]
+```
+
+### The three databases
+
+```yaml
+sources:
+  commands:
+    # SQLite: -json prints rows as objects. -readonly keeps the panel from
+    # ever writing.
+    - table: rooms
+      run: [sqlite3, -json, -readonly, house.db, "SELECT room, temp FROM rooms"]
+    # DuckDB: the same flags. It also reads CSV and Parquet files, and
+    # other databases, in the query itself.
+    - table: sales
+      run: [duckdb, -json, -readonly, shop.duckdb, "SELECT region, round(sum(amount)) AS total FROM sales GROUP BY region ORDER BY total DESC LIMIT 5"]
+    # Postgres: psql has no JSON output, so the query aggregates its rows
+    # to JSON; -At prints just that. The password comes from a secret.
+    - table: services
+      env: {PGPASSWORD: {secret: pg_password}}
+      run:
+        - psql
+        - -At
+        - "host=db.local dbname=metrics user=panel"
+        - -c
+        - |
+          SELECT coalesce(json_agg(t), '[]') FROM (
+            SELECT name, round(avg_ms) AS ms FROM services ORDER BY avg_ms DESC LIMIT 5
+          ) t
+```
+
+The client must be installed on the machine the panel runs on
+(`apt install sqlite3`, `postgresql-client`; DuckDB's is a single
+download). Anything else that prints JSON works the same way: `curl` and
+`jq` against an API, a script of your own.
 
 ## Picture frame
 

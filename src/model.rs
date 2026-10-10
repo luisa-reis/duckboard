@@ -4,7 +4,7 @@
 //! fetches works from this alone.
 
 use crate::config::{
-    Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, HttpConfig, PageData, SpotifyConfig, TileSpec, Units, WeatherConfig,
+    Alert, ArtCacheConfig, CommandConfig, FrameConfig, HomeAssistantConfig, HttpConfig, PageData, SpotifyConfig, TileSpec, Units, WeatherConfig,
     When,
 };
 use crate::palette::Palette;
@@ -42,6 +42,7 @@ pub struct Model {
     pub spotify: Option<SpotifyConfig>,
     pub home_assistant: Option<HomeAssistantConfig>,
     pub http: Option<HttpConfig>,
+    pub commands: Vec<CommandConfig>,
     pub art_cache: ArtCacheConfig,
     pub frame: FrameConfig,
     pub alerts: Vec<Alert>,

@@ -35,8 +35,11 @@ Both are the program's own previews of `demo.yaml` and
     player, as a spinning record, a cover or a faint background;
   - a picture frame from a folder.
 - **Takes data from other programs.** A small HTTP endpoint accepts a
-  chart's values or a table's rows as JSON, so a script can run a database
-  query and put the result on the panel with one request.
+  chart's values or a table's rows as JSON, so a script can put a result
+  on the panel with one request.
+- **Runs queries itself.** A command on a timer fills a table or a chart
+  from the JSON it prints: `sqlite3 -json`, `duckdb -json`, `psql`, or
+  anything else, with no database built in.
 - **Streams over DDP** (UDP port 4048) to any WLED matrix, 64×64 unless
   the config says otherwise.
 - **Previews without the board**: a PNG, or an animated GIF or APNG, of
@@ -80,6 +83,17 @@ on the other end, or for an agent working in another repository: where the
 endpoint is, what it takes, every request and answer, and an example that
 pushes a query's results. `charts.example.yaml` and
 `tools/push_example.py` are a config and a program that work together.
+
+Or let the panel fetch, with a command on a timer:
+
+```yaml
+sources:
+  commands:
+    - {table: rooms, every: 60, run: [sqlite3, -json, house.db, "SELECT room, temp FROM rooms"]}
+```
+
+`commands.example.yaml` runs as it is; Data from a command in
+[docs/dashboard.md](docs/dashboard.md) has SQLite, DuckDB and Postgres.
 
 ## Documentation
 

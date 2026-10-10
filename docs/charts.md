@@ -11,6 +11,7 @@ Two configs in the repository use all of it:
 - `demo-dashboards.yaml` — twelve dashboards on made-up data, to look at:
   `target/release/panel-ddp preview --config demo-dashboards.yaml --out preview.gif`
 - `charts.example.yaml` — charts and a table fed over HTTP, to start from.
+- `commands.example.yaml` — the same fed by SQL queries the panel runs.
 
 ![The dashboards demo](demo-dashboards.gif)
 
@@ -21,7 +22,7 @@ Every chart takes its values from one of three places, and says which:
 | Setting | The values are | Needs |
 |---|---|---|
 | `entity: sensor.x` | the entity's numeric history over the last `hours` (default 24, up to 720), fetched once a minute | `sources.home_assistant` |
-| `series: name` | whatever was last pushed to `/series/name` | `sources.http` |
+| `series: name` | whatever was last pushed to `/series/name`, or printed by a command | `sources.http`, or a command in `sources.commands` |
 | `column: name` | that column of the pushed row the chart is on, in a table | a table with `data` |
 
 A bullet chart shows one value, not a run of them: see its own section.
@@ -248,7 +249,10 @@ pages:
 
 With `data`, the table's last row can `repeat`: it is laid out once for
 each row pushed to `/tables/NAME`, and its tiles take their values by
-`column`. This is the table for a query's results.
+`column`. This is the table for a query's results: another program can
+push them, or the panel can run the query itself with a command in
+`sources.commands` (Data from a command, in [dashboard.md](dashboard.md);
+`commands.example.yaml` does it with SQLite).
 
 ```yaml
 sources:
