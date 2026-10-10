@@ -1,0 +1,584 @@
+# yaml-language-server: $schema=../../panel-ddp.schema.json
+#
+# The kitchen sink for a 64×64 panel: everything the panel can show, a page
+# or two from each of the other demos, and at the end as much of it as two
+# pages hold. It needs no accounts: every page brings its own data, the
+# covers come from the art cache and the pictures from frame/ (pages naming
+# one that is not there are left out).
+#
+#   target/release/panel-ddp run --config docs/demos/kitchen-sink.yaml --target <board> --once
+
+target: "4.3.2.1"
+
+# The gap file, the cover cache and the pictures stay at the top of the
+# repository; paths are relative to this file.
+gaps: ../../2d-gaps.json
+
+sources: {pictures: {dir: ../../frame}}
+
+art_cache: {dir: ../../art-cache, keep_originals: true}
+
+layouts:
+  classic:
+    background: {x: 0, y: 0, width: 64, height: 64, z: -1}
+    top_left: {x: 2, y: 2, width: 24, height: 24}
+    top_right: {x: 38, y: 2, width: 24, height: 24}
+    bottom_left: {x: 2, y: 38, width: 24, height: 24}
+    bottom_right: {x: 38, y: 38, width: 24, height: 24}
+    hub: {x: 21, y: 21, width: 22, height: 22}
+# The tiles the pages place, by name.
+  small:
+    row_1: {x: 0, y: 1, width: 64, height: 6}
+    row_2: {x: 0, y: 9, width: 64, height: 7}
+    row_3: {x: 0, y: 18, width: 64, height: 8}
+    row_4: {x: 0, y: 28, width: 64, height: 9}
+    row_5: {x: 0, y: 39, width: 64, height: 10}
+    row_6: {x: 0, y: 51, width: 64, height: 12}
+  medium:
+    row_1: {x: 0, y: 1, width: 64, height: 13}
+    row_2: {x: 0, y: 17, width: 64, height: 13}
+    row_3: {x: 0, y: 33, width: 64, height: 14}
+    row_4: {x: 0, y: 50, width: 64, height: 13}
+  large:
+    row_1: {x: 0, y: 2, width: 64, height: 15}
+    row_2: {x: 0, y: 21, width: 64, height: 18}
+    row_3: {x: 0, y: 43, width: 64, height: 20}
+  scrolling:
+    row_1: {x: 0, y: 8, width: 64, height: 20}
+    row_2: {x: 0, y: 36, width: 64, height: 10}
+    row_3: {x: 0, y: 52, width: 64, height: 6}
+# A tile for each size, by name.
+  tiny-1:
+    row_1: {x: 1, y: 2, width: 62, height: 6}
+    row_2: {x: 1, y: 8, width: 62, height: 5}
+    row_3: {x: 1, y: 13, width: 62, height: 8}
+    row_4: {x: 1, y: 21, width: 62, height: 7}
+    row_5: {x: 1, y: 28, width: 62, height: 9}
+    row_6: {x: 1, y: 37, width: 62, height: 8}
+    row_7: {x: 1, y: 45, width: 62, height: 8}
+    row_8: {x: 1, y: 53, width: 62, height: 8}
+  sans-1:
+    row_1: {x: 1, y: 8, width: 62, height: 10}
+    row_2: {x: 1, y: 18, width: 62, height: 10}
+    row_3: {x: 1, y: 28, width: 62, height: 14}
+    row_4: {x: 1, y: 42, width: 62, height: 14}
+  serif-1:
+    row_1: {x: 1, y: 3, width: 62, height: 10}
+    row_2: {x: 1, y: 13, width: 62, height: 10}
+    row_3: {x: 1, y: 23, width: 62, height: 14}
+    row_4: {x: 1, y: 37, width: 62, height: 6}
+    row_5: {x: 1, y: 43, width: 62, height: 18}
+  display-2:
+    row_1: {x: 1, y: 2, width: 62, height: 6}
+    row_2: {x: 1, y: 8, width: 62, height: 22}
+    row_3: {x: 1, y: 30, width: 62, height: 6}
+    row_4: {x: 1, y: 36, width: 62, height: 25}
+  icons-1:
+    row_1: {x: 1, y: 4, width: 62, height: 6}
+    row_2: {x: 1, y: 10, width: 62, height: 10}
+    row_3: {x: 1, y: 20, width: 62, height: 6}
+    row_4: {x: 1, y: 26, width: 62, height: 10}
+    row_5: {x: 1, y: 36, width: 62, height: 6}
+    row_6: {x: 1, y: 42, width: 62, height: 18}
+  # One reading: its name, the value large, and its day under it.
+  reading:
+    name: {x: 0, y: 2, width: 64, height: 6}
+    value: {x: 0, y: 10, width: 64, height: 20}
+    chart: {x: 2, y: 33, width: 60, height: 21}
+    foot: {x: 0, y: 57, width: 64, height: 6}
+  # Three readings, each a name over its value with its chart beside it.
+  rows:
+    name_1: {x: 1, y: 2, width: 30, height: 6}
+    value_1: {x: 1, y: 9, width: 30, height: 10}
+    chart_1: {x: 33, y: 3, width: 30, height: 15}
+    name_2: {x: 1, y: 23, width: 30, height: 6}
+    value_2: {x: 1, y: 30, width: 30, height: 10}
+    chart_2: {x: 33, y: 24, width: 30, height: 15}
+    name_3: {x: 1, y: 44, width: 30, height: 6}
+    value_3: {x: 1, y: 51, width: 30, height: 10}
+    chart_3: {x: 33, y: 45, width: 30, height: 15}
+  # The clock and the date over one reading.
+  home:
+    top_left: {x: 2, y: 2, width: 24, height: 24}
+    top_right: {x: 38, y: 2, width: 24, height: 24}
+    name: {x: 0, y: 29, width: 64, height: 8}
+    chart: {x: 2, y: 39, width: 60, height: 13}
+    value: {x: 0, y: 54, width: 64, height: 9}
+  # Text over a chart the size of the panel.
+  over:
+    chart: {x: 0, y: 6, width: 64, height: 52, z: -1}
+    name: {x: 0, y: 4, width: 64, height: 14}
+    value: {x: 0, y: 40, width: 64, height: 18}
+  # One reading over a bullet chart the width of the panel.
+  gauge:
+    name: {x: 0, y: 4, width: 64, height: 6}
+    value: {x: 0, y: 13, width: 64, height: 20}
+    chart: {x: 2, y: 38, width: 60, height: 9}
+    foot: {x: 0, y: 53, width: 64, height: 6}
+  # A table across the panel.
+  sheet:
+    table: {x: 1, y: 1, width: 62, height: 62}
+  tiles:
+    clock: {x: 1, y: 0, width: 24, height: 24}
+    date: {x: 21, y: 0, width: 22, height: 24}
+    weather: {x: 40, y: 0, width: 24, height: 24}
+    sensor: {x: 1, y: 26, width: 24, height: 24}
+    gauge: {x: 26, y: 29, width: 12, height: 18}
+    progress: {x: 39, y: 26, width: 24, height: 24}
+    title: {x: 1, y: 52, width: 62, height: 12}
+  charts:
+    line: {x: 1, y: 1, width: 30, height: 14}
+    area: {x: 33, y: 1, width: 30, height: 14}
+    bars: {x: 1, y: 17, width: 30, height: 13}
+    bullet-name: {x: 33, y: 17, width: 30, height: 6}
+    bullet: {x: 33, y: 24, width: 30, height: 6}
+    table: {x: 1, y: 33, width: 62, height: 30}
+
+tiles:
+  date: {kind: date}
+  clock: {kind: clock}
+  weather: {kind: weather}
+  print: {kind: progress, entity: sensor.demo_print_progress, label: PRINT}
+  laundry: {kind: sensor, entity: sensor.demo_laundry_temperature, label: LNDRY}
+  cover: {kind: art}
+  faint-cover: {kind: art, shape: square, paused_alpha: 1.0, alpha: 0.12, idle: none}
+  full-cover: {kind: art, shape: square, paused_alpha: 1.0, idle: none}
+  pictures: {kind: picture}
+  faint-pictures: {kind: picture, alpha: 0.12}
+  text-4x6: {kind: text, text: "4x6 Aa 12", size: 4x6}
+  text-5x7: {kind: text, text: "5x7 Aa 12", size: 5x7}
+  text-5x8: {kind: text, text: "5x8 Aa 12", size: 5x8}
+  text-6x9: {kind: text, text: "6x9 Aa 12", size: 6x9}
+  text-6x10: {kind: text, text: "6x10 Aa 12", size: 6x10}
+  text-6x12: {kind: text, text: "6x12 Aa 12", size: 6x12}
+  text-6x13: {kind: text, text: "6x13 Aa", size: 6x13}
+  text-7x13: {kind: text, text: "7x13 Aa", size: 7x13}
+  text-7x14: {kind: text, text: "7x14 Aa", size: 7x14}
+  text-8x13: {kind: text, text: "8x13 Aa", size: 8x13}
+  text-9x15: {kind: text, text: "9x15", size: 9x15}
+  text-9x18: {kind: text, text: "9x18", size: 9x18}
+  text-10x20: {kind: text, text: "10x20", size: 10x20}
+  long-10x20: {kind: text, text: "The quick brown duck", size: 10x20}
+  long-6x10: {kind: text, text: "jumps over the lazy dog", size: 6x10, colors: {text: "#ffb000"}}
+  long-4x6: {kind: text, text: "and scrolls when it is too wide", size: 4x6}
+  # The smallest: five to nine pixels a line.
+  tom_thumb_4x6: {kind: text, text: "tom_thumb_4x6", font: tom_thumb_4x6, align: left}
+  micro: {kind: text, text: "micro", font: micro, align: left}
+  pixelle_micro: {kind: text, text: "pixelle_micro", font: pixelle_micro, align: left}
+  tinytim: {kind: text, text: "tinytim", font: tinytim, align: left}
+  haxrcorp4089: {kind: text, text: "haxrcorp4089", font: haxrcorp4089, align: left}
+  squeezed_r7: {kind: text, text: "squeezed_r7", font: squeezed_r7, align: left}
+  squeezed_b7: {kind: text, text: "squeezed_b7", font: squeezed_b7, align: left}
+  nokiafc22: {kind: text, text: "nokiafc22", font: nokiafc22, align: left}
+  # Helvetica, regular (R) and bold (B), by point size.
+  helvR08: {kind: text, text: "helvR08", font: helvR08, align: left}
+  helvB08: {kind: text, text: "helvB08", font: helvB08, align: left}
+  helvR10: {kind: text, text: "helvR10", font: helvR10, align: left}
+  helvB10: {kind: text, text: "helvB10", font: helvB10, align: left}
+  # New Century Schoolbook and Times.
+  ncenR08: {kind: text, text: "ncenR08", font: ncenR08, align: left}
+  ncenB08: {kind: text, text: "ncenB08", font: ncenB08, align: left}
+  ncenB10: {kind: text, text: "ncenB10", font: ncenB10, align: left}
+  ncenB14-label: {kind: text, text: "ncenB14", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  ncenB14: {kind: text, text: "21.4", font: ncenB14, align: left}
+  fub17-label: {kind: text, text: "fub17", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  fub17: {kind: text, text: "21.4", font: fub17, align: left}
+  fub20-label: {kind: text, text: "fub20", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  fub20: {kind: text, text: "21.4", font: fub20, align: left}
+  open_iconic_weather_1x-label: {kind: text, text: "open_iconic_weather_1x", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  # Icons: each character is a picture, from '@' on.
+  open_iconic_weather_1x: {kind: text, text: "@ABCDE", font: open_iconic_weather_1x, align: left}
+  open_iconic_all_1x-label: {kind: text, text: "open_iconic_all_1x", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  open_iconic_all_1x: {kind: text, text: "@ABCDEFG", font: open_iconic_all_1x, align: left}
+  open_iconic_weather_2x-label: {kind: text, text: "open_iconic_weather_2x", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  open_iconic_weather_2x: {kind: text, text: "@AB", font: open_iconic_weather_2x, align: left}
+  # Line charts: the line alone, in the accent colour or one of its own, and
+  # a dot of another colour on the latest value.
+  outside-chart: {kind: line_chart, entity: sensor.demo_outside, line: "#50aaff", dot: "#ff4060"}
+  # The text beside them, from 4x6 to 10x20.
+  outside-name: {kind: text, text: "OUTSIDE", size: 4x6, colors: {text: "#6e6e6e"}}
+  outside-value: {kind: text, text: "21.4°", size: 10x20}
+  outside-foot: {kind: text, text: "LAST 24 HOURS", size: 4x6, colors: {text: "#6e6e6e"}}
+  solar-chart: {kind: line_chart, entity: sensor.demo_solar, dot: "#ffffff"}
+  house-chart: {kind: line_chart, entity: sensor.demo_house, line: "#50aaff"}
+  battery-chart: {kind: line_chart, entity: sensor.demo_battery, line: "#3cdc5a", dot: "#ffffff"}
+  solar-name: {kind: text, text: "SOLAR", size: 4x6, colors: {text: "#6e6e6e"}}
+  solar-value: {kind: text, text: "3.2kW", size: 6x10}
+  house-name: {kind: text, text: "HOUSE", size: 4x6, colors: {text: "#6e6e6e"}}
+  house-value: {kind: text, text: "640W", size: 6x10}
+  battery-name: {kind: text, text: "BATTERY", size: 4x6, colors: {text: "#6e6e6e"}}
+  battery-value: {kind: text, text: "81%", size: 6x10}
+  co2-chart: {kind: line_chart, entity: sensor.demo_co2, line: "#c080ff", dot: "#ffffff"}
+  co2-name: {kind: text, text: "INDOOR CO2", size: 5x8, colors: {text: "#6e6e6e"}}
+  co2-value: {kind: text, text: "612 ppm", size: 6x9}
+  week-chart: {kind: line_chart, entity: sensor.demo_week, hours: 168, line: "#3cdc5a70"}
+  week-name: {kind: text, text: "THIS WEEK", size: 7x14, colors: {text: "#6e6e6e"}}
+  week-value: {kind: text, text: "+4.2%", size: 9x18}
+  # Area charts: the same line over a filled area, in the line's colour
+  # faded unless it has its own, and a gradient down to `area_bottom`.
+  solar-area: {kind: area_chart, entity: sensor.demo_solar, area: "#ffaa00a0", area_bottom: "#ffaa0000", dot: "#ffffff"}
+  sun-name: {kind: text, text: "SOLAR TODAY", size: 4x6, colors: {text: "#6e6e6e"}}
+  sun-value: {kind: text, text: "3.2kW", size: 10x20}
+  sun-foot: {kind: text, text: "PEAK 3.4 KW", size: 4x6, colors: {text: "#6e6e6e"}}
+  down-area: {kind: area_chart, entity: sensor.demo_down, line: "#50aaff"}
+  up-area: {kind: area_chart, entity: sensor.demo_up, line: "#3cdc5a", area: "#3cdc5a90", area_bottom: "#50aaff20"}
+  ping-area: {kind: area_chart, entity: sensor.demo_ping, line: "#ffffff", area: "#7030c0", dot: "#ff4060"}
+  down-name: {kind: text, text: "DOWN", size: 4x6, colors: {text: "#6e6e6e"}}
+  down-value: {kind: text, text: "84Mb", size: 6x10}
+  up-name: {kind: text, text: "UP", size: 4x6, colors: {text: "#6e6e6e"}}
+  up-value: {kind: text, text: "12Mb", size: 6x10}
+  ping-name: {kind: text, text: "PING", size: 4x6, colors: {text: "#6e6e6e"}}
+  ping-value: {kind: text, text: "9ms", size: 6x10}
+  # Bar charts: as many bars as fit at their `width` and `gap`, standing on
+  # zero, the latest in a colour of its own with `last`.
+  rain-bars: {kind: bar_chart, entity: sensor.demo_rain, hours: 168, bar: "#2c6cd0", last: "#50aaff", width: 6, gap: 3}
+  rain-name: {kind: text, text: "RAIN TODAY", size: 4x6, colors: {text: "#6e6e6e"}}
+  rain-value: {kind: text, text: "12mm", size: 10x20}
+  rain-foot: {kind: text, text: "LAST 7 DAYS", size: 4x6, colors: {text: "#6e6e6e"}}
+  energy-bars: {kind: bar_chart, entity: sensor.demo_energy, width: 1, last: "#ffffff"}
+  water-bars: {kind: bar_chart, entity: sensor.demo_water, bar: "#50aaff", last: "#ffffff"}
+  steps-bars: {kind: bar_chart, entity: sensor.demo_steps, bar: "#3cdc5a", width: 4}
+  energy-name: {kind: text, text: "ENERGY", size: 4x6, colors: {text: "#6e6e6e"}}
+  energy-value: {kind: text, text: "18kWh", size: 6x10}
+  water-name: {kind: text, text: "WATER", size: 4x6, colors: {text: "#6e6e6e"}}
+  water-value: {kind: text, text: "210L", size: 6x10}
+  steps-name: {kind: text, text: "STEPS", size: 4x6, colors: {text: "#6e6e6e"}}
+  steps-value: {kind: text, text: "8.4k", size: 6x10}
+  # Bullet charts: a bar along a scale, over bands that say how good it
+  # is, with a marker at the target.
+  budget-bullet: {kind: bullet_chart, entity: sensor.demo_budget, max: 120, target: 100, ranges: [60, 90]}
+  budget-name: {kind: text, text: "BUDGET SPENT", size: 4x6, colors: {text: "#6e6e6e"}}
+  budget-value: {kind: text, text: "72%", size: 10x20}
+  budget-foot: {kind: text, text: "OF 4,000 A MONTH", size: 4x6, colors: {text: "#6e6e6e"}}
+  # A table of them, a row for each row of data: the value and the target
+  # are columns, as a percentage of the plan.
+  targets-table:
+    kind: table
+    data: targets
+    gap: 2
+    rows:
+      - height: 6
+        tiles:
+          - {x: 0, width: 62, tile: {kind: text, text: "% OF PLAN", size: 4x6, align: left, colors: {text: "#6e6e6e"}}}
+      - height: 12
+        repeat: true
+        tiles:
+          - {x: 0, y: 0, width: 40, height: 6, tile: {kind: text, column: name, size: 4x6, align: left, overflow: truncate, colors: {text: "#6e6e6e"}}}
+          - {x: 42, y: 0, width: 20, height: 6, tile: {kind: text, column: shown, size: 4x6, align: right}}
+          - {x: 0, y: 7, width: 62, height: 5, tile: {kind: bullet_chart, column: value, target_column: target, max: 150, ranges: [75, 100], bar: "#50aaff"}}
+  # Tables: rows of a height, each with tiles placed from the row's corner.
+  # Names set left and cut short, numbers set right, a chart on the end;
+  # the table's own colours reach every tile on it. This one's rows are
+  # data: what a query's results would be, pushed to /tables/rooms, and
+  # here the page's own.
+  rooms-table:
+    kind: table
+    data: rooms
+    gap: 1
+    colors: {accent: "#50aaff"}
+    rows:
+      - height: 7
+        tiles:
+          - {x: 0, width: 27, tile: {kind: text, text: "ROOM", size: 4x6, align: left, colors: {text: "#6e6e6e"}}}
+          - {x: 29, width: 19, tile: {kind: text, text: "°C", size: 4x6, align: right, colors: {text: "#6e6e6e"}}}
+          - {x: 50, width: 12, tile: {kind: text, text: "24H", size: 4x6, align: right, colors: {text: "#6e6e6e"}}}
+      # Once for each row of the data, from its columns.
+      - height: 10
+        repeat: true
+        tiles:
+          - {x: 0, width: 27, tile: {kind: text, column: room, size: 4x6, align: left, overflow: truncate}}
+          - {x: 29, width: 19, tile: {kind: text, column: temp, size: 5x8, align: right}}
+          - {x: 50, y: 1, width: 12, height: 8, tile: {kind: line_chart, column: history}}
+  # Taller rows, with a name over its value on the left of each.
+  energy-table:
+    kind: table
+    gap: 1
+    rows:
+      - height: 20
+        tiles:
+          - {x: 0, y: 1, width: 30, height: 6, tile: {kind: text, text: "SOLAR", size: 4x6, align: left, colors: {text: "#6e6e6e"}}}
+          - {x: 0, y: 8, width: 30, height: 12, tile: {kind: text, text: "3.2kW", size: 6x12, align: left}}
+          - {x: 32, y: 1, width: 30, height: 18, tile: solar-area}
+      - height: 20
+        tiles:
+          - {x: 0, y: 1, width: 30, height: 6, tile: {kind: text, text: "HOUSE", size: 4x6, align: left, colors: {text: "#6e6e6e"}}}
+          - {x: 0, y: 8, width: 30, height: 12, tile: {kind: text, text: "640W", size: 6x12, align: left}}
+          - {x: 32, y: 1, width: 30, height: 18, tile: house-chart}
+      - height: 20
+        tiles:
+          - {x: 0, y: 1, width: 30, height: 6, tile: {kind: text, text: "WEEK", size: 4x6, align: left, colors: {text: "#6e6e6e"}}}
+          - {x: 0, y: 8, width: 30, height: 12, tile: {kind: text, text: "96kWh", size: 6x12, align: left}}
+          - {x: 32, y: 1, width: 30, height: 18, tile: energy-bars}
+  sensor: {kind: sensor, entity: sensor.demo_laundry_temperature, label: LNDRY}
+  progress: {kind: progress, entity: sensor.demo_print_progress, label: PRINT}
+  # Text in a U8g2 font, and an icon from another.
+  title: {kind: text, text: "Kitchen sink", font: helvB08}
+  gauge: {kind: text, text: "E", font: open_iconic_weather_2x, colors: {text: "#ffaa00"}}
+  # A chart of each kind.
+  line: {kind: line_chart, entity: sensor.demo_house, line: "#50aaff", dot: "#ffffff"}
+  area: {kind: area_chart, entity: sensor.demo_solar, area: "#ffaa00a0", area_bottom: "#ffaa0000", dot: "#ffffff"}
+  bars: {kind: bar_chart, entity: sensor.demo_rain, hours: 168, bar: "#2c6cd0", last: "#50aaff", width: 3, gap: 1}
+  # Text in a size of the built-in font.
+  bullet-name: {kind: text, text: "BUDGET", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  bullet: {kind: bullet_chart, entity: sensor.demo_budget, max: 120, target: 100, ranges: [60, 90]}
+  # A table: a row for each row of its data, with text and two charts.
+  table:
+    kind: table
+    data: rooms
+    gap: 1
+    rows:
+      - height: 9
+        repeat: true
+        tiles:
+          - {x: 0, y: 1, width: 28, height: 6, tile: {kind: text, column: room, size: 4x6, align: left, overflow: truncate}}
+          - {x: 29, y: 1, width: 8, height: 6, tile: {kind: text, column: temp, size: 4x6, align: right}}
+          - {x: 39, y: 0, width: 12, height: 8, tile: {kind: line_chart, column: history}}
+          - {x: 53, y: 2, width: 9, height: 4, tile: {kind: bullet_chart, column: humidity, ranges: [40, 70], bar: "#3cdc5a"}}
+
+page_seconds: 4.0
+
+pages:
+  # A print filling its progress bar, then the laundry's temperature.
+  print-progress:
+    layout: classic
+    seconds: 5.0
+    tiles: {top_left: clock, top_right: date, bottom_left: print, bottom_right: weather}
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_print_progress: {sweep: [80.0, 100.0], unit: "%"}}
+  # The whole dashboard, plain.
+  dashboard:
+    layout: classic
+    seconds: 5.0
+    tiles: {top_left: clock, top_right: date, bottom_left: laundry, bottom_right: weather}
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+  # A cover in the hub.
+  cover-in-hub:
+    layout: classic
+    seconds: 5.0
+    tiles:
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+      hub: cover
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      cover: 0
+  # The dashboard over the eight newest cached covers.
+  dashboard-over-cover-1:
+    layout: classic
+    tiles:
+      background: faint-cover
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      cover: 0
+  # The covers alone, full strength.
+  cover-1: {layout: classic, tiles: {background: full-cover}, data: {cover: 0}}
+  # The picture frame: the pictures alone.
+  picture-1: {layout: classic, tiles: {background: pictures}, data: {picture: 0}}
+  # The dashboard over the pictures.
+  dashboard-over-picture-1:
+    layout: classic
+    tiles:
+      background: faint-pictures
+      top_left: clock
+      top_right: date
+      bottom_left: laundry
+      bottom_right: weather
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors: {sensor.demo_laundry_temperature: {state: "29", unit: "°C"}}
+      picture: 0
+  small:
+    layout: small
+    tiles:
+      row_1: text-4x6
+      row_2: text-5x7
+      row_3: text-5x8
+      row_4: text-6x9
+      row_5: text-6x10
+      row_6: text-6x12
+  medium:
+    layout: medium
+    tiles: {row_1: text-6x13, row_2: text-7x13, row_3: text-7x14, row_4: text-8x13}
+  large:
+    layout: large
+    tiles: {row_1: text-9x15, row_2: text-9x18, row_3: text-10x20}
+  # Lines wider than the panel scroll, at the same speed in any size.
+  scrolling:
+    layout: scrolling
+    seconds: 30.0
+    tiles: {row_1: long-10x20, row_2: long-6x10, row_3: long-4x6}
+  tiny-1:
+    layout: tiny-1
+    tiles: {row_1: tom_thumb_4x6, row_2: micro, row_3: pixelle_micro, row_4: tinytim, row_5: haxrcorp4089, row_6: squeezed_r7, row_7: squeezed_b7, row_8: nokiafc22}
+  sans-1:
+    layout: sans-1
+    tiles: {row_1: helvR08, row_2: helvB08, row_3: helvR10, row_4: helvB10}
+  serif-1:
+    layout: serif-1
+    tiles: {row_1: ncenR08, row_2: ncenB08, row_3: ncenB10, row_4: ncenB14-label, row_5: ncenB14}
+  display-2:
+    layout: display-2
+    tiles: {row_1: fub17-label, row_2: fub17, row_3: fub20-label, row_4: fub20}
+  icons-1:
+    layout: icons-1
+    tiles: {row_1: open_iconic_weather_1x-label, row_2: open_iconic_weather_1x, row_3: open_iconic_all_1x-label, row_4: open_iconic_all_1x, row_5: open_iconic_weather_2x-label, row_6: open_iconic_weather_2x}
+  outside:
+    layout: reading
+    tiles: {name: outside-name, value: outside-value, chart: outside-chart, foot: outside-foot}
+    data:
+      series:
+        sensor.demo_outside: [11.1, 11.1, 11.0, 10.8, 10.4, 10.3, 10.5, 11.4, 12.8, 14.5, 16.2, 17.5, 18.4, 19.0, 19.6, 20.4, 21.4, 22.5, 23.4, 23.7, 23.3, 22.4, 21.2, 20.1, 19.2, 18.6, 18.0, 17.3, 16.1, 14.7, 13.2, 12.0]
+  energy:
+    layout: rows
+    tiles:
+      name_1: solar-name
+      value_1: solar-value
+      chart_1: solar-chart
+      name_2: house-name
+      value_2: house-value
+      chart_2: house-chart
+      name_3: battery-name
+      value_3: battery-value
+      chart_3: battery-chart
+    data:
+      series:
+        sensor.demo_solar: [0.0, 0.0, 0.1, 0.1, 0.1, 0.2, 0.3, 0.6, 0.8, 0.9, 0.8, 0.8, 1.1, 1.6, 2.0, 2.1, 1.8, 1.6, 1.8, 2.5, 3.1, 3.2, 2.7, 2.2, 2.2, 2.8, 3.4, 3.6, 3.0, 2.3, 2.0, 2.3]
+        sensor.demo_house: [420.0, 552.0, 595.0, 579.0, 604.0, 688.0, 736.0, 676.0, 563.0, 502.0, 501.0, 493.0, 521.0, 521.0, 585.0, 693.0, 738.0, 677.0, 970.0, 946.0, 957.0, 904.0, 440.0, 461.0, 558.0, 680.0, 719.0, 663.0, 610.0, 623.0, 641.0, 572.0]
+        sensor.demo_battery: [38.0, 38.0, 38.0, 38.0, 38.0, 38.0, 39.0, 40.0, 41.0, 42.0, 45.0, 48.0, 51.0, 56.0, 60.0, 65.0, 69.0, 72.0, 75.0, 78.0, 79.0, 80.0, 81.0, 81.0, 82.0, 82.0, 82.0, 82.0, 81.0, 81.0, 81.0, 81.0]
+  home:
+    layout: home
+    tiles: {top_left: clock, top_right: date, name: co2-name, chart: co2-chart, value: co2-value}
+    data:
+      series:
+        sensor.demo_co2: [520.0, 543.0, 559.0, 566.0, 560.0, 545.0, 526.0, 508.0, 498.0, 499.0, 512.0, 534.0, 563.0, 594.0, 625.0, 657.0, 686.0, 707.0, 713.0, 701.0, 675.0, 645.0, 621.0, 611.0, 611.0, 614.0, 613.0, 605.0, 588.0, 568.0, 551.0, 542.0]
+  week:
+    layout: over
+    tiles: {chart: week-chart, name: week-name, value: week-value}
+    data:
+      series:
+        sensor.demo_week: [100.0, 101.2, 101.98, 102.15, 101.84, 101.4, 101.2, 101.39, 101.83, 102.16, 102.05, 101.39, 100.38, 99.44, 98.98, 99.17, 99.86, 100.67, 101.23, 101.38, 101.24, 101.17, 101.49, 102.31, 103.4, 104.37, 104.81, 104.59, 103.87, 103.05, 102.53, 102.47, 102.74, 102.99, 102.9, 102.37, 101.62, 101.03, 100.98, 101.6, 102.67, 103.79, 104.56, 104.81, 104.68, 104.52, 104.66, 105.21]
+  # Area charts: one with a gradient under a reading, then three beside
+  # theirs: the line's colour faded, a gradient between two colours, and a
+  # colour of its own.
+  solar:
+    layout: reading
+    tiles: {name: sun-name, value: sun-value, chart: solar-area, foot: sun-foot}
+    data:
+      series:
+        sensor.demo_solar: [0.0, 0.0, 0.1, 0.1, 0.1, 0.2, 0.3, 0.6, 0.8, 0.9, 0.8, 0.8, 1.1, 1.6, 2.0, 2.1, 1.8, 1.6, 1.8, 2.5, 3.1, 3.2, 2.7, 2.2, 2.2, 2.8, 3.4, 3.6, 3.0, 2.3, 2.0, 2.3]
+  network:
+    layout: rows
+    tiles:
+      name_1: down-name
+      value_1: down-value
+      chart_1: down-area
+      name_2: up-name
+      value_2: up-value
+      chart_2: up-area
+      name_3: ping-name
+      value_3: ping-value
+      chart_3: ping-area
+    data:
+      series:
+        sensor.demo_down: [40.0, 48.0, 57.0, 59.0, 53.0, 49.0, 55.0, 69.0, 79.0, 75.0, 62.0, 51.0, 48.0, 48.0, 46.0, 55.0, 61.0, 59.0, 54.0, 56.0, 68.0, 82.0, 85.0, 75.0, 61.0, 54.0, 55.0, 55.0, 52.0, 61.0, 64.0, 60.0]
+        sensor.demo_up: [10.2, 13.5, 12.5, 11.1, 12.6, 8.4, 8.2, 10.4, 9.8, 13.7, 12.6, 12.5, 13.9, 10.1, 10.6, 9.1, 9.1, 13.5, 12.3, 13.4, 14.9, 11.5, 12.8, 10.4, 8.4, 12.8, 11.7, 13.9, 15.3, 12.7, 14.6, 11.9]
+        sensor.demo_ping: [9.0, 10.0, 11.0, 11.0, 10.0, 9.0, 8.0, 7.0, 7.0, 8.0, 9.0, 14.0, 23.0, 22.0, 13.0, 10.0, 8.0, 7.0, 7.0, 7.0, 8.0, 10.0, 11.0, 11.0, 15.0, 18.0, 10.0, 8.0, 7.0, 7.0, 8.0, 9.0]
+  # Bar charts: a week of wide bars under a reading, then three beside
+  # theirs, one, two and four pixels wide.
+  rain:
+    layout: reading
+    tiles: {name: rain-name, value: rain-value, chart: rain-bars, foot: rain-foot}
+    data:
+      series:
+        sensor.demo_rain: [0.0, 2.5, 7.0, 1.0, 0.0, 4.5, 12.0]
+  usage:
+    layout: rows
+    tiles:
+      name_1: energy-name
+      value_1: energy-value
+      chart_1: energy-bars
+      name_2: water-name
+      value_2: water-value
+      chart_2: water-bars
+      name_3: steps-name
+      value_3: steps-value
+      chart_3: steps-bars
+    data:
+      series:
+        sensor.demo_energy: [11.4, 13.8, 14.5, 13.1, 10.5, 13.1, 15.4, 15.8, 14.3, 11.6, 14.9, 16.9, 17.1, 15.4, 13.4]
+        sensor.demo_water: [232.0, 227.0, 181.0, 231.0, 276.0, 223.0, 211.0, 199.0, 241.0, 276.0]
+        sensor.demo_steps: [8.2, 8.5, 4.7, 7.8, 8.8, 5.4]
+  # Bullet charts: one under a reading, then a table of them from data.
+  budget:
+    layout: gauge
+    tiles: {name: budget-name, value: budget-value, chart: budget-bullet, foot: budget-foot}
+    data:
+      sensors: {sensor.demo_budget: {state: "72"}}
+  targets:
+    layout: sheet
+    tiles: {table: targets-table}
+    data:
+      tables:
+        targets:
+          - {name: REVENUE, shown: "112%", value: 112, target: 100}
+          - {name: PROFIT, shown: "84%", value: 84, target: 100}
+          - {name: CUSTOMERS, shown: "61%", value: 61, target: 90}
+          - {name: RATING, shown: "4.4/5", value: 132, target: 120}
+  # Tables: five rooms from data under a header, then three taller rows.
+  rooms:
+    layout: sheet
+    tiles: {table: rooms-table}
+    data:
+      tables:
+        rooms:
+          - {room: LIVING, temp: 21.4, history: [20.0, 20.4, 20.9, 21.2, 21.5, 21.7, 21.8, 21.8, 21.7, 21.5, 21.3, 21.0, 20.6, 20.3, 20.0, 19.7, 19.5, 19.4, 19.4, 19.5, 19.7, 20.0, 20.4, 20.8]}
+          - {room: KITCHEN, temp: 22.8, history: [21.0, 21.4, 21.5, 21.3, 20.8, 20.5, 20.6, 20.9, 21.3, 21.5, 21.3, 20.9, 20.6, 20.6, 21.1, 22.2, 23.3, 23.9, 23.3, 22.0, 21.1, 20.9, 21.2, 21.5]}
+          - {room: BEDROOM, temp: 18.9, history: [20.0, 20.2, 20.3, 20.4, 20.3, 20.2, 20.0, 19.8, 19.5, 19.2, 18.9, 18.7, 18.6, 18.6, 18.7, 18.8, 18.9, 19.1, 19.2, 19.3, 19.3, 19.2, 19.0, 18.7]}
+          - {room: OFFICE, temp: 23.1, history: [19.0, 19.3, 19.3, 19.1, 18.9, 19.1, 19.6, 20.1, 20.5, 20.8, 21.2, 21.8, 22.5, 22.9, 22.9, 22.7, 22.6, 22.9, 23.2, 23.3, 23.1, 22.8, 22.7, 23.0]}
+          - {room: CONSERVATORY, temp: 27.5, history: [15.0, 15.1, 15.3, 15.8, 16.3, 17.0, 17.8, 18.7, 19.7, 20.7, 21.7, 22.7, 23.7, 24.5, 25.3, 25.9, 26.4, 26.8, 27.0, 27.0, 26.8, 26.5, 26.0, 25.4]}
+  energy-table:
+    layout: sheet
+    tiles: {table: energy-table}
+    data:
+      series:
+        sensor.demo_solar: [0.0, 0.0, 0.1, 0.1, 0.1, 0.2, 0.3, 0.6, 0.8, 0.9, 0.8, 0.8, 1.1, 1.6, 2.0, 2.1, 1.8, 1.6, 1.8, 2.5, 3.1, 3.2, 2.7, 2.2, 2.2, 2.8, 3.4, 3.6, 3.0, 2.3, 2.0, 2.3]
+        sensor.demo_house: [420.0, 552.0, 595.0, 579.0, 604.0, 688.0, 736.0, 676.0, 563.0, 502.0, 501.0, 493.0, 521.0, 521.0, 585.0, 693.0, 738.0, 677.0, 970.0, 946.0, 957.0, 904.0, 440.0, 461.0, 558.0, 680.0, 719.0, 663.0, 610.0, 623.0, 641.0, 572.0]
+        sensor.demo_energy: [11.4, 13.8, 14.5, 13.1, 10.5, 13.1, 15.4, 15.8, 14.3, 11.6, 14.9, 16.9, 17.1, 15.4, 13.4]
+  # Last, as much as fits at once: the tiles on one page, the charts and a
+  # table on the next.
+  tiles:
+    layout: tiles
+    seconds: 8.0
+    tiles: {clock: clock, date: date, weather: weather, sensor: sensor, gauge: gauge, progress: progress, title: title}
+    data:
+      weather: {code: 1, temperature: 72.0}
+      sensors:
+        sensor.demo_laundry_temperature: {state: "29", unit: "°C"}
+        sensor.demo_print_progress: {sweep: [80.0, 100.0], unit: "%"}
+  charts:
+    layout: charts
+    seconds: 8.0
+    tiles: {line: line, area: area, bars: bars, bullet-name: bullet-name, bullet: bullet, table: table}
+    data:
+      sensors:
+        sensor.demo_budget: {state: "72"}
+      series:
+        sensor.demo_house: [420.0, 552.0, 595.0, 579.0, 604.0, 688.0, 736.0, 676.0, 563.0, 502.0, 501.0, 493.0, 521.0, 521.0, 585.0, 693.0, 738.0, 677.0, 970.0, 946.0, 957.0, 904.0, 440.0, 461.0, 558.0, 680.0, 719.0, 663.0, 610.0, 623.0, 641.0, 572.0]
+        sensor.demo_solar: [0.0, 0.0, 0.1, 0.1, 0.1, 0.2, 0.3, 0.6, 0.8, 0.9, 0.8, 0.8, 1.1, 1.6, 2.0, 2.1, 1.8, 1.6, 1.8, 2.5, 3.1, 3.2, 2.7, 2.2, 2.2, 2.8, 3.4, 3.6, 3.0, 2.3, 2.0, 2.3]
+        sensor.demo_rain: [0.0, 2.5, 7.0, 1.0, 0.0, 4.5, 12.0, 3.0]
+      tables:
+        rooms:
+          - {room: LIVING, temp: 21, humidity: 48, history: [20.0, 20.4, 20.9, 21.2, 21.5, 21.7, 21.8, 21.7, 21.3, 20.6, 20.0, 19.5, 19.4, 19.7, 20.4, 20.8]}
+          - {room: KITCHEN, temp: 23, humidity: 61, history: [21.0, 21.4, 21.3, 20.8, 20.6, 21.3, 21.3, 20.6, 21.1, 23.3, 23.9, 22.0, 21.1, 20.9, 21.2, 21.5]}
+          - {room: BEDROOM, temp: 19, humidity: 74, history: [20.0, 20.3, 20.4, 20.2, 19.8, 19.2, 18.7, 18.6, 18.7, 18.9, 19.2, 19.3, 19.2, 19.0, 18.7, 18.9]}

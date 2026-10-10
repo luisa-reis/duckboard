@@ -1,0 +1,280 @@
+# yaml-language-server: $schema=../../panel-ddp.schema.json
+#
+# The kitchen sink for a 128×64 panel: everything the panel can show, a
+# page for each thing, and at the end as much of it as one page holds. It
+# needs no accounts: every page brings its own data, the covers come from
+# the art cache and the pictures from frame/ (pages naming one that is not
+# there are left out).
+#
+#   target/release/panel-ddp run --config docs/demos/kitchen-sink-128x64.yaml --target <board> --once
+
+target: "4.3.2.1"
+
+width: 128
+height: 64
+
+# The gap file, the cover cache and the pictures stay at the top of the
+# repository; paths are relative to this file.
+gaps: ../../2d-gaps-128x64.json
+
+sources: {pictures: {dir: ../../frame}}
+
+art_cache: {dir: ../../art-cache, keep_originals: true}
+
+layouts:
+  # A reading and its day on the left, a table on the right.
+  split:
+    name: {x: 2, y: 2, width: 60, height: 6}
+    value: {x: 2, y: 10, width: 60, height: 20}
+    chart: {x: 2, y: 33, width: 60, height: 22}
+    foot: {x: 2, y: 57, width: 60, height: 6}
+    table: {x: 68, y: 1, width: 59, height: 62}
+  # A table across the panel.
+  sheet:
+    table: {x: 2, y: 1, width: 124, height: 62}
+  # A reading beside its chart, over a chart the width of the panel.
+  wide:
+    name: {x: 2, y: 2, width: 60, height: 6}
+    value: {x: 2, y: 10, width: 60, height: 20}
+    chart: {x: 66, y: 3, width: 60, height: 26}
+    below-name: {x: 2, y: 34, width: 124, height: 6}
+    below: {x: 2, y: 42, width: 124, height: 21}
+  everything:
+    clock: {x: 1, y: 0, width: 24, height: 24}
+    date: {x: 21, y: 0, width: 22, height: 24}
+    weather: {x: 40, y: 0, width: 24, height: 24}
+    sensor: {x: 1, y: 26, width: 24, height: 24}
+    gauge: {x: 26, y: 29, width: 12, height: 18}
+    progress: {x: 39, y: 26, width: 24, height: 24}
+    title: {x: 1, y: 52, width: 62, height: 12}
+    line: {x: 65, y: 1, width: 30, height: 14}
+    area: {x: 97, y: 1, width: 30, height: 14}
+    bars: {x: 65, y: 17, width: 30, height: 13}
+    bullet-name: {x: 97, y: 17, width: 30, height: 6}
+    bullet: {x: 97, y: 24, width: 30, height: 6}
+    table: {x: 65, y: 33, width: 62, height: 30}
+  # The dashboard: a large clock on the left, four tiles on the right, and
+  # a background under all.
+  dashboard:
+    background: {x: 0, y: 0, width: 128, height: 64, z: -1}
+    clock: {x: 6, y: 8, width: 48, height: 48}
+    date: {x: 64, y: 5, width: 24, height: 24}
+    weather: {x: 98, y: 5, width: 24, height: 24}
+    reading: {x: 64, y: 36, width: 24, height: 24}
+    hub: {x: 98, y: 36, width: 24, height: 24}
+  # Lines of text in two columns, each as tall as its font.
+  type:
+    size_1: {x: 2, y: 3, width: 60, height: 6}
+    size_2: {x: 2, y: 10, width: 60, height: 8}
+    size_3: {x: 2, y: 19, width: 60, height: 10}
+    size_4: {x: 2, y: 30, width: 60, height: 13}
+    size_5: {x: 2, y: 44, width: 60, height: 18}
+    font_1: {x: 66, y: 1, width: 60, height: 9}
+    font_2: {x: 66, y: 10, width: 60, height: 10}
+    font_3: {x: 66, y: 20, width: 60, height: 14}
+    font_4: {x: 66, y: 34, width: 60, height: 20}
+    font_5: {x: 66, y: 55, width: 60, height: 8}
+
+tiles:
+  # A reading with an area chart under it.
+  solar-name: {kind: text, text: "SOLAR TODAY", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  solar-value: {kind: text, text: "3.2kW", size: 10x20, align: left}
+  solar-foot: {kind: text, text: "PEAK 3.6 KW", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  solar-area: {kind: area_chart, entity: sensor.demo_solar, area: "#ffaa00a0", area_bottom: "#ffaa0000", dot: "#ffffff"}
+  # A table of fixed rows: a name over its value, a chart beside them.
+  energy-table:
+    kind: table
+    gap: 1
+    rows:
+      - height: 20
+        tiles:
+          - {x: 0, y: 1, width: 30, height: 6, tile: {kind: text, text: "HOUSE", size: 4x6, align: left, colors: {text: "#6e6e6e"}}}
+          - {x: 0, y: 8, width: 30, height: 12, tile: {kind: text, text: "640W", size: 6x12, align: left}}
+          - {x: 32, y: 1, width: 27, height: 18, tile: {kind: line_chart, entity: sensor.demo_house, line: "#50aaff", dot: "#ffffff"}}
+      - height: 20
+        tiles:
+          - {x: 0, y: 1, width: 30, height: 6, tile: {kind: text, text: "WEEK", size: 4x6, align: left, colors: {text: "#6e6e6e"}}}
+          - {x: 0, y: 8, width: 30, height: 12, tile: {kind: text, text: "96kWh", size: 6x12, align: left}}
+          - {x: 32, y: 1, width: 27, height: 18, tile: {kind: bar_chart, entity: sensor.demo_energy, width: 3, gap: 1, last: "#ffffff"}}
+      - height: 20
+        tiles:
+          - {x: 0, y: 1, width: 30, height: 6, tile: {kind: text, text: "BATTERY", size: 4x6, align: left, colors: {text: "#6e6e6e"}}}
+          - {x: 0, y: 8, width: 30, height: 12, tile: {kind: text, text: "81%", size: 6x12, align: left}}
+          - {x: 32, y: 7, width: 27, height: 7, tile: {kind: bullet_chart, entity: sensor.demo_battery, target: 90, ranges: [20, 60], bar: "#3cdc5a"}}
+  # A table with a row for each row of its data: text, then a line chart,
+  # a bar chart and a bullet chart from the row's columns.
+  services-table:
+    kind: table
+    data: services
+    gap: 1
+    rows:
+      - height: 7
+        tiles:
+          - {x: 0, width: 38, tile: {kind: text, text: "SERVICE", size: 4x6, align: left, colors: {text: "#6e6e6e"}}}
+          - {x: 39, width: 16, tile: {kind: text, text: "MS", size: 4x6, align: right, colors: {text: "#6e6e6e"}}}
+          - {x: 59, width: 28, tile: {kind: text, text: "LATENCY", size: 4x6, align: left, colors: {text: "#6e6e6e"}}}
+          - {x: 91, width: 13, tile: {kind: text, text: "REQ", size: 4x6, align: left, colors: {text: "#6e6e6e"}}}
+          - {x: 108, width: 16, tile: {kind: text, text: "LOAD", size: 4x6, align: right, colors: {text: "#6e6e6e"}}}
+      - height: 10
+        repeat: true
+        tiles:
+          - {x: 0, y: 1, width: 38, height: 8, tile: {kind: text, column: name, size: 5x8, align: left, overflow: truncate}}
+          - {x: 39, y: 1, width: 16, height: 8, tile: {kind: text, column: ms, size: 5x8, align: right, overflow: truncate}}
+          - {x: 59, y: 1, width: 28, height: 8, tile: {kind: line_chart, column: latency, line: "#50aaff"}}
+          - {x: 91, y: 1, width: 13, height: 8, tile: {kind: bar_chart, column: requests, bar: "#3cdc5a", width: 1, gap: 1}}
+          - {x: 108, y: 3, width: 16, height: 4, tile: {kind: bullet_chart, column: load, ranges: [50, 80], bar: "#ffffff"}}
+  # A reading beside its day, over a month of bars the width of the panel.
+  outside-name: {kind: text, text: "OUTSIDE", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  outside-value: {kind: text, text: "21.4°", size: 10x20, align: left}
+  outside-chart: {kind: line_chart, entity: sensor.demo_outside, line: "#50aaff", dot: "#ff4060"}
+  rain-name: {kind: text, text: "RAIN, LAST 31 DAYS", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  rain-bars: {kind: bar_chart, entity: sensor.demo_rain, hours: 720, bar: "#2c6cd0", last: "#50aaff", width: 3, gap: 1}
+  # The tiles with a reading of their own.
+  clock: {kind: clock}
+  date: {kind: date}
+  weather: {kind: weather}
+  sensor: {kind: sensor, entity: sensor.demo_laundry_temperature, label: LNDRY}
+  progress: {kind: progress, entity: sensor.demo_print_progress, label: PRINT}
+  # Text in a U8g2 font, and an icon from another.
+  title: {kind: text, text: "Kitchen sink", font: helvB08}
+  gauge: {kind: text, text: "E", font: open_iconic_weather_2x, colors: {text: "#ffaa00"}}
+  # A chart of each kind.
+  line: {kind: line_chart, entity: sensor.demo_house, line: "#50aaff", dot: "#ffffff"}
+  area: {kind: area_chart, entity: sensor.demo_solar, area: "#ffaa00a0", area_bottom: "#ffaa0000", dot: "#ffffff"}
+  bars: {kind: bar_chart, entity: sensor.demo_rain, hours: 168, bar: "#2c6cd0", last: "#50aaff", width: 3, gap: 1}
+  # Text in a size of the built-in font.
+  bullet-name: {kind: text, text: "BUDGET", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  bullet: {kind: bullet_chart, entity: sensor.demo_budget, max: 120, target: 100, ranges: [60, 90]}
+  # A table: a row for each row of its data, with text and two charts.
+  table:
+    kind: table
+    data: rooms
+    gap: 1
+    rows:
+      - height: 9
+        repeat: true
+        tiles:
+          - {x: 0, y: 1, width: 28, height: 6, tile: {kind: text, column: room, size: 4x6, align: left, overflow: truncate}}
+          - {x: 29, y: 1, width: 8, height: 6, tile: {kind: text, column: temp, size: 4x6, align: right}}
+          - {x: 39, y: 0, width: 12, height: 8, tile: {kind: line_chart, column: history}}
+          - {x: 53, y: 2, width: 9, height: 4, tile: {kind: bullet_chart, column: humidity, ranges: [40, 70], bar: "#3cdc5a"}}
+  # The tiles of the dashboard, and album art and pictures behind it.
+  print: {kind: progress, entity: sensor.demo_print_progress, label: PRINT}
+  laundry: {kind: sensor, entity: sensor.demo_laundry_temperature, label: LNDRY}
+  cover: {kind: art}
+  faint-cover: {kind: art, shape: square, paused_alpha: 1.0, alpha: 0.12, idle: none}
+  full-cover: {kind: art, shape: square, paused_alpha: 1.0, idle: none}
+  pictures: {kind: picture}
+  faint-pictures: {kind: picture, alpha: 0.12}
+  # Text: sizes of the built-in font on the left, U8g2 fonts on the right.
+  size-4x6: {kind: text, text: "4x6 Aa 12", size: 4x6, align: left}
+  size-5x8: {kind: text, text: "5x8 Aa 12", size: 5x8, align: left}
+  size-6x10: {kind: text, text: "6x10 Aa", size: 6x10, align: left}
+  size-7x13: {kind: text, text: "7x13 Aa", size: 7x13, align: left}
+  size-9x18: {kind: text, text: "9x18", size: 9x18, align: left}
+  font-haxrcorp4089: {kind: text, text: "haxrcorp4089", font: haxrcorp4089, align: left}
+  font-helvB08: {kind: text, text: "helvB08", font: helvB08, align: left}
+  font-ncenB08: {kind: text, text: "ncenB08", font: ncenB08, align: left}
+  font-logisoso16: {kind: text, text: "21.4", font: logisoso16, align: left}
+  font-icons: {kind: text, text: "@ABCDE", font: open_iconic_weather_1x, align: left, colors: {text: "#ffaa00"}}
+
+page_seconds: 4.0
+
+pages:
+  # The whole dashboard: the clock as large as the panel is tall, the date,
+  # the weather, a sensor, and a print filling the last of its progress bar.
+  dashboard:
+    layout: dashboard
+    seconds: 6.0
+    tiles: {clock: clock, date: date, weather: weather, reading: laundry, hub: print}
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors:
+        sensor.demo_laundry_temperature: {state: "29", unit: "°C"}
+        sensor.demo_print_progress: {sweep: [80.0, 100.0], unit: "%"}
+  # A cover in place of the print, then behind everything, then alone.
+  cover-in-hub:
+    layout: dashboard
+    tiles: {clock: clock, date: date, weather: weather, reading: laundry, hub: cover}
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors:
+        sensor.demo_laundry_temperature: {state: "29", unit: "°C"}
+        sensor.demo_print_progress: {sweep: [80.0, 100.0], unit: "%"}
+      cover: 0
+  dashboard-over-cover:
+    layout: dashboard
+    tiles: {background: faint-cover, clock: clock, date: date, weather: weather, reading: laundry, hub: print}
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors:
+        sensor.demo_laundry_temperature: {state: "29", unit: "°C"}
+        sensor.demo_print_progress: {sweep: [80.0, 100.0], unit: "%"}
+      cover: 0
+  cover: {layout: dashboard, tiles: {background: full-cover}, data: {cover: 0}}
+  # The same with a picture from frame/.
+  picture: {layout: dashboard, tiles: {background: pictures}, data: {picture: 0}}
+  dashboard-over-picture:
+    layout: dashboard
+    tiles: {background: faint-pictures, clock: clock, date: date, weather: weather, reading: laundry, hub: print}
+    data:
+      weather: {code: 0, temperature: 72.0}
+      sensors:
+        sensor.demo_laundry_temperature: {state: "29", unit: "°C"}
+        sensor.demo_print_progress: {sweep: [80.0, 100.0], unit: "%"}
+      picture: 0
+  type:
+    layout: type
+    seconds: 6.0
+    tiles:
+      {size_1: size-4x6, size_2: size-5x8, size_3: size-6x10, size_4: size-7x13, size_5: size-9x18,
+       font_1: font-haxrcorp4089, font_2: font-helvB08, font_3: font-ncenB08, font_4: font-logisoso16, font_5: font-icons}
+  energy:
+    layout: split
+    tiles: {name: solar-name, value: solar-value, chart: solar-area, foot: solar-foot, table: energy-table}
+    data:
+      sensors: {sensor.demo_battery: {state: "81"}}
+      series:
+        sensor.demo_solar: [0.0, 0.0, 0.1, 0.1, 0.1, 0.2, 0.3, 0.6, 0.8, 0.9, 0.8, 0.8, 1.1, 1.6, 2.0, 2.1, 1.8, 1.6, 1.8, 2.5, 3.1, 3.2, 2.7, 2.2, 2.2, 2.8, 3.4, 3.6, 3.0, 2.3, 2.0, 2.3]
+        sensor.demo_house: [420.0, 552.0, 595.0, 579.0, 604.0, 688.0, 736.0, 676.0, 563.0, 502.0, 501.0, 493.0, 521.0, 521.0, 585.0, 693.0, 738.0, 677.0, 970.0, 946.0, 957.0, 904.0, 440.0, 461.0, 558.0, 680.0, 719.0, 663.0, 610.0, 623.0, 641.0, 572.0]
+        sensor.demo_energy: [11.4, 13.8, 14.5, 13.1, 10.5, 13.1, 15.4]
+  services:
+    layout: sheet
+    tiles: {table: services-table}
+    data:
+      tables:
+        services:
+          - {name: reports, ms: 260, load: 87, latency: [300, 280, 240, 250, 290, 270, 255, 262, 248, 275, 268, 260], requests: [2, 3, 1, 4, 6, 3, 2, 5]}
+          - {name: search, ms: 131, load: 64, latency: [90, 120, 150, 140, 125, 160, 138, 122, 118, 135, 142, 131], requests: [70, 64, 58, 61, 75, 82, 79, 68]}
+          - {name: billing, ms: 77, load: 38, latency: [80, 70, 75, 79, 83, 72, 74, 81, 76, 73, 78, 77], requests: [5, 9, 7, 12, 8, 6, 10, 11]}
+          - {name: api, ms: 42, load: 52, latency: [40, 44, 41, 47, 39, 42, 45, 43, 40, 46, 41, 42], requests: [30, 42, 55, 61, 48, 37, 52, 66]}
+          - {name: auth, ms: 18, load: 12, latency: [20, 19, 17, 18, 21, 17, 18, 19, 16, 18, 17, 18], requests: [12, 15, 11, 18, 22, 19, 14, 16]}
+  outside:
+    layout: wide
+    tiles: {name: outside-name, value: outside-value, chart: outside-chart, below-name: rain-name, below: rain-bars}
+    data:
+      series:
+        sensor.demo_outside: [11.1, 11.1, 11.0, 10.8, 10.4, 10.3, 10.5, 11.4, 12.8, 14.5, 16.2, 17.5, 18.4, 19.0, 19.6, 20.4, 21.4, 22.5, 23.4, 23.7, 23.3, 22.4, 21.2, 20.1, 19.2, 18.6, 18.0, 17.3, 16.1, 14.7, 13.2, 12.0]
+        sensor.demo_rain: [0.0, 2.5, 7.0, 1.0, 0.0, 4.5, 12.0, 3.0, 0.0, 0.0, 6.0, 9.0, 2.0, 0.0, 1.5, 0.0, 0.0, 8.5, 14.0, 5.0, 1.0, 0.0, 0.0, 3.5, 6.5, 2.0, 0.0, 0.5, 4.0, 11.0, 7.5]
+  # Last, as much as fits at once.
+  everything:
+    layout: everything
+    seconds: 10.0
+    tiles:
+      {clock: clock, date: date, weather: weather, sensor: sensor, gauge: gauge, progress: progress, title: title,
+       line: line, area: area, bars: bars, bullet-name: bullet-name, bullet: bullet, table: table}
+    data:
+      weather: {code: 1, temperature: 72.0}
+      sensors:
+        sensor.demo_laundry_temperature: {state: "29", unit: "°C"}
+        sensor.demo_print_progress: {sweep: [80.0, 100.0], unit: "%"}
+        sensor.demo_budget: {state: "72"}
+      series:
+        sensor.demo_house: [420.0, 552.0, 595.0, 579.0, 604.0, 688.0, 736.0, 676.0, 563.0, 502.0, 501.0, 493.0, 521.0, 521.0, 585.0, 693.0, 738.0, 677.0, 970.0, 946.0, 957.0, 904.0, 440.0, 461.0, 558.0, 680.0, 719.0, 663.0, 610.0, 623.0, 641.0, 572.0]
+        sensor.demo_solar: [0.0, 0.0, 0.1, 0.1, 0.1, 0.2, 0.3, 0.6, 0.8, 0.9, 0.8, 0.8, 1.1, 1.6, 2.0, 2.1, 1.8, 1.6, 1.8, 2.5, 3.1, 3.2, 2.7, 2.2, 2.2, 2.8, 3.4, 3.6, 3.0, 2.3, 2.0, 2.3]
+        sensor.demo_rain: [0.0, 2.5, 7.0, 1.0, 0.0, 4.5, 12.0, 3.0]
+      tables:
+        rooms:
+          - {room: LIVING, temp: 21, humidity: 48, history: [20.0, 20.4, 20.9, 21.2, 21.5, 21.7, 21.8, 21.7, 21.3, 20.6, 20.0, 19.5, 19.4, 19.7, 20.4, 20.8]}
+          - {room: KITCHEN, temp: 23, humidity: 61, history: [21.0, 21.4, 21.3, 20.8, 20.6, 21.3, 21.3, 20.6, 21.1, 23.3, 23.9, 22.0, 21.1, 20.9, 21.2, 21.5]}
+          - {room: BEDROOM, temp: 19, humidity: 74, history: [20.0, 20.3, 20.4, 20.2, 19.8, 19.2, 18.7, 18.6, 18.7, 18.9, 19.2, 19.3, 19.2, 19.0, 18.7, 18.9]}

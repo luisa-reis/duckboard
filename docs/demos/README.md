@@ -47,6 +47,22 @@ copy and edit: the weather, Home Assistant and Spotify as sources, a day
 and a night playlist and a schedule. Its three pages, `home`, `music` and
 `night`, are drawn here on sample data, since it needs accounts to run.
 
+## The kitchen sink
+
+| `kitchen-sink.yaml` | `kitchen-sink-128x64.yaml` |
+|---|---|
+| ![Everything on a 64×64 panel](kitchen-sink.png) | ![Everything on a 128×64 panel](kitchen-sink-128x64.png) |
+
+Everything in one file, for each panel size: a page or two from each of
+the demos below (the `clock`, the `date`, the `weather`, a `progress` bar, a
+`sensor`, `art` and `picture` tiles, text in every size and in
+U8g2 fonts, line, area, bar and bullet charts, tables), and as the last
+page as much of it as fits at once. That is two pages on a 64×64 panel,
+the tiles and then the charts, and one on a 128×64, whose first page is
+the dashboard around a clock twice the usual size. The pages with a cover
+or a picture are left out where there is none, as in these pictures. Only
+`now_playing` is missing: it needs a player.
+
 ## Tile kinds
 
 ### Text
