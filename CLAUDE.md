@@ -115,9 +115,9 @@ and the launchd plist are in `docs/dashboard.md` under "Installing".
 - The pictures in `docs/demos`, some of them in the README too, are
   `preview` output: `sh docs/demos/render.sh` draws them all again, from
   copies of the configs in an empty directory so that no gap file, cover
-  or picture is in them, `dashboard.example.yaml`'s pages too. Draw them
-  again when a demo or its tiles' drawing
-  changes; jujutsu refuses a new file over 1 MiB. Update the docs
+  or picture is in them, `dashboard.example.yaml` too. The moving ones
+  are animated PNGs named `.png`, which is what GitHub shows. Draw them again
+  when a demo or its tiles' drawing changes. Update the docs
   alongside behaviour or config changes, the schema alongside the format's
   types, and `dashboard.example.yaml` alongside new settings.
 - When editing a config, run `panel-ddp check` on it; refactors of the

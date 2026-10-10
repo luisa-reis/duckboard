@@ -9,7 +9,7 @@ presets.
 
 | The demo | Line charts | Tables | Bullet charts |
 |---|---|---|---|
-| ![The demo: the date, the clock, the weather, a progress bar, a sensor and an alert](docs/demos/demo.gif) | ![Line charts beside text of different sizes](docs/demos/line-charts.gif) | ![Tables of text and charts](docs/demos/tables.gif) | ![Bullet charts, one alone and a table of them](docs/demos/bullet-charts.gif) |
+| ![The demo: the date, the clock, the weather, a progress bar, a sensor and an alert](docs/demos/demo.png) | ![Line charts beside text of different sizes](docs/demos/line-charts.png) | ![Tables of text and charts](docs/demos/tables.png) | ![Bullet charts, one alone and a table of them](docs/demos/bullet-charts.png) |
 
 These are the program's own previews of the demos in
 [docs/demos](docs/demos/README.md), four times the panel's 64×64 pixels;

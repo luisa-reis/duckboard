@@ -793,6 +793,7 @@ target/release/panel-ddp preview --all --out p.png  # every page, a still pictur
 target/release/panel-ddp preview --all-in-one --out p.gif  # every page in the file, in order, each for its time, as one animation
 target/release/panel-ddp preview --out preview.gif  # the first page animated, for its time; --seconds N for longer or shorter
 target/release/panel-ddp preview --out preview.apng # the same as an animated PNG, in full colour (GIF has 256 a frame)
+                                                    # both store only what changes between frames: a still page costs next to nothing
 target/release/panel-ddp preview --weather-code 95  # check an icon (add 1000 for night)
 target/release/panel-ddp preview --alert            # the alert view
 target/release/panel-ddp test <board-ip>            # colour bars, ramp, counter, bouncing dot; --size 128x64 for another panel

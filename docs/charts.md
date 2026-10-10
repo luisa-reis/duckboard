@@ -18,7 +18,7 @@ The demos in the repository use all of it:
 - `docs/demos/uptime.yaml` — this machine's load, from a script around
   `uptime` (`docs/demos/uptime.sh`).
 
-![The line chart demo](demos/line-charts.gif)
+![The line chart demo](demos/line-charts.png)
 
 ## Where a chart's values come from
 
