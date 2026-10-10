@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=panel-ddp.schema.json
+#
+# A table and two charts filled by commands: the panel runs each one on a
+# timer and draws the JSON it prints. Here they are SQLite queries, made up
+# in memory so the example needs no database; point them at a file, or at
+# `duckdb -json` or `psql`, for real ones (docs/dashboard.md, "Data from a
+# command").
+#
+#   target/release/panel-ddp run --config commands.example.yaml --target <board>
+
+target: "4.3.2.1"
+
+sources:
+  commands:
+    # A table's rows: one object a row, as `sqlite3 -json` prints them. The
+    # `latency` column is a JSON array, for the chart on each row.
+    - table: services
+      every: 30
+      run:
+        - sqlite3
+        - -json
+        - ":memory:"
+        - |
+          WITH s(name, ms, latency) AS (VALUES
+            ('api',     42,  json_array(40, 44, 41, 47, 42)),
+            ('auth',    18,  json_array(20, 19, 17, 18, 18)),
+            ('search',  131, json_array(90, 120, 150, 140, 131)),
+            ('billing', 77,  json_array(80, 70, 75, 79, 77)),
+            ('reports', 260, json_array(300, 280, 240, 250, 260)))
+          SELECT name, ms, latency, min(100, ms * 100 / 300) AS load FROM s ORDER BY ms DESC
+    # A chart's series: rows with the numbers in one column.
+    - series: orders
+      every: 30
+      run:
+        - sqlite3
+        - -json
+        - ":memory:"
+        - |
+          WITH RECURSIVE hour(h) AS (SELECT 0 UNION ALL SELECT h + 1 FROM hour WHERE h < 23)
+          SELECT (h * h * 7 + h * 13) % 40 + h AS orders FROM hour
+    # One number, for a bullet chart: a pipeline needs a shell.
+    - series: disk
+      every: 60
+      run: ["sh", "-c", "df -k / | awk 'NR == 2 { printf \"%d\", $5 }'"]
+
+layouts:
+  sheet:
+    table: {x: 1, y: 1, width: 62, height: 62}
+  charts:
+    name_1: {x: 1, y: 2, width: 62, height: 6}
+    chart_1: {x: 1, y: 10, width: 62, height: 24}
+    name_2: {x: 1, y: 40, width: 62, height: 6}
+    chart_2: {x: 1, y: 49, width: 62, height: 9}
+
+tiles:
+  services:
+    kind: table
+    data: services
+    gap: 1
+    rows:
+      - height: 7
+        tiles:
+          - {x: 0, width: 28, tile: {kind: text, text: "NAME", size: 4x6, align: left, colors: {text: "#6e6e6e"}}}
+          - {x: 29, width: 11, tile: {kind: text, text: "MS", size: 4x6, align: right, colors: {text: "#6e6e6e"}}}
+      - height: 10
+        repeat: true
+        tiles:
+          - {x: 0, width: 28, tile: {kind: text, column: name, size: 4x6, align: left, overflow: truncate}}
+          - {x: 29, width: 11, tile: {kind: text, column: ms, size: 4x6, align: right, overflow: truncate}}
+          - {x: 42, y: 1, width: 9, height: 8, tile: {kind: line_chart, column: latency, line: "#50aaff"}}
+          - {x: 53, y: 3, width: 9, height: 4, tile: {kind: bullet_chart, column: load, ranges: [50, 80], bar: "#3cdc5a"}}
+  orders: {kind: bar_chart, series: orders, bar: "#2c6cd0", last: "#50aaff"}
+  orders-name: {kind: text, text: "ORDERS BY HOUR", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  disk: {kind: bullet_chart, series: disk, target: 80, ranges: [60, 85]}
+  disk-name: {kind: text, text: "DISK USED %", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+
+page_seconds: 10
+
+pages:
+  services:
+    layout: sheet
+    tiles: {table: services}
+  charts:
+    layout: charts
+    tiles: {name_1: orders-name, chart_1: orders, name_2: disk-name, chart_2: disk}
