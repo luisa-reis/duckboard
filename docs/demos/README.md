@@ -25,11 +25,16 @@ filling, a `sensor` reading, and an alert. With covers in the art cache and
 pictures in `frame/` it goes on to the `art` and `picture` tiles, alone and
 behind the dashboard.
 
+## A wider panel
+
 | `demo-128x64.yaml` |
 |---|
-| ![The tour on a 128×64 panel](demo-128x64.png) |
+| ![Three dashboards on a 128×64 panel](demo-128x64.png) |
 
-The same for a 128×64 panel.
+For a 128×64 panel (`width` and `height` in the config), three dashboards
+that use the whole width: a reading over an area chart beside a table of
+readings, a table with a line chart, a bar chart and a bullet chart on each
+row of its data, and a reading beside its day over a month of bars.
 
 ## The starting point
 
