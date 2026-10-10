@@ -486,6 +486,9 @@ struct PreviewOpts {
 fn preview_one(cfg: Model, mask: &Mask, out: &Path, opts: &PreviewOpts) -> Result<()> {
     let PreviewOpts { test, alert: alert_preview, weather_code, seconds } = *opts;
     let animated = out.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).filter(|e| e == "gif" || e == "apng");
+    if let Some(dir) = out.parent().filter(|d| !d.as_os_str().is_empty()) {
+        std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
+    }
     let (size, fps) = (cfg.size(), cfg.fps.max(1));
     let show = if test { None } else { Some(Show::new(cfg)?) };
     let start = chrono::Local::now();
