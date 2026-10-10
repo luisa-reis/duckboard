@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../panel-ddp.schema.json
+#
+# The bar chart demo: a week of wide bars under a reading, then three
+# charts one, two and four pixels a bar. It needs no accounts: every page
+# brings its own series.
+#
+#   target/release/panel-ddp run --config docs/demos/bar-charts.yaml --target <board> --once
+
+target: "4.3.2.1"
+
+# The gap file is at the top of the repository; paths are relative to this
+# file.
+gaps: ../../2d-gaps.json
+
+layouts:
+  # One reading: its name, the value large, and its day under it.
+  reading:
+    name: {x: 0, y: 2, width: 64, height: 6}
+    value: {x: 0, y: 10, width: 64, height: 20}
+    chart: {x: 2, y: 33, width: 60, height: 21}
+    foot: {x: 0, y: 57, width: 64, height: 6}
+  # Three readings, each a name over its value with its chart beside it.
+  rows:
+    name_1: {x: 1, y: 2, width: 30, height: 6}
+    value_1: {x: 1, y: 9, width: 30, height: 10}
+    chart_1: {x: 33, y: 3, width: 30, height: 15}
+    name_2: {x: 1, y: 23, width: 30, height: 6}
+    value_2: {x: 1, y: 30, width: 30, height: 10}
+    chart_2: {x: 33, y: 24, width: 30, height: 15}
+    name_3: {x: 1, y: 44, width: 30, height: 6}
+    value_3: {x: 1, y: 51, width: 30, height: 10}
+    chart_3: {x: 33, y: 45, width: 30, height: 15}
+
+tiles:
+  # Bar charts: as many bars as fit at their `width` and `gap`, standing on
+  # zero, the latest in a colour of its own with `last`.
+  rain-bars: {kind: bar_chart, entity: sensor.demo_rain, hours: 168, bar: "#2c6cd0", last: "#50aaff", width: 6, gap: 3}
+  energy-bars: {kind: bar_chart, entity: sensor.demo_energy, width: 1, last: "#ffffff"}
+  water-bars: {kind: bar_chart, entity: sensor.demo_water, bar: "#50aaff", last: "#ffffff"}
+  steps-bars: {kind: bar_chart, entity: sensor.demo_steps, bar: "#3cdc5a", width: 4}
+  rain-name: {kind: text, text: "RAIN TODAY", size: 4x6, colors: {text: "#6e6e6e"}}
+  rain-value: {kind: text, text: "12mm", size: 10x20}
+  rain-foot: {kind: text, text: "LAST 7 DAYS", size: 4x6, colors: {text: "#6e6e6e"}}
+  energy-name: {kind: text, text: "ENERGY", size: 4x6, colors: {text: "#6e6e6e"}}
+  energy-value: {kind: text, text: "18kWh", size: 6x10}
+  water-name: {kind: text, text: "WATER", size: 4x6, colors: {text: "#6e6e6e"}}
+  water-value: {kind: text, text: "210L", size: 6x10}
+  steps-name: {kind: text, text: "STEPS", size: 4x6, colors: {text: "#6e6e6e"}}
+  steps-value: {kind: text, text: "8.4k", size: 6x10}
+
+page_seconds: 5.0
+
+pages:
+  # Bar charts: a week of wide bars under a reading, then three beside
+  # theirs, one, two and four pixels wide.
+  rain:
+    layout: reading
+    tiles: {name: rain-name, value: rain-value, chart: rain-bars, foot: rain-foot}
+    data:
+      series:
+        sensor.demo_rain: [0.0, 2.5, 7.0, 1.0, 0.0, 4.5, 12.0]
+  usage:
+    layout: rows
+    tiles:
+      name_1: energy-name
+      value_1: energy-value
+      chart_1: energy-bars
+      name_2: water-name
+      value_2: water-value
+      chart_2: water-bars
+      name_3: steps-name
+      value_3: steps-value
+      chart_3: steps-bars
+    data:
+      series:
+        sensor.demo_energy: [11.4, 13.8, 14.5, 13.1, 10.5, 13.1, 15.4, 15.8, 14.3, 11.6, 14.9, 16.9, 17.1, 15.4, 13.4]
+        sensor.demo_water: [232.0, 227.0, 181.0, 231.0, 276.0, 223.0, 211.0, 199.0, 241.0, 276.0]
+        sensor.demo_steps: [8.2, 8.5, 4.7, 7.8, 8.8, 5.4]

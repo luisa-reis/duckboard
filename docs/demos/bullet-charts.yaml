@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../panel-ddp.schema.json
+#
+# The bullet chart demo: a bar along a scale with bands and a target, one
+# under a reading and then a table of them. It needs no accounts: every
+# page brings its own data.
+#
+#   target/release/panel-ddp run --config docs/demos/bullet-charts.yaml --target <board> --once
+
+target: "4.3.2.1"
+
+# The gap file is at the top of the repository; paths are relative to this
+# file.
+gaps: ../../2d-gaps.json
+
+layouts:
+  # A table across the panel.
+  sheet:
+    table: {x: 1, y: 1, width: 62, height: 62}
+  # One reading over a bullet chart the width of the panel.
+  gauge:
+    name: {x: 0, y: 4, width: 64, height: 6}
+    value: {x: 0, y: 13, width: 64, height: 20}
+    chart: {x: 2, y: 38, width: 60, height: 9}
+    foot: {x: 0, y: 53, width: 64, height: 6}
+
+tiles:
+  # Bullet charts: a bar along a scale, over bands that say how good it
+  # is, with a marker at the target.
+  budget-bullet: {kind: bullet_chart, entity: sensor.demo_budget, max: 120, target: 100, ranges: [60, 90]}
+  # A table of them, a row for each row of data: the value and the target
+  # are columns, as a percentage of the plan.
+  targets-table:
+    kind: table
+    data: targets
+    gap: 2
+    rows:
+      - height: 6
+        tiles:
+          - {x: 0, width: 62, tile: {kind: text, text: "% OF PLAN", size: 4x6, align: left, colors: {text: "#6e6e6e"}}}
+      - height: 12
+        repeat: true
+        tiles:
+          - {x: 0, y: 0, width: 40, height: 6, tile: {kind: text, column: name, size: 4x6, align: left, overflow: truncate, colors: {text: "#6e6e6e"}}}
+          - {x: 42, y: 0, width: 20, height: 6, tile: {kind: text, column: shown, size: 4x6, align: right}}
+          - {x: 0, y: 7, width: 62, height: 5, tile: {kind: bullet_chart, column: value, target_column: target, max: 150, ranges: [75, 100], bar: "#50aaff"}}
+  budget-name: {kind: text, text: "BUDGET SPENT", size: 4x6, colors: {text: "#6e6e6e"}}
+  budget-value: {kind: text, text: "72%", size: 10x20}
+  budget-foot: {kind: text, text: "OF 4,000 A MONTH", size: 4x6, colors: {text: "#6e6e6e"}}
+
+page_seconds: 5.0
+
+pages:
+  # Bullet charts: one under a reading, then a table of them from data.
+  budget:
+    layout: gauge
+    tiles: {name: budget-name, value: budget-value, chart: budget-bullet, foot: budget-foot}
+    data:
+      sensors: {sensor.demo_budget: {state: "72"}}
+  targets:
+    layout: sheet
+    tiles: {table: targets-table}
+    data:
+      tables:
+        targets:
+          - {name: REVENUE, shown: "112%", value: 112, target: 100}
+          - {name: PROFIT, shown: "84%", value: 84, target: 100}
+          - {name: CUSTOMERS, shown: "61%", value: 61, target: 90}
+          - {name: RATING, shown: "4.4/5", value: 132, target: 120}

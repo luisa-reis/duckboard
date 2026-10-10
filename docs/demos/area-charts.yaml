@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../../panel-ddp.schema.json
+#
+# The area chart demo: a line over a filled area, in the line's colour
+# faded, a colour of its own, or a gradient. It needs no accounts: every
+# page brings its own series.
+#
+#   target/release/panel-ddp run --config docs/demos/area-charts.yaml --target <board> --once
+
+target: "4.3.2.1"
+
+# The gap file is at the top of the repository; paths are relative to this
+# file.
+gaps: ../../2d-gaps.json
+
+layouts:
+  # One reading: its name, the value large, and its day under it.
+  reading:
+    name: {x: 0, y: 2, width: 64, height: 6}
+    value: {x: 0, y: 10, width: 64, height: 20}
+    chart: {x: 2, y: 33, width: 60, height: 21}
+    foot: {x: 0, y: 57, width: 64, height: 6}
+  # Three readings, each a name over its value with its chart beside it.
+  rows:
+    name_1: {x: 1, y: 2, width: 30, height: 6}
+    value_1: {x: 1, y: 9, width: 30, height: 10}
+    chart_1: {x: 33, y: 3, width: 30, height: 15}
+    name_2: {x: 1, y: 23, width: 30, height: 6}
+    value_2: {x: 1, y: 30, width: 30, height: 10}
+    chart_2: {x: 33, y: 24, width: 30, height: 15}
+    name_3: {x: 1, y: 44, width: 30, height: 6}
+    value_3: {x: 1, y: 51, width: 30, height: 10}
+    chart_3: {x: 33, y: 45, width: 30, height: 15}
+
+tiles:
+  # Area charts: the same line over a filled area, in the line's colour
+  # faded unless it has its own, and a gradient down to `area_bottom`.
+  solar-area: {kind: area_chart, entity: sensor.demo_solar, area: "#ffaa00a0", area_bottom: "#ffaa0000", dot: "#ffffff"}
+  down-area: {kind: area_chart, entity: sensor.demo_down, line: "#50aaff"}
+  up-area: {kind: area_chart, entity: sensor.demo_up, line: "#3cdc5a", area: "#3cdc5a90", area_bottom: "#50aaff20"}
+  ping-area: {kind: area_chart, entity: sensor.demo_ping, line: "#ffffff", area: "#7030c0", dot: "#ff4060"}
+  sun-name: {kind: text, text: "SOLAR TODAY", size: 4x6, colors: {text: "#6e6e6e"}}
+  sun-value: {kind: text, text: "3.2kW", size: 10x20}
+  sun-foot: {kind: text, text: "PEAK 3.4 KW", size: 4x6, colors: {text: "#6e6e6e"}}
+  down-name: {kind: text, text: "DOWN", size: 4x6, colors: {text: "#6e6e6e"}}
+  down-value: {kind: text, text: "84Mb", size: 6x10}
+  up-name: {kind: text, text: "UP", size: 4x6, colors: {text: "#6e6e6e"}}
+  up-value: {kind: text, text: "12Mb", size: 6x10}
+  ping-name: {kind: text, text: "PING", size: 4x6, colors: {text: "#6e6e6e"}}
+  ping-value: {kind: text, text: "9ms", size: 6x10}
+
+page_seconds: 5.0
+
+pages:
+  # Area charts: one with a gradient under a reading, then three beside
+  # theirs: the line's colour faded, a gradient between two colours, and a
+  # colour of its own.
+  solar:
+    layout: reading
+    tiles: {name: sun-name, value: sun-value, chart: solar-area, foot: sun-foot}
+    data:
+      series:
+        sensor.demo_solar: [0.0, 0.0, 0.1, 0.1, 0.1, 0.2, 0.3, 0.6, 0.8, 0.9, 0.8, 0.8, 1.1, 1.6, 2.0, 2.1, 1.8, 1.6, 1.8, 2.5, 3.1, 3.2, 2.7, 2.2, 2.2, 2.8, 3.4, 3.6, 3.0, 2.3, 2.0, 2.3]
+  network:
+    layout: rows
+    tiles:
+      name_1: down-name
+      value_1: down-value
+      chart_1: down-area
+      name_2: up-name
+      value_2: up-value
+      chart_2: up-area
+      name_3: ping-name
+      value_3: ping-value
+      chart_3: ping-area
+    data:
+      series:
+        sensor.demo_down: [40.0, 48.0, 57.0, 59.0, 53.0, 49.0, 55.0, 69.0, 79.0, 75.0, 62.0, 51.0, 48.0, 48.0, 46.0, 55.0, 61.0, 59.0, 54.0, 56.0, 68.0, 82.0, 85.0, 75.0, 61.0, 54.0, 55.0, 55.0, 52.0, 61.0, 64.0, 60.0]
+        sensor.demo_up: [10.2, 13.5, 12.5, 11.1, 12.6, 8.4, 8.2, 10.4, 9.8, 13.7, 12.6, 12.5, 13.9, 10.1, 10.6, 9.1, 9.1, 13.5, 12.3, 13.4, 14.9, 11.5, 12.8, 10.4, 8.4, 12.8, 11.7, 13.9, 15.3, 12.7, 14.6, 11.9]
+        sensor.demo_ping: [9.0, 10.0, 11.0, 11.0, 10.0, 9.0, 8.0, 7.0, 7.0, 8.0, 9.0, 14.0, 23.0, 22.0, 13.0, 10.0, 8.0, 7.0, 7.0, 7.0, 8.0, 10.0, 11.0, 11.0, 15.0, 18.0, 10.0, 8.0, 7.0, 7.0, 8.0, 9.0]
