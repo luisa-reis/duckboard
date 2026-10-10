@@ -59,8 +59,8 @@ nothing.
 A tile lays its content out for 24 pixels of height, centred in a taller or
 shorter region, and takes the region's width: the clock's ring is the
 largest circle that fits, text is centred and fitted to the width, the
-progress bar spans it. Fonts do not scale, and what does not fit is clipped
-to the region. Album art and pictures are decoded at every size they show
+progress bar spans it. Fonts do not scale, but for the clock's digits, and
+what does not fit is clipped to the region. Album art and pictures are decoded at every size they show
 at, and the disc is the largest circle that fits.
 
 ### Tile kinds
@@ -72,7 +72,8 @@ how to lay a page out and check it, by hand or with an agent.
 No source needed:
 
 - `clock` — hours over minutes inside a seconds ring, advanced once a
-  second: `seconds: dot` (the default) moves a dot of `dot_size` ring
+  second. The digits grow with the ring: `6x10` in a region 24 pixels
+  across, `8x13` from 31, `9x15` from 35 and `10x20` from 45. `seconds: dot` (the default) moves a dot of `dot_size` ring
   pixels (default 2) round it like a second hand, `seconds: ring` fills
   it clockwise from twelve.
 - `date` — weekday, day of month, month.
@@ -794,7 +795,7 @@ target/release/panel-ddp preview --out preview.png  # the first page from sample
 target/release/panel-ddp preview --page home        # that page instead of the first
 target/release/panel-ddp preview --commands         # run sources.commands once and draw what they print, not made-up values
 target/release/panel-ddp preview --push "sh docs/demos/http-push.sh"   # serve sources.http while that runs and draw what it pushed
-target/release/panel-ddp preview --all --out p.png  # every page, a still picture each, into p-NAME.png
+target/release/panel-ddp preview --all --out p.png  # every page, a still picture each, into p-NAME.png (but one whose cover or picture is not there)
 target/release/panel-ddp preview --all-in-one --out p.gif  # every page in the file, in order, each for its time, as one animation
 target/release/panel-ddp preview --out preview.gif  # the first page animated, for its time; --seconds N for longer or shorter
 target/release/panel-ddp preview --out preview.apng # the same as an animated PNG, in full colour (GIF has 256 a frame)

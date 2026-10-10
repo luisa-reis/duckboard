@@ -125,14 +125,24 @@ fn clock<D: DrawTarget<Color = Rgba>>(
     seconds: Seconds,
     dot_size: u32,
 ) {
-    let (cx, top) = anchor(area);
-    centred(t, &format!("{:02}", ctx.now.hour()), cx, top + 2, MonoTextStyle::new(&FONT_6X10, p.text));
-    centred(t, &format!("{:02}", ctx.now.minute()), cx, top + 12, MonoTextStyle::new(&FONT_6X10, p.secondary));
     // Seconds on a ring around the tile, the largest circle that fits,
     // clockwise from twelve o'clock, one step per second: either the ring
     // fills up to the second, or a single dot sits at it. The ring's pixels
     // come from the circle itself, so the track and the accent agree.
     let d = area.size.width.min(area.size.height);
+    // The digits in the largest font whose two lines fit inside the ring,
+    // corner to corner; the smallest whatever the ring.
+    let font = [&fonts::FONT_10X20, &fonts::FONT_9X15, &fonts::FONT_8X13]
+        .into_iter()
+        .find(|f| {
+            let (w, h) = (2 * f.character_size.width, 2 * f.character_size.height);
+            w * w + h * h <= d * d
+        })
+        .unwrap_or(&FONT_6X10);
+    let (cx, top) = anchor(area);
+    let (middle, ch) = (top + 12, font.character_size.height as i32);
+    centred(t, &format!("{:02}", ctx.now.hour()), cx, middle - ch, MonoTextStyle::new(font, p.text));
+    centred(t, &format!("{:02}", ctx.now.minute()), cx, middle, MonoTextStyle::new(font, p.secondary));
     let o = area.top_left + Point::new((area.size.width - d) as i32 / 2, (area.size.height - d) as i32 / 2);
     let ring = Circle::new(o, d).into_styled(PrimitiveStyle::with_stroke(p.track, 1));
     let target = ctx.now.second() as f32 / 60.0 * std::f32::consts::TAU;
