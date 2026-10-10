@@ -85,7 +85,8 @@ impl Snapshot {
     /// Made-up data for previews and demos that must not touch the network:
     /// every sensor the config names sweeps 0..100 over `SWEEP_SECONDS` and
     /// holds full for `HOLD_SECONDS`, every chart draws the same two
-    /// waves, every table row is filled with them and with `--`, alerts raise for five seconds of every
+    /// waves, every table row is filled with them, with `--` and with 62,
+    /// alerts raise for five seconds of every
     /// thirty, and a gradient plays as album art. Timed in seconds, so it
     /// runs the same at any frame rate.
     pub fn sample(cfg: &Model, frame: u32) -> Self {
@@ -119,11 +120,17 @@ impl Snapshot {
         // column its tiles read.
         let mut rows: HashMap<String, Vec<Record>> = HashMap::new();
         for layer in cfg.pages.iter().flat_map(|p| &p.layers) {
-            let (Some((table, row)), Some(column)) = (&layer.record, layer.tile.column()) else { continue };
+            let Some((table, row)) = &layer.record else { continue };
             let rows = rows.entry(table.clone()).or_default();
             rows.resize(rows.len().max(row + 1), Record::new());
-            let value = if layer.tile.chart().is_some() { Value::Series(waves.to_vec()) } else { Value::Text("--".into()) };
-            rows[*row].insert(column.clone(), value);
+            for (column, holds) in layer.tile.columns() {
+                let value = match holds {
+                    "numbers" => Value::Series(waves.to_vec()),
+                    "number" => Value::Text("62".into()),
+                    _ => Value::Text("--".into()),
+                };
+                rows[*row].insert(column.clone(), value);
+            }
         }
         let tables = rows.into_iter().map(|(name, rows)| (name, Arc::new(rows))).collect();
         let scaled = Scaled::from_fn(&cfg.art_sizes(), gradient);

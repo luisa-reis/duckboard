@@ -143,8 +143,17 @@ With `sources.home_assistant`:
   is never under a pixel, so a zero still shows where it is. It takes
   `entity` or `series`, and `hours`, like a line chart.
 
+- `bullet_chart` — a bullet graph, after Stephen Few: the entity's present
+  state as a bar along a scale from `min` (default 0) to `max` (default
+  100), a marker at `target`, and behind them bands that end at each of
+  `ranges` (at most four), the first the strongest. `bar`, `marker` and
+  `band` are their colours (the `accent`, `text` and `label` roles unless
+  set). On a table's repeat row it takes `column`, and `target_column`,
+  instead. See [charts.md](charts.md).
+
 With `sources.http`:
 
+- `bullet_chart` with a `series` — the latest value pushed under that name.
 - `line_chart`, `area_chart` or `bar_chart` with a `series` in place of the
   `entity` —
   the same chart, of values pushed to the panel under that name; see
@@ -600,12 +609,13 @@ target/release/panel-ddp run --config demo.yaml --target wled.local --once   # o
 in its own size and saying which, then lines too wide for the panel,
 scrolling. It needs no data.
 
-`demo-dashboards.yaml` is the dashboards demo: ten dashboards built from
-line charts, area charts, bar charts, tables and text of different sizes on
-made-up series: one reading with its day under it, three readings each beside its
+`demo-dashboards.yaml` is the dashboards demo: twelve dashboards built from
+line charts, area charts, bar charts, bullet charts, tables and text of
+different sizes on made-up series: one reading with its day under it, three readings each beside its
 chart, the clock and the date over a reading, text over a chart the size of
 the panel, then area charts, one with a gradient under a reading and three
-beside theirs, bar charts the same way, and two tables.
+beside theirs, bar charts the same way, two tables, and bullet charts, one under a
+reading and a table of them.
 
 `art_file`, a top-level setting, keeps a JPEG at the album cover on show,
 the original as downloaded, black when no cover is on, and removes it when

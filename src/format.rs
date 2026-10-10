@@ -10,7 +10,7 @@
 
 use crate::canvas::{DEFAULT_HEIGHT, DEFAULT_WIDTH};
 use crate::config::{
-    default_listen, Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, HttpConfig, PageData, SpotifyConfig, TileSpec,
+    default_listen, is_name, Alert, ArtCacheConfig, FrameConfig, HomeAssistantConfig, HttpConfig, PageData, SpotifyConfig, TileSpec,
     Units, WeatherConfig, When,
 };
 use crate::model::{self, Layer, Model};
@@ -377,7 +377,7 @@ impl JsonSchema for Tile {
 #[derive(Debug, Clone)]
 pub enum TileRef {
     Name(String),
-    Inline(Tile),
+    Inline(Box<Tile>),
 }
 
 impl JsonSchema for TileRef {
@@ -399,7 +399,7 @@ impl<'de> Deserialize<'de> for TileRef {
         use serde::de::Error;
         match serde_json::Value::deserialize(d)? {
             serde_json::Value::String(name) => Ok(TileRef::Name(name)),
-            v => Tile::deserialize(v).map(TileRef::Inline).map_err(D::Error::custom),
+            v => Tile::deserialize(v).map(|t| TileRef::Inline(Box::new(t))).map_err(D::Error::custom),
         }
     }
 }
@@ -617,7 +617,7 @@ impl File {
             let Some(tile) = p.tiles.get(region) else { continue };
             let (tile, palette) = self.tile(tile, page_palette).with_context(|| format!("region {region}"))?;
             match &tile.body {
-                Body::Spec(spec) if spec.column().is_some() => {
+                Body::Spec(spec) if !spec.columns().is_empty() => {
                     bail!("region {region}: column is for a tile on a table's repeat row")
                 }
                 Body::Spec(spec) => layers.push(Layer { area: r.area().rect(), tile: spec.clone(), palette, record: None }),
@@ -641,7 +641,7 @@ impl File {
                 if let Body::Spec(spec) = &t.body {
                     spec.check()?;
                 }
-                t
+                t.as_ref()
             }
         };
         let palette = match &tile.scheme {
@@ -680,7 +680,7 @@ impl File {
                     let at = || format!("row {n}, tile {}", j + 1);
                     let (tile, palette) = self.tile(&cell.tile, palette).with_context(at)?;
                     let Body::Spec(spec) = &tile.body else { bail!("{}: a table cannot hold a table", at()) };
-                    if spec.column().is_some() && data.is_none() {
+                    if !spec.columns().is_empty() && data.is_none() {
                         bail!("{}: column is for a tile on a table's repeat row", at());
                     }
                     let height = cell.height.unwrap_or(row.height.saturating_sub(cell.y));
@@ -755,7 +755,9 @@ impl File {
             for layer in &page.layers {
                 let missing = match &layer.tile {
                     TileSpec::Weather if s.weather.is_none() && d.weather.is_none() => Some("sources.weather"),
-                    TileSpec::Sensor { entity, .. } | TileSpec::Progress { entity, .. }
+                    TileSpec::Sensor { entity, .. }
+                    | TileSpec::Progress { entity, .. }
+                    | TileSpec::BulletChart { entity: Some(entity), .. }
                         if s.home_assistant.is_none() && !d.sensors.contains_key(entity) =>
                     {
                         Some("sources.home_assistant")
@@ -764,7 +766,7 @@ impl File {
                     {
                         Some("sources.home_assistant")
                     }
-                    t if matches!(t.chart(), Some((_, Some(name), _)) if s.http.is_none() && !d.series.contains_key(name)) => {
+                    t if matches!(t.pushed_series(), Some(name) if s.http.is_none() && !d.series.contains_key(name)) => {
                         Some("sources.http")
                     }
                     TileSpec::NowPlaying | TileSpec::Art { .. } if !media && d.cover.is_none() => {
@@ -807,16 +809,12 @@ fn kind_name(t: &TileSpec) -> &'static str {
         TileSpec::LineChart { .. } => "line_chart",
         TileSpec::AreaChart { .. } => "area_chart",
         TileSpec::BarChart { .. } => "bar_chart",
+        TileSpec::BulletChart { .. } => "bullet_chart",
         TileSpec::NowPlaying => "now_playing",
         TileSpec::Art { .. } => "art",
         TileSpec::Picture { .. } => "picture",
         TileSpec::Blank => "blank",
     }
-}
-
-/// Whether `name` can be pushed to: letters, digits, '.', '_' and '-'.
-fn is_name(name: &str) -> bool {
-    !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
 }
 
 /// " (known: a, b)" for an error about a name, or nothing when none are.
@@ -1010,6 +1008,31 @@ pages:
         assert!(err(table, "{kind: text}", data).contains("either text or column"));
         assert!(err(table, "{kind: text, text: a, column: b}", data).contains("either text or column"));
         assert!(err(table, "{kind: line_chart, series: s, column: b}", data).contains("one of entity, series or column"));
+    }
+
+    #[test]
+    fn bullet_charts_take_a_value_from_three_places() {
+        let page = |tile: &str, data: &str| format!("target: t\nlayouts: {{l: {{a: {{x: 0, y: 0, width: 64, height: 20}}}}}}\npages: {{p: {{layout: l, tiles: {{a: {tile}}}, data: {data}}}}}\n");
+        let m = load(&page("{kind: bullet_chart, entity: sensor.a, target: 80, ranges: [50, 75]}", "{sensors: {sensor.a: {state: '62'}}}")).unwrap();
+        assert_eq!(m.sensor_entities(), ["sensor.a"], "an entity's state, not its history");
+        assert!(m.series().is_empty());
+        assert!(matches!(m.pages[0].layers[0].tile, TileSpec::BulletChart { min: 0.0, max: 100.0, target: Some(80.0), .. }));
+        let m = load(&page("{kind: bullet_chart, series: load}", "{series: {load: [1, 2]}}")).unwrap();
+        assert_eq!(m.pushed(), ["load"]);
+        let err = |tile: &str, data: &str| format!("{:#}", load(&page(tile, data)).unwrap_err());
+        assert!(err("{kind: bullet_chart, entity: sensor.a}", "{}").contains("bullet_chart tile needs sources.home_assistant"));
+        assert!(err("{kind: bullet_chart, series: load}", "{}").contains("needs sources.http"));
+        assert!(err("{kind: bullet_chart}", "{}").contains("one of entity, series or column"));
+        assert!(err("{kind: bullet_chart, series: a, column: b}", "{}").contains("one of entity, series or column"));
+        assert!(err("{kind: bullet_chart, series: a, min: 5, max: 5}", "{}").contains("max must be above its min"));
+        assert!(err("{kind: bullet_chart, series: a, ranges: [80, 60]}", "{}").contains("ranges"));
+        assert!(err("{kind: bullet_chart, series: a, ranges: [60, 100]}", "{}").contains("ranges"));
+        assert!(err("{kind: bullet_chart, series: a, target: 1, target_column: t}", "{}").contains("either target or target_column"));
+        assert!(err("{kind: bullet_chart, series: a, target_column: t}", "{series: {a: [1]}}").contains("column is for a tile on a table's repeat row"));
+        let table = "{kind: table, data: kpis, rows: [{height: 6, repeat: true, tiles: [{x: 0, width: 60, tile: {kind: bullet_chart, column: v, target_column: t}}]}]}";
+        let m = load(&page(table, "{tables: {kpis: [{v: 5, t: 9}]}}")).unwrap();
+        let columns: Vec<(String, &str)> = m.table_columns()["kpis"].clone().into_iter().collect();
+        assert_eq!(columns, [("t".to_string(), "number"), ("v".to_string(), "number")]);
     }
 
     #[test]

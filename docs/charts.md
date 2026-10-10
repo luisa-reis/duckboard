@@ -1,14 +1,14 @@
 # Text, charts and tables
 
 The tiles for building a dashboard out of numbers: text in thirteen sizes,
-line, area and bar charts, and tables that lay them out in rows. Every
+line, area, bar and bullet charts, and tables that lay them out in rows. Every
 example here is a piece of a config file; [dashboard.md](dashboard.md) has
 the file as a whole, and [pushing-data.md](pushing-data.md) how another
 program sends the values.
 
 Two configs in the repository use all of it:
 
-- `demo-dashboards.yaml` — ten dashboards on made-up data, to look at:
+- `demo-dashboards.yaml` — twelve dashboards on made-up data, to look at:
   `target/release/panel-ddp preview --config demo-dashboards.yaml --out preview.gif`
 - `charts.example.yaml` — charts and a table fed over HTTP, to start from.
 
@@ -23,6 +23,8 @@ Every chart takes its values from one of three places, and says which:
 | `entity: sensor.x` | the entity's numeric history over the last `hours` (default 24, up to 720), fetched once a minute | `sources.home_assistant` |
 | `series: name` | whatever was last pushed to `/series/name` | `sources.http` |
 | `column: name` | that column of the pushed row the chart is on, in a table | a table with `data` |
+
+A bullet chart shows one value, not a run of them: see its own section.
 
 A page can also bring the values itself, for a demo or a fixed picture,
 whichever of the three the tile says:
@@ -121,6 +123,70 @@ tiles:
   lowest value instead. No bar is under a pixel.
 - For values in a narrow band far from zero, a temperature say, a line
   chart shows more.
+
+## Bullet chart
+
+Stephen Few's bullet graph, from *Information Dashboard Design*: one
+measure against a target and against what counts as poor, fair and good, in
+the space of a single bar. It replaces a gauge or a meter.
+
+```yaml
+tiles:
+  budget: {kind: bullet_chart, entity: sensor.budget_spent_percent, max: 120, target: 100, ranges: [60, 90]}
+  load: {kind: bullet_chart, series: cpu_load, max: 8, target: 4, ranges: [2, 6], bar: "#50aaff"}
+  plain: {kind: bullet_chart, entity: sensor.battery_level}
+```
+
+- The **bar** runs from the left of the region to the value, a third of
+  the region's height, in the `accent` colour or `bar`.
+- The **marker** is an upright tick at `target`, taller than the bar, in
+  the `text` colour or `marker`. Left out, there is none.
+- The **bands** behind them are the qualitative ranges: `ranges` are where
+  one ends and the next begins, at most four, so `[60, 90]` makes three
+  bands, to 60, to 90 and to `max`. They are one colour (`band`, or the
+  `label` role) at falling strength, the first band the strongest, as the
+  darkest is in print. Without `ranges` there is one band, the whole scale.
+- The **scale** runs from `min` (default 0) at the left to `max` (default
+  100) at the right. A value or a target beyond either end stops there.
+- The value is one number, not a history: an `entity`'s present state, the
+  latest value of a pushed `series`, or a `column` on a table's repeat row.
+- It reads from 5 pixels high (a 3-pixel bar, a marker the full height),
+  and well at 7 to 9. Put a text tile over or beside it for the name and
+  the figure: a bullet chart has no labels of its own.
+
+Bullet charts are at their best stacked in a table, one a row, each value
+and target a column of pushed data:
+
+```yaml
+sources:
+  http: {}
+
+tiles:
+  targets:
+    kind: table
+    data: targets
+    gap: 2
+    rows:
+      - height: 12
+        repeat: true
+        tiles:
+          - {x: 0, y: 0, width: 40, height: 6, tile: {kind: text, column: name, size: 4x6, align: left, overflow: truncate, colors: {text: "#6e6e6e"}}}
+          - {x: 42, y: 0, width: 20, height: 6, tile: {kind: text, column: shown, size: 4x6, align: right}}
+          - {x: 0, y: 7, width: 62, height: 5, tile: {kind: bullet_chart, column: value, target_column: target, max: 150, ranges: [75, 100]}}
+```
+
+```sh
+curl -X PUT http://127.0.0.1:4049/tables/targets -d '[
+  {"name": "REVENUE", "shown": "112%", "value": 112, "target": 100},
+  {"name": "PROFIT",  "shown": "84%",  "value": 84,  "target": 100}
+]'
+```
+
+- `target_column` takes the target from the row, in place of a fixed
+  `target`; `column` and `target_column` are numbers.
+- Every row shares the tile's `min`, `max` and `ranges`, so push values on
+  one scale: a percentage of plan, as here, compares rows that count
+  different things.
 
 ## Tables
 

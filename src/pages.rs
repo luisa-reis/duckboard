@@ -180,18 +180,15 @@ impl Pages {
         }
         for layer in &page.layers {
             let values = |name: &String| data.series.get(name).map(|v| Arc::new(v.clone()));
-            match layer.tile.chart() {
-                Some((Some(entity), _, hours)) => {
-                    if let Some(v) = values(entity) {
-                        snap.series.insert((entity.clone(), hours), v);
-                    }
+            if let Some((Some(entity), _, hours)) = layer.tile.chart() {
+                if let Some(v) = values(entity) {
+                    snap.series.insert((entity.clone(), hours), v);
                 }
-                Some((_, Some(name), _)) => {
-                    if let Some(v) = values(name) {
-                        snap.pushed.insert(name.clone(), v);
-                    }
+            }
+            if let Some(name) = layer.tile.pushed_series() {
+                if let Some(v) = values(name) {
+                    snap.pushed.insert(name.clone(), v);
                 }
-                _ => {}
             }
         }
         for (name, rows) in &data.tables {

@@ -441,6 +441,44 @@ pub enum TileSpec {
         #[serde(default = "default_bar_gap")]
         gap: u32,
     },
+    /// A bullet graph, after Stephen Few: one value as a bar along a
+    /// scale, over bands that say how good it is, with a marker at a
+    /// target. The value is a Home Assistant `entity`'s state (needs
+    /// sources.home_assistant), the latest of a pushed `series` (needs
+    /// sources.http), or a `column` on a table's repeat row.
+    BulletChart {
+        entity: Option<String>,
+        /// The name the values are pushed under, at /series/NAME; the bar
+        /// is the latest of them.
+        series: Option<String>,
+        /// On a table's repeat row: the column of the pushed rows the
+        /// value comes from, a number.
+        column: Option<String>,
+        /// The value at the left end of the scale.
+        #[serde(default)]
+        min: f64,
+        /// The value at the right end of the scale.
+        #[serde(default = "default_max")]
+        max: f64,
+        /// Where the marker stands; none unless this or `target_column`
+        /// is set.
+        target: Option<f64>,
+        /// On a table's repeat row: the column the target comes from, in
+        /// place of `target`.
+        target_column: Option<String>,
+        /// Where one band ends and the next begins, ascending, at most
+        /// four: `[60, 85]` makes three bands, to 60, to 85 and to `max`.
+        /// None is one band.
+        #[serde(default)]
+        ranges: Vec<f64>,
+        /// The bar's colour; the `accent` colour unless set.
+        bar: Option<Rgba>,
+        /// The marker's colour; the `text` colour unless set.
+        marker: Option<Rgba>,
+        /// The bands' colour, strongest in the first band and fainter in
+        /// each after; the `label` colour unless set.
+        band: Option<Rgba>,
+    },
     /// Artist and title scrolling; needs sources.spotify or a Home Assistant media_player.
     NowPlaying,
     /// The album art; needs sources.spotify or a Home Assistant media_player.
@@ -471,6 +509,11 @@ pub enum TileSpec {
     },
     /// Nothing.
     Blank,
+}
+
+/// Whether `name` can be pushed to: letters, digits, '.', '_' and '-'.
+pub(crate) fn is_name(name: &str) -> bool {
+    !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
 }
 
 fn default_hours() -> u32 {
@@ -513,8 +556,46 @@ impl TileSpec {
         }
     }
 
+    /// Every column of a table's pushed rows the tile reads, with what it
+    /// holds: "text", "numbers" (a chart's values) or "number".
+    pub fn columns(&self) -> Vec<(&String, &'static str)> {
+        match self {
+            TileSpec::BulletChart { column, target_column, .. } => {
+                column.iter().chain(target_column).map(|c| (c, "number")).collect()
+            }
+            TileSpec::Text { column, .. } => column.iter().map(|c| (c, "text")).collect(),
+            _ => self.column().into_iter().map(|c| (c, "numbers")).collect(),
+        }
+    }
+
+    /// The pushed series the tile draws, when it draws one.
+    pub fn pushed_series(&self) -> Option<&String> {
+        match self {
+            TileSpec::BulletChart { series, .. } => series.as_ref(),
+            _ => self.chart().and_then(|(_, series, _)| series),
+        }
+    }
+
     /// The checks a tile's own settings must pass, whatever the sources.
     pub fn check(&self) -> anyhow::Result<()> {
+        if let TileSpec::BulletChart { entity, series, column, min, max, target, target_column, ranges, .. } = self {
+            if [entity.is_some(), series.is_some(), column.is_some()].iter().filter(|set| **set).count() != 1 {
+                anyhow::bail!("a bullet chart takes one of entity, series or column")
+            }
+            if !(min.is_finite() && max.is_finite() && min < max) {
+                anyhow::bail!("a bullet chart's max must be above its min")
+            }
+            if target.is_some() && target_column.is_some() {
+                anyhow::bail!("a bullet chart takes either target or target_column")
+            }
+            let ascending = ranges.windows(2).all(|pair| pair[0] < pair[1]);
+            if ranges.len() > 4 || !ascending || ranges.iter().any(|r| !(*min < *r && *r < *max)) {
+                anyhow::bail!("a bullet chart's ranges are at most four, ascending, between min and max")
+            }
+        }
+        if let Some(name) = self.pushed_series().filter(|name| !is_name(name)) {
+            anyhow::bail!("chart series {name:?}: a name is letters, digits, '.', '_' and '-'")
+        }
         if let TileSpec::Text { text, column, .. } = self {
             if text.is_some() == column.is_some() {
                 anyhow::bail!("a text tile takes either text or column")
@@ -526,10 +607,6 @@ impl TileSpec {
             }
             if !(1..=720).contains(&hours) {
                 anyhow::bail!("chart hours must be between 1 and 720")
-            }
-            let named = |name: &&String| !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c));
-            if let Some(name) = series.filter(|name| !named(name)) {
-                anyhow::bail!("chart series {name:?}: a name is letters, digits, '.', '_' and '-'")
             }
         }
         match self {

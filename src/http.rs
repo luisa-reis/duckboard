@@ -57,7 +57,7 @@ pub fn spawn(cfg: HttpConfig, names: Vec<String>, tables: Tables, shared: Shared
 }
 
 /// The tables that take rows, by data name: the columns their tiles read,
-/// each "text" or "numbers".
+/// each "text", "numbers" or "number".
 pub type Tables = BTreeMap<String, BTreeMap<String, &'static str>>;
 
 /// What a request may do: the series and the tables' data that exist, and

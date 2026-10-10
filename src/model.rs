@@ -122,7 +122,9 @@ impl Model {
             .iter()
             .flat_map(|p| &p.layers)
             .filter_map(|l| match &l.tile {
-                TileSpec::Sensor { entity, .. } | TileSpec::Progress { entity, .. } => Some(entity.clone()),
+                TileSpec::Sensor { entity, .. }
+                | TileSpec::Progress { entity, .. }
+                | TileSpec::BulletChart { entity: Some(entity), .. } => Some(entity.clone()),
                 _ => None,
             })
             .collect();
@@ -155,10 +157,7 @@ impl Model {
             .pages
             .iter()
             .flat_map(|p| &p.layers)
-            .filter_map(|l| match l.tile.chart() {
-                Some((_, Some(name), _)) => Some(name.clone()),
-                _ => None,
-            })
+            .filter_map(|l| l.tile.pushed_series().cloned())
             .collect();
         v.sort();
         v.dedup();
@@ -166,14 +165,15 @@ impl Model {
     }
 
     /// For every table that draws pushed rows, by data name: the columns
-    /// its tiles read, each "text" or "numbers" (a chart's values).
+    /// its tiles read, each "text", "numbers" (a chart's values) or
+    /// "number".
     pub fn table_columns(&self) -> BTreeMap<String, BTreeMap<String, &'static str>> {
         let mut tables: BTreeMap<String, BTreeMap<String, &'static str>> = BTreeMap::new();
         for layer in self.pages.iter().flat_map(|p| &p.layers) {
             let Some((table, _)) = &layer.record else { continue };
             let columns = tables.entry(table.clone()).or_default();
-            if let Some(column) = layer.tile.column() {
-                columns.insert(column.clone(), if layer.tile.chart().is_some() { "numbers" } else { "text" });
+            for (column, holds) in layer.tile.columns() {
+                columns.insert(column.clone(), holds);
             }
         }
         tables

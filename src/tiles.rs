@@ -85,6 +85,11 @@ pub fn draw(spec: &TileSpec, c: &mut Canvas, area: Rectangle, ctx: &Ctx, p: &Pal
             let bar = bar.unwrap_or(p.accent);
             bars(&mut clipped, area, p, chart_values(ctx, spec, record), bar, last.unwrap_or(bar), *width, *gap)
         }
+        TileSpec::BulletChart { min, max, ranges, bar, marker, band, .. } => {
+            let (value, target) = bullet_values(ctx, spec, record);
+            let colours = (bar.unwrap_or(p.accent), marker.unwrap_or(p.text), band.unwrap_or(p.label));
+            bullet(&mut clipped, area, value, target, (*min, *max), ranges, colours)
+        }
         TileSpec::NowPlaying => now_playing(&mut clipped, area, ctx, p),
         TileSpec::Art { .. } | TileSpec::Picture { .. } | TileSpec::Blank => {}
     }
@@ -511,6 +516,82 @@ fn chart<D: DrawTarget<Color = Rgba>>(
     }
 }
 
+/// A number in a pushed row's column: one written as text, or the latest
+/// of a chart's values.
+fn number(record: Option<&Record>, column: &str) -> Option<f64> {
+    match record?.get(column)? {
+        Value::Text(text) => text.trim().parse().ok(),
+        Value::Series(values) => values.last().copied(),
+    }
+    .filter(|v: &f64| v.is_finite())
+}
+
+/// A bullet chart's value and its target, from wherever each comes.
+fn bullet_values(ctx: &Ctx, spec: &TileSpec, record: Option<&Record>) -> (Option<f64>, Option<f64>) {
+    let TileSpec::BulletChart { entity, series, column, target, target_column, .. } = spec else { return (None, None) };
+    let value = match (entity, series, column) {
+        (Some(entity), _, _) => ctx.data.sensors.get(entity).and_then(|s| s.state.trim().parse().ok()),
+        (_, Some(name), _) => ctx.data.pushed.get(name).and_then(|v| v.last().copied()),
+        (_, _, Some(column)) => number(record, column),
+        _ => None,
+    };
+    let target = target.or_else(|| number(record, target_column.as_ref()?));
+    (value.filter(|v: &f64| v.is_finite()), target)
+}
+
+/// The alpha of a bullet chart's bands against their colour: the first
+/// the strongest, as the darkest is in print.
+const BAND_ALPHAS: [f32; 5] = [0.55, 0.38, 0.26, 0.18, 0.12];
+
+/// How tall the bar and the marker of a bullet chart are in an area
+/// `height` high: the bar about a third of it and the marker about two
+/// thirds, each leaving the same above as below.
+fn bullet_heights(height: u32) -> (u32, u32) {
+    if height < 3 {
+        return (height, height);
+    }
+    let third = height.div_ceil(3);
+    let bar = if (height - third) % 2 == 1 { third + 1 } else { third };
+    let marker = if height < 5 { height } else { bar + 2 * ((height - bar) / 2).div_ceil(2) };
+    (bar, marker.min(height))
+}
+
+/// A bullet graph across the area: the bands over its whole height, each
+/// to where the next range begins; the bar from the left to `value`; and a
+/// marker at `target`. Without a value there is no bar.
+fn bullet<D: DrawTarget<Color = Rgba>>(
+    t: &mut D,
+    area: Rectangle,
+    value: Option<f64>,
+    target: Option<f64>,
+    (min, max): (f64, f64),
+    ranges: &[f64],
+    (bar, marker, band): (Rgba, Rgba, Rgba),
+) {
+    let (o, width, height) = (area.top_left, area.size.width, area.size.height);
+    // How far along the area a value is, in pixels from its left.
+    let along = |v: f64| (((v - min) / (max - min)).clamp(0.0, 1.0) * width as f64).round() as u32;
+    let mut from = 0;
+    for (i, end) in ranges.iter().copied().chain([max]).enumerate() {
+        let to = along(end);
+        let colour = band.scaled(BAND_ALPHAS[i.min(BAND_ALPHAS.len() - 1)]);
+        fill(t, Rectangle::new(o + Point::new(from as i32, 0), Size::new(to.saturating_sub(from), height)), colour);
+        from = to;
+    }
+    let (bar_height, marker_height) = bullet_heights(height);
+    if let Some(value) = value {
+        let top = o.y + ((height - bar_height) / 2) as i32;
+        fill(t, Rectangle::new(Point::new(o.x, top), Size::new(along(value), bar_height)), bar);
+    }
+    if let Some(target) = target {
+        // Two pixels wide where there is room, and never off the end.
+        let thick = if width >= 40 { 2 } else { 1 };
+        let x = along(target).saturating_sub(thick / 2).min(width.saturating_sub(thick));
+        let top = o.y + ((height - marker_height) / 2) as i32;
+        fill(t, Rectangle::new(Point::new(o.x + x as i32, top), Size::new(thick, marker_height)), marker);
+    }
+}
+
 fn now_playing<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ctx, p: &Palette) {
     let (cx, top) = anchor(area);
     let Some(m) = ctx.data.media.as_ref().filter(|m| m.playing) else {
@@ -523,7 +604,7 @@ fn now_playing<D: DrawTarget<Color = Rgba>>(t: &mut D, area: Rectangle, ctx: &Ct
 
 #[cfg(test)]
 mod tests {
-    use super::{bar_heights, blend, columns, truncated};
+    use super::{bar_heights, blend, bullet_heights, columns, truncated};
     use crate::palette::Rgba;
 
     #[test]
@@ -532,6 +613,18 @@ mod tests {
         assert_eq!(truncated("KITCHEN", 4, 26), "KITCHE");
         assert_eq!(truncated("°C today", 6, 12), "°C", "by character, not byte");
         assert_eq!(truncated("abc", 6, 3), "");
+    }
+
+    #[test]
+    fn a_bullets_bar_and_marker_sit_in_the_middle() {
+        for height in 1..=24u32 {
+            let (bar, marker) = bullet_heights(height);
+            assert!(bar >= 1 && bar <= marker && marker <= height, "{height}: {bar} {marker}");
+            assert!((height - bar) % 2 == 0 && (height - marker) % 2 == 0, "{height}: as much above as below");
+        }
+        assert_eq!(bullet_heights(7), (3, 5));
+        assert_eq!(bullet_heights(10), (4, 8));
+        assert_eq!(bullet_heights(2), (2, 2));
     }
 
     #[test]

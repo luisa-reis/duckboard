@@ -1058,6 +1058,116 @@
           ]
         },
         {
+          "description": "A bullet graph, after Stephen Few: one value as a bar along a\nscale, over bands that say how good it is, with a marker at a\ntarget. The value is a Home Assistant `entity`'s state (needs\nsources.home_assistant), the latest of a pushed `series` (needs\nsources.http), or a `column` on a table's repeat row.",
+          "type": "object",
+          "properties": {
+            "entity": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "series": {
+              "description": "The name the values are pushed under, at /series/NAME; the bar\nis the latest of them.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "column": {
+              "description": "On a table's repeat row: the column of the pushed rows the\nvalue comes from, a number.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "min": {
+              "description": "The value at the left end of the scale.",
+              "type": "number",
+              "format": "double",
+              "default": 0.0
+            },
+            "max": {
+              "description": "The value at the right end of the scale.",
+              "type": "number",
+              "format": "double",
+              "default": 100.0
+            },
+            "target": {
+              "description": "Where the marker stands; none unless this or `target_column`\nis set.",
+              "type": [
+                "number",
+                "null"
+              ],
+              "format": "double"
+            },
+            "target_column": {
+              "description": "On a table's repeat row: the column the target comes from, in\nplace of `target`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "ranges": {
+              "description": "Where one band ends and the next begins, ascending, at most\nfour: `[60, 85]` makes three bands, to 60, to 85 and to `max`.\nNone is one band.",
+              "type": "array",
+              "items": {
+                "type": "number",
+                "format": "double"
+              },
+              "default": []
+            },
+            "bar": {
+              "description": "The bar's colour; the `accent` colour unless set.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Colour"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "marker": {
+              "description": "The marker's colour; the `text` colour unless set.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Colour"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "band": {
+              "description": "The bands' colour, strongest in the first band and fainter in\neach after; the `label` colour unless set.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Colour"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "const": "bullet_chart"
+            },
+            "scheme": {
+              "description": "A colour scheme's name, over the page's.",
+              "type": "string"
+            },
+            "colors": {
+              "$ref": "#/definitions/Overrides"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
           "description": "Artist and title scrolling; needs sources.spotify or a Home Assistant media_player.",
           "type": "object",
           "properties": {

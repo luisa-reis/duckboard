@@ -9,7 +9,7 @@ presets.
 
 | The demo | Charts and tables |
 |---|---|
-| ![The demo: the date, the clock, the weather, a progress bar, a sensor and an alert](docs/demo.gif) | ![The dashboards demo: line, area and bar charts, tables and text](docs/demo-dashboards.gif) |
+| ![The demo: the date, the clock, the weather, a progress bar, a sensor and an alert](docs/demo.gif) | ![The dashboards demo: line, area, bar and bullet charts, tables and text](docs/demo-dashboards.gif) |
 
 Both are the program's own previews of `demo.yaml` and
 `demo-dashboards.yaml`, four times the panel's 64×64 pixels.
@@ -27,7 +27,8 @@ Both are the program's own previews of `demo.yaml` and
     the panel;
   - text in thirteen sizes, aligned, scrolling or cut to fit;
   - line, area and bar charts, of a Home Assistant entity's history or of
-    values pushed to the panel;
+    values pushed to the panel, and bullet charts, a value against its
+    target;
   - tables, rows of any of these, fixed or one for each row of pushed
     data;
   - now playing and album art from Spotify or a Home Assistant media

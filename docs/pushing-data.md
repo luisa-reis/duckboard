@@ -84,7 +84,9 @@ curl http://127.0.0.1:4049/
 
 - `series` are the names charts draw; each takes an array of numbers.
 - `tables` are the names tables draw, each with the columns its tiles
-  read: `text` for a column shown as text, `numbers` for one a chart draws.
+  read: `text` for a column shown as text, `numbers` for one a line, area
+  or bar chart draws (an array), `number` for a bullet chart's value or
+  target (one number).
 - A name that is not listed is a 404: the panel only takes what its config
   draws. To add one, add the chart or the table to the config first (see
   [charts.md](charts.md)).
@@ -111,6 +113,9 @@ of its repeat row.
   `POST` therefore makes a rolling window by itself.
 - Line and area charts scale from the lowest value to the highest. Bar
   charts stand on zero.
+- A bullet chart shows one value, the latest of its series: `POST` a
+  number, or `PUT` an array of one. Its scale, target and bands are in the
+  config.
 
 ## A table's rows
 
@@ -136,6 +141,8 @@ A row is a JSON object, column to value:
   show.
 - `null` shows as nothing. A column a row lacks shows as nothing too.
 - An array of numbers is a chart's values, oldest first.
+- A `number` column, a bullet chart's value or target, is a number, or a
+  string holding one; from an array it takes the last.
 - Anything else, an object or an array holding something that is not a
   number, is refused.
 - Columns the table does not read are ignored, so a query can return more

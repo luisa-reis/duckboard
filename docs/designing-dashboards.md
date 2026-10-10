@@ -138,6 +138,8 @@ font's height tall.
 - A bar chart shows (the region's width + `gap`) ÷ (`width` + `gap`) bars,
   rounded down: 21 in 62 pixels at the default `width: 2, gap: 1`, 7 at
   `width: 6, gap: 3`.
+- A bullet chart reads from 5 pixels high and well at 7 to 9, and wants
+  width: 40 pixels or more, so that a step of the scale is a pixel.
 - A table row needs the height of its tallest text plus a pixel or two:
   10-pixel rows with a 1-pixel `gap` put a header and five rows on a 64
   high panel.
@@ -172,8 +174,9 @@ with `preview --config demo-dashboards.yaml --all --out demo.png`.
 | `reading` | a name, one large value, a chart under it, a footer | `outside`, `solar`, `rain` |
 | `rows` | three readings, each a name over its value with a chart beside it | `energy`, `network`, `usage` |
 | `home` | the clock and the date over one reading | `home` |
+| `gauge` | one large value over a bullet chart the width of the panel | `budget` |
 | `over` | text over a chart the size of the panel | `week` |
-| `sheet` | one region for a table | `rooms` (rows from data), `energy-table` |
+| `sheet` | one region for a table | `rooms` (rows from data), `energy-table`, `targets` (bullet charts from data) |
 
 One reading, as a whole config to try:
 
@@ -208,6 +211,7 @@ pages:
 | fixed words | `text` | any size, aligned |
 | a Home Assistant entity's state | `sensor` or `progress` | their own 24-pixel layout: label, value, unit |
 | a Home Assistant entity's history | `line_chart`, `area_chart`, `bar_chart` with `entity` | fetched once a minute |
+| one number against a target, or against good and bad | `bullet_chart` with `entity`, `series` or `column` | in place of a gauge; `target` and `ranges` in the config |
 | numbers another program has | a chart with `series` | pushed to `/series/NAME` |
 | text another program has, a query's result | a `table` with `data` and a `repeat` row of `text` tiles with `column` | pushed to `/tables/NAME`; one row and one column is fine for a single value |
 | the time, the date, the weather, what is playing | `clock`, `date`, `weather`, `now_playing`, `art` | |

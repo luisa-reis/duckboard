@@ -46,8 +46,9 @@ layouts:
     clock: {x: 8, y: 8, width: 48, height: 48}
 
 # Tiles by name. Kinds: clock, date, text, weather, sensor, progress,
-# line_chart, area_chart, bar_chart, now_playing, art, picture, blank, and
-# table, rows of the others; each may add a `scheme` and its own `colors`.
+# line_chart, area_chart, bar_chart, bullet_chart, now_playing, art,
+# picture, blank, and table, rows of the others; each may add a `scheme`
+# and its own `colors`.
 tiles:
   clock: {kind: clock}
   date: {kind: date}

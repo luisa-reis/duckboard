@@ -294,6 +294,7 @@ fn tile_base_name(spec: &TileSpec, slot: Slot) -> String {
         TileSpec::LineChart { .. } => "line-chart".into(),
         TileSpec::AreaChart { .. } => "area-chart".into(),
         TileSpec::BarChart { .. } => "bar-chart".into(),
+        TileSpec::BulletChart { .. } => "bullet-chart".into(),
         TileSpec::Progress { .. } => "progress".into(),
         TileSpec::Blank => "blank".into(),
     }
