@@ -29,7 +29,7 @@ animate() {
 
 # The tours go up to the album art, which is not there; the example is on
 # sample data.
-for name in demo demo-128x64 text line-charts area-charts bar-charts bullet-charts tables dashboard.example; do
+for name in demo demo-128x64 text fonts line-charts area-charts bar-charts bullet-charts tables dashboard.example; do
   animate "$name"
 done
 animate commands --commands

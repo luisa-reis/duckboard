@@ -1,0 +1,258 @@
+# yaml-language-server: $schema=../../panel-ddp.schema.json
+#
+# The fonts demo: every U8g2 font a text tile can name with `font`. A small
+# one says its own name; a large one shows a reading under its name. A line
+# too wide for the panel scrolls. `panel-ddp fonts` lists them with the
+# height a line of each takes. It needs no accounts and no data.
+#
+#   target/release/panel-ddp run --config docs/demos/fonts.yaml --target <board> --once
+
+target: "4.3.2.1"
+
+# The gap file is at the top of the repository; paths are relative to this
+# file.
+gaps: ../../2d-gaps.json
+
+# The regions: rows across the panel, each as tall as the font it holds.
+layouts:
+  tiny-1:
+    row_1: {x: 1, y: 2, width: 62, height: 6}
+    row_2: {x: 1, y: 8, width: 62, height: 5}
+    row_3: {x: 1, y: 13, width: 62, height: 8}
+    row_4: {x: 1, y: 21, width: 62, height: 7}
+    row_5: {x: 1, y: 28, width: 62, height: 9}
+    row_6: {x: 1, y: 37, width: 62, height: 8}
+    row_7: {x: 1, y: 45, width: 62, height: 8}
+    row_8: {x: 1, y: 53, width: 62, height: 8}
+  pixel-1:
+    row_1: {x: 1, y: 0, width: 62, height: 7}
+    row_2: {x: 1, y: 7, width: 62, height: 10}
+    row_3: {x: 1, y: 17, width: 62, height: 11}
+    row_4: {x: 1, y: 28, width: 62, height: 10}
+    row_5: {x: 1, y: 38, width: 62, height: 12}
+    row_6: {x: 1, y: 50, width: 62, height: 13}
+  pixel-2:
+    row_1: {x: 1, y: 6, width: 62, height: 13}
+    row_2: {x: 1, y: 19, width: 62, height: 13}
+    row_3: {x: 1, y: 32, width: 62, height: 13}
+    row_4: {x: 1, y: 45, width: 62, height: 13}
+  pixel-3:
+    row_1: {x: 1, y: 14, width: 62, height: 14}
+    row_2: {x: 1, y: 28, width: 62, height: 6}
+    row_3: {x: 1, y: 34, width: 62, height: 16}
+  mono-1:
+    row_1: {x: 1, y: 0, width: 62, height: 11}
+    row_2: {x: 1, y: 11, width: 62, height: 11}
+    row_3: {x: 1, y: 22, width: 62, height: 12}
+    row_4: {x: 1, y: 34, width: 62, height: 8}
+    row_5: {x: 1, y: 42, width: 62, height: 10}
+    row_6: {x: 1, y: 52, width: 62, height: 12}
+  mono-2:
+    row_1: {x: 1, y: 13, width: 62, height: 14}
+    row_2: {x: 1, y: 27, width: 62, height: 6}
+    row_3: {x: 1, y: 33, width: 62, height: 18}
+  mono-3:
+    row_1: {x: 1, y: 17, width: 62, height: 6}
+    row_2: {x: 1, y: 23, width: 62, height: 24}
+  sans-1:
+    row_1: {x: 1, y: 8, width: 62, height: 10}
+    row_2: {x: 1, y: 18, width: 62, height: 10}
+    row_3: {x: 1, y: 28, width: 62, height: 14}
+    row_4: {x: 1, y: 42, width: 62, height: 14}
+  sans-2:
+    row_1: {x: 1, y: 10, width: 62, height: 6}
+    row_2: {x: 1, y: 16, width: 62, height: 16}
+    row_3: {x: 1, y: 32, width: 62, height: 6}
+    row_4: {x: 1, y: 38, width: 62, height: 16}
+  sans-3:
+    row_1: {x: 1, y: 5, width: 62, height: 6}
+    row_2: {x: 1, y: 11, width: 62, height: 18}
+    row_3: {x: 1, y: 29, width: 62, height: 6}
+    row_4: {x: 1, y: 35, width: 62, height: 24}
+  sans-4:
+    row_1: {x: 1, y: 13, width: 62, height: 6}
+    row_2: {x: 1, y: 19, width: 62, height: 32}
+  serif-1:
+    row_1: {x: 1, y: 3, width: 62, height: 10}
+    row_2: {x: 1, y: 13, width: 62, height: 10}
+    row_3: {x: 1, y: 23, width: 62, height: 14}
+    row_4: {x: 1, y: 37, width: 62, height: 6}
+    row_5: {x: 1, y: 43, width: 62, height: 18}
+  serif-2:
+    row_1: {x: 1, y: 9, width: 62, height: 10}
+    row_2: {x: 1, y: 19, width: 62, height: 13}
+    row_3: {x: 1, y: 32, width: 62, height: 6}
+    row_4: {x: 1, y: 38, width: 62, height: 17}
+  display-1:
+    row_1: {x: 1, y: 13, width: 62, height: 14}
+    row_2: {x: 1, y: 27, width: 62, height: 6}
+    row_3: {x: 1, y: 33, width: 62, height: 18}
+  display-2:
+    row_1: {x: 1, y: 2, width: 62, height: 6}
+    row_2: {x: 1, y: 8, width: 62, height: 22}
+    row_3: {x: 1, y: 30, width: 62, height: 6}
+    row_4: {x: 1, y: 36, width: 62, height: 25}
+  display-3:
+    row_1: {x: 1, y: 3, width: 62, height: 6}
+    row_2: {x: 1, y: 9, width: 62, height: 20}
+    row_3: {x: 1, y: 29, width: 62, height: 6}
+    row_4: {x: 1, y: 35, width: 62, height: 26}
+  display-4:
+    row_1: {x: 1, y: 14, width: 62, height: 6}
+    row_2: {x: 1, y: 20, width: 62, height: 30}
+  display-5:
+    row_1: {x: 1, y: 11, width: 62, height: 6}
+    row_2: {x: 1, y: 17, width: 62, height: 35}
+  icons-1:
+    row_1: {x: 1, y: 4, width: 62, height: 6}
+    row_2: {x: 1, y: 10, width: 62, height: 10}
+    row_3: {x: 1, y: 20, width: 62, height: 6}
+    row_4: {x: 1, y: 26, width: 62, height: 10}
+    row_5: {x: 1, y: 36, width: 62, height: 6}
+    row_6: {x: 1, y: 42, width: 62, height: 18}
+
+tiles:
+  # The smallest: five to nine pixels a line.
+  tom_thumb_4x6: {kind: text, text: "tom_thumb_4x6", font: tom_thumb_4x6, align: left}
+  micro: {kind: text, text: "micro", font: micro, align: left}
+  pixelle_micro: {kind: text, text: "pixelle_micro", font: pixelle_micro, align: left}
+  tinytim: {kind: text, text: "tinytim", font: tinytim, align: left}
+  haxrcorp4089: {kind: text, text: "haxrcorp4089", font: haxrcorp4089, align: left}
+  squeezed_r7: {kind: text, text: "squeezed_r7", font: squeezed_r7, align: left}
+  squeezed_b7: {kind: text, text: "squeezed_b7", font: squeezed_b7, align: left}
+  nokiafc22: {kind: text, text: "nokiafc22", font: nokiafc22, align: left}
+  # Pixel fonts with a character of their own.
+  mozart_nbp: {kind: text, text: "mozart_nbp", font: mozart_nbp, align: left}
+  glasstown_nbp: {kind: text, text: "glasstown_nbp", font: glasstown_nbp, align: left}
+  smart_patrol_nbp: {kind: text, text: "smart_patrol_nbp", font: smart_patrol_nbp, align: left}
+  bitcasual: {kind: text, text: "bitcasual", font: bitcasual, align: left}
+  tenthinguys: {kind: text, text: "tenthinguys", font: tenthinguys, align: left}
+  tenfatguys: {kind: text, text: "tenfatguys", font: tenfatguys, align: left}
+  fewture: {kind: text, text: "fewture", font: fewture, align: left}
+  halftone: {kind: text, text: "halftone", font: halftone, align: left}
+  Born2bSportyV2: {kind: text, text: "Born2bSportyV2", font: Born2bSportyV2, align: left}
+  DigitalDiscoThin: {kind: text, text: "DigitalDiscoThin", font: DigitalDiscoThin, align: left}
+  Pixellari: {kind: text, text: "Pixellari", font: Pixellari, align: left}
+  VCR_OSD-label: {kind: text, text: "VCR_OSD", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  VCR_OSD: {kind: text, text: "21.4", font: VCR_OSD, align: left}
+  # Monospaced, plain and bold: t0 and ProFont.
+  t0_11: {kind: text, text: "t0_11", font: t0_11, align: left}
+  t0_11b: {kind: text, text: "t0_11b", font: t0_11b, align: left}
+  t0_14b: {kind: text, text: "t0_14b", font: t0_14b, align: left}
+  profont10: {kind: text, text: "profont10", font: profont10, align: left}
+  profont12: {kind: text, text: "profont12", font: profont12, align: left}
+  profont15: {kind: text, text: "profont15", font: profont15, align: left}
+  profont17: {kind: text, text: "profont17", font: profont17, align: left}
+  profont22-label: {kind: text, text: "profont22", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  profont22: {kind: text, text: "21.4", font: profont22, align: left}
+  profont29-label: {kind: text, text: "profont29", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  profont29: {kind: text, text: "21.4", font: profont29, align: left}
+  # Helvetica, regular (R) and bold (B), by point size.
+  helvR08: {kind: text, text: "helvR08", font: helvR08, align: left}
+  helvB08: {kind: text, text: "helvB08", font: helvB08, align: left}
+  helvR10: {kind: text, text: "helvR10", font: helvR10, align: left}
+  helvB10: {kind: text, text: "helvB10", font: helvB10, align: left}
+  helvR12-label: {kind: text, text: "helvR12", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  helvR12: {kind: text, text: "21.4", font: helvR12, align: left}
+  helvB12-label: {kind: text, text: "helvB12", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  helvB12: {kind: text, text: "21.4", font: helvB12, align: left}
+  helvB14-label: {kind: text, text: "helvB14", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  helvB14: {kind: text, text: "21.4", font: helvB14, align: left}
+  helvB18-label: {kind: text, text: "helvB18", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  helvB18: {kind: text, text: "21.4", font: helvB18, align: left}
+  helvB24-label: {kind: text, text: "helvB24", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  helvB24: {kind: text, text: "21.4", font: helvB24, align: left}
+  # New Century Schoolbook and Times.
+  ncenR08: {kind: text, text: "ncenR08", font: ncenR08, align: left}
+  ncenB08: {kind: text, text: "ncenB08", font: ncenB08, align: left}
+  ncenB10: {kind: text, text: "ncenB10", font: ncenB10, align: left}
+  ncenB14-label: {kind: text, text: "ncenB14", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  ncenB14: {kind: text, text: "21.4", font: ncenB14, align: left}
+  timR08: {kind: text, text: "timR08", font: timR08, align: left}
+  timB10: {kind: text, text: "timB10", font: timB10, align: left}
+  timB14-label: {kind: text, text: "timB14", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  timB14: {kind: text, text: "21.4", font: timB14, align: left}
+  # Tall and bold, for one large reading: Free Universal Bold and Logisoso.
+  fub11: {kind: text, text: "fub11", font: fub11, align: left}
+  fub14-label: {kind: text, text: "fub14", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  fub14: {kind: text, text: "21.4", font: fub14, align: left}
+  fub17-label: {kind: text, text: "fub17", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  fub17: {kind: text, text: "21.4", font: fub17, align: left}
+  fub20-label: {kind: text, text: "fub20", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  fub20: {kind: text, text: "21.4", font: fub20, align: left}
+  logisoso16-label: {kind: text, text: "logisoso16", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  logisoso16: {kind: text, text: "21.4", font: logisoso16, align: left}
+  logisoso20-label: {kind: text, text: "logisoso20", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  logisoso20: {kind: text, text: "21.4", font: logisoso20, align: left}
+  logisoso24-label: {kind: text, text: "logisoso24", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  logisoso24: {kind: text, text: "21.4", font: logisoso24, align: left}
+  logisoso28-label: {kind: text, text: "logisoso28", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  logisoso28: {kind: text, text: "21.4", font: logisoso28, align: left}
+  open_iconic_weather_1x-label: {kind: text, text: "open_iconic_weather_1x", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  # Icons: each character is a picture, from '@' on.
+  open_iconic_weather_1x: {kind: text, text: "@ABCDE", font: open_iconic_weather_1x, align: left}
+  open_iconic_all_1x-label: {kind: text, text: "open_iconic_all_1x", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  open_iconic_all_1x: {kind: text, text: "@ABCDEFG", font: open_iconic_all_1x, align: left}
+  open_iconic_weather_2x-label: {kind: text, text: "open_iconic_weather_2x", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  open_iconic_weather_2x: {kind: text, text: "@AB", font: open_iconic_weather_2x, align: left}
+
+page_seconds: 4.0
+
+pages:
+  tiny-1:
+    layout: tiny-1
+    tiles: {row_1: tom_thumb_4x6, row_2: micro, row_3: pixelle_micro, row_4: tinytim, row_5: haxrcorp4089, row_6: squeezed_r7, row_7: squeezed_b7, row_8: nokiafc22}
+  pixel-1:
+    layout: pixel-1
+    tiles: {row_1: mozart_nbp, row_2: glasstown_nbp, row_3: smart_patrol_nbp, row_4: bitcasual, row_5: tenthinguys, row_6: tenfatguys}
+  pixel-2:
+    layout: pixel-2
+    tiles: {row_1: fewture, row_2: halftone, row_3: Born2bSportyV2, row_4: DigitalDiscoThin}
+  pixel-3:
+    layout: pixel-3
+    tiles: {row_1: Pixellari, row_2: VCR_OSD-label, row_3: VCR_OSD}
+  mono-1:
+    layout: mono-1
+    tiles: {row_1: t0_11, row_2: t0_11b, row_3: t0_14b, row_4: profont10, row_5: profont12, row_6: profont15}
+  mono-2:
+    layout: mono-2
+    tiles: {row_1: profont17, row_2: profont22-label, row_3: profont22}
+  mono-3:
+    layout: mono-3
+    tiles: {row_1: profont29-label, row_2: profont29}
+  sans-1:
+    layout: sans-1
+    tiles: {row_1: helvR08, row_2: helvB08, row_3: helvR10, row_4: helvB10}
+  sans-2:
+    layout: sans-2
+    tiles: {row_1: helvR12-label, row_2: helvR12, row_3: helvB12-label, row_4: helvB12}
+  sans-3:
+    layout: sans-3
+    tiles: {row_1: helvB14-label, row_2: helvB14, row_3: helvB18-label, row_4: helvB18}
+  sans-4:
+    layout: sans-4
+    tiles: {row_1: helvB24-label, row_2: helvB24}
+  serif-1:
+    layout: serif-1
+    tiles: {row_1: ncenR08, row_2: ncenB08, row_3: ncenB10, row_4: ncenB14-label, row_5: ncenB14}
+  serif-2:
+    layout: serif-2
+    tiles: {row_1: timR08, row_2: timB10, row_3: timB14-label, row_4: timB14}
+  display-1:
+    layout: display-1
+    tiles: {row_1: fub11, row_2: fub14-label, row_3: fub14}
+  display-2:
+    layout: display-2
+    tiles: {row_1: fub17-label, row_2: fub17, row_3: fub20-label, row_4: fub20}
+  display-3:
+    layout: display-3
+    tiles: {row_1: logisoso16-label, row_2: logisoso16, row_3: logisoso20-label, row_4: logisoso20}
+  display-4:
+    layout: display-4
+    tiles: {row_1: logisoso24-label, row_2: logisoso24}
+  display-5:
+    layout: display-5
+    tiles: {row_1: logisoso28-label, row_2: logisoso28}
+  icons-1:
+    layout: icons-1
+    tiles: {row_1: open_iconic_weather_1x-label, row_2: open_iconic_weather_1x, row_3: open_iconic_all_1x-label, row_4: open_iconic_all_1x, row_5: open_iconic_weather_2x-label, row_6: open_iconic_weather_2x}

@@ -58,6 +58,17 @@ and a night playlist and a schedule. Its three pages, `home`, `music` and
 Every size a `text` tile comes in, from `4x6` to `10x20`, each line in its
 own size and saying which, then lines too wide for the panel, scrolling.
 
+### Fonts
+
+| `fonts.yaml` |
+|---|
+| ![The U8g2 fonts](fonts.png) |
+
+Every U8g2 font a `text` tile can name with `font` in place of `size`:
+tiny ones, pixel fonts, monospaced, Helvetica, serifs, tall display fonts
+and icons. A small one says its own name; a large one shows a reading under
+its name. `panel-ddp fonts` lists them with their heights.
+
 The other kinds (`clock`, `date`, `weather`, `sensor`, `progress`, `art`,
 `picture`) are in the tour.
 
