@@ -13,6 +13,7 @@ use crate::http::MAX_VALUES;
 use anyhow::{anyhow, bail, Context, Result};
 use std::collections::BTreeMap;
 use std::io::Read;
+use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -68,7 +69,8 @@ fn run(cmd: &CommandConfig, stop: &AtomicBool) -> Result<String> {
     let (program, args) = cmd.run.split_first().context("no command")?;
     let mut child = Command::new(program)
         .args(args)
-        .current_dir(&cmd.dir)
+        // A config named without a directory has an empty one: the current.
+        .current_dir(if cmd.dir.as_os_str().is_empty() { Path::new(".") } else { &cmd.dir })
         .envs(cmd.env.iter().map(|(k, v)| (k, v)))
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -252,6 +254,10 @@ mod tests {
         let cmd = command("true", Feed::Table("t".into()));
         store(&cmd, &columns, &run(&cmd, &stop).unwrap(), &shared).unwrap();
         assert!(shared.lock().unwrap().tables["t"].is_empty(), "nothing printed is no rows");
+
+        let mut cmd = command("echo 1", Feed::Series("s".into()));
+        cmd.dir = std::path::PathBuf::new();
+        assert_eq!(run(&cmd, &stop).unwrap().trim(), "1", "no directory is the current one");
     }
 
     #[test]
