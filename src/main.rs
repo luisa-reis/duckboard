@@ -488,7 +488,13 @@ fn cmd_preview(args: &[String]) -> Result<()> {
             bail!("--all draws one still picture a page: name a .png with --out (--all-in-one animates them all, --page NAME one)");
         }
         for name in cfg.pages.iter().map(|p| p.name.clone()) {
-            preview_one(only(&cfg, &name)?, &mask, &out.with_file_name(format!("{stem}-{name}.{ext}")), &opts, ran)?;
+            let one = only(&cfg, &name)?;
+            // A page whose cover or picture is not there has nothing to draw.
+            if let Err(e) = Show::new(one.clone()) {
+                eprintln!("panel-ddp: {name}: no picture of it: {e:#}");
+                continue;
+            }
+            preview_one(one, &mask, &out.with_file_name(format!("{stem}-{name}.{ext}")), &opts, ran)?;
         }
         return Ok(());
     }
