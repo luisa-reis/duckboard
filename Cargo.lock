@@ -926,6 +926,7 @@ dependencies = [
  "chrono",
  "ctrlc",
  "embedded-graphics",
+ "gif",
  "image",
  "indexmap",
  "jsonschema",
