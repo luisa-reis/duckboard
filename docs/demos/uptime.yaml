@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../panel-ddp.schema.json
+#
+# This machine's load, from `uptime`: the smallest example of a command as
+# a source. uptime.sh turns what uptime says into JSON, and the panel
+# runs it on a timer (docs/dashboard.md, "Data from a command"). Commands
+# run in this file's directory, so the script's path is relative to it.
+#
+#   target/release/panel-ddp run --config docs/demos/uptime.yaml --target <board>
+
+target: "4.3.2.1"
+
+# The gap file is at the top of the repository; paths are relative to this
+# file.
+gaps: ../../2d-gaps.json
+
+sources:
+  commands:
+    # The three load averages, a row each.
+    - table: loads
+      every: 10
+      run: ["sh", "uptime.sh", "loads"]
+    # How long the machine has been up: a table of one row.
+    - table: up
+      every: 60
+      run: ["sh", "uptime.sh", "up"]
+    # The one-minute load at each run; the script keeps the last 60.
+    - series: load
+      every: 10
+      run: ["sh", "uptime.sh", "history"]
+
+layouts:
+  load:
+    title: {x: 1, y: 1, width: 18, height: 6}
+    up: {x: 20, y: 1, width: 43, height: 6}
+    loads: {x: 1, y: 10, width: 62, height: 26}
+    history: {x: 1, y: 39, width: 62, height: 24}
+
+tiles:
+  title: {kind: text, text: "LOAD", size: 4x6, align: left, colors: {text: "#6e6e6e"}}
+  up:
+    kind: table
+    data: up
+    rows:
+      - height: 6
+        repeat: true
+        tiles:
+          - {x: 0, width: 43, tile: {kind: text, column: up, size: 4x6, align: right, overflow: truncate, colors: {text: "#6e6e6e"}}}
+  loads:
+    kind: table
+    data: loads
+    gap: 1
+    rows:
+      - height: 8
+        repeat: true
+        tiles:
+          - {x: 0, y: 1, width: 24, height: 6, tile: {kind: text, column: name, size: 4x6, align: left, overflow: truncate, colors: {text: "#6e6e6e"}}}
+          - {x: 25, y: 1, width: 17, height: 6, tile: {kind: text, column: load, size: 4x6, align: right, overflow: truncate}}
+          - {x: 45, y: 2, width: 17, height: 4, tile: {kind: bullet_chart, column: percent, ranges: [50, 80], bar: "#3cdc5a"}}
+  history: {kind: area_chart, series: load, line: "#50aaff", area: "#2c6cd0", dot: "#ffffff"}
+
+pages:
+  load:
+    layout: load
+    tiles: {title: title, up: up, loads: loads, history: history}
