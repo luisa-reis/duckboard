@@ -1,6 +1,6 @@
 # DDP, the Distributed Display Protocol
 
-DDP is how `panel-ddp` gets pixels onto the board. It is a small, open UDP
+DDP is how `duckboard` gets pixels onto the board. It is a small, open UDP
 protocol from 3waylabs for sending real-time data to LED displays: a
 10-byte header, then raw pixel bytes. WLED receives it on UDP port 4048
 out of the box, with nothing to install on the board.
@@ -11,7 +11,7 @@ read: <http://www.3waylabs.com/ddp/> (plain HTTP only).
 
 ## The model
 
-A display holds a frame buffer. A controller (here, `panel-ddp`) writes
+A display holds a frame buffer. A controller (here, `duckboard`) writes
 blocks of bytes into it, each block saying where it goes (a byte offset)
 and how long it is. Blocks may arrive in any order and the buffer is not
 cleared between frames, so a controller may send only what changed. A
@@ -101,11 +101,11 @@ branch, September 2026):
   realtime buffer: WLED notes the latest sender's address but does not
   lock others out.
 - **Gamma and brightness**: realtime data skips WLED's gamma correction by
-  default (*Disable realtime gamma correction*), which is why `panel-ddp`
+  default (*Disable realtime gamma correction*), which is why `duckboard`
   applies its own. *Force max brightness* and *Use main segment only* are
   further realtime settings.
 
-## How panel-ddp uses it
+## How duckboard uses it
 
 `src/ddp.rs` sends every frame whole:
 
@@ -181,7 +181,7 @@ is 90 packets and about 126 KB a second (1 Mbit/s); 30 fps is about
 - **Fragmentation.** A datagram bigger than a link's MTU is split into IP
   fragments, and losing any one loses the packet. A full DDP packet is
   1,478 bytes on the wire; a VPN tunnel typically carries 1,420 at most.
-  `panel-ddp` keeps under 1,406, but a board reached through a tunnel still
+  `duckboard` keeps under 1,406, but a board reached through a tunnel still
   gets its latency and jitter: best on the same network, or with the sender
   beside it.
 

@@ -1,9 +1,9 @@
-# yaml-language-server: $schema=panel-ddp.schema.json
+# yaml-language-server: $schema=duckboard.schema.json
 #
 # A live dashboard. Copy to dashboard.yaml (git-ignored) and edit; every
-# setting is described in panel-ddp.schema.json, and
+# setting is described in duckboard.schema.json, and
 #
-#   target/release/panel-ddp check dashboard.yaml
+#   target/release/duckboard check dashboard.yaml
 #
 # says what is wrong, if anything. A running panel picks up a saved change
 # within a second. Secrets live in secrets.yaml (see secrets.example.yaml).
@@ -18,7 +18,7 @@ temperature: fahrenheit    # or celsius
 # refused, unless its page brings the data itself (see docs/demos/demo.yaml).
 sources:
   weather: {latitude: 37.77, longitude: -122.42}
-  spotify: {client_id: PASTE-CLIENT-ID}   # then: panel-ddp spotify-login --config dashboard.yaml
+  spotify: {client_id: PASTE-CLIENT-ID}   # then: duckboard spotify-login --config dashboard.yaml
   # home_assistant:
   #   url: "http://homeassistant.local:8123"
   #   token: {secret: home_assistant_token}

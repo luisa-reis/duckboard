@@ -44,7 +44,7 @@ impl ArtFile {
                     let _ = std::process::Command::new("open").arg(&self.path).spawn();
                 }
             }
-            Err(e) => eprintln!("panel-ddp: art file {}: {e}", self.path.display()),
+            Err(e) => eprintln!("duckboard: art file {}: {e}", self.path.display()),
         }
     }
 
@@ -52,7 +52,7 @@ impl ArtFile {
     pub fn remove(&self) {
         if self.path.exists() {
             if let Err(e) = std::fs::remove_file(&self.path) {
-                eprintln!("panel-ddp: removing {}: {e}", self.path.display());
+                eprintln!("duckboard: removing {}: {e}", self.path.display());
             }
         }
     }

@@ -281,6 +281,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "duckboard"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "chrono",
+ "ctrlc",
+ "embedded-graphics",
+ "gif",
+ "image",
+ "indexmap",
+ "jsonschema",
+ "png",
+ "schemars",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "sha2",
+ "tiny_http",
+ "toml",
+ "u8g2-fonts",
+ "ureq",
+]
+
+[[package]]
 name = "dyn-clone"
 version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -916,31 +941,6 @@ name = "outref"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a80800c0488c3a21695ea981a54918fbb37abf04f4d0720c453632255e2ff0e"
-
-[[package]]
-name = "panel-ddp"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "base64",
- "chrono",
- "ctrlc",
- "embedded-graphics",
- "gif",
- "image",
- "indexmap",
- "jsonschema",
- "png",
- "schemars",
- "serde",
- "serde_json",
- "serde_yaml_ng",
- "sha2",
- "tiny_http",
- "toml",
- "u8g2-fonts",
- "ureq",
-]
 
 [[package]]
 name = "parking_lot"

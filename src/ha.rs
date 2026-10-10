@@ -171,7 +171,7 @@ impl Client {
             .context("reading entity_picture")?;
         let scaled = picture::decode(&bytes, self.gamma, &self.cache.sizes).context("entity_picture")?;
         if let Err(e) = self.cache.put(url, &scaled).and_then(|()| self.cache.put_original(url, &bytes, name.as_deref())) {
-            eprintln!("panel-ddp: art cache: {e:#}");
+            eprintln!("duckboard: art cache: {e:#}");
         }
         Ok((scaled, Some(bytes)))
     }

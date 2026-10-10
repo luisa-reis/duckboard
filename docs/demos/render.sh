@@ -12,7 +12,7 @@
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
-bin=${PANEL_DDP:-$here/../../target/release/panel-ddp}
+bin=${DUCKBOARD:-$here/../../target/release/duckboard}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 cp "$here"/*.yaml "$here"/uptime.sh "$here"/http-push.sh "$here"/../../dashboard.example.yaml "$work"

@@ -51,7 +51,7 @@ pub fn spawn(cfg: HttpConfig, names: Vec<String>, tables: Tables, shared: Shared
                 return;
             }
         };
-        eprintln!("panel-ddp: http: listening on {}", server.server_addr());
+        eprintln!("duckboard: http: listening on {}", server.server_addr());
         serve(&server, Arc::new(Allowed { names, tables, token: cfg.token }), &shared, &stop);
     });
 }
@@ -92,7 +92,7 @@ fn serve(server: &Server, allowed: Arc<Allowed>, shared: &Shared, stop: &AtomicB
             }
             Ok(None) => {}
             Err(e) => {
-                eprintln!("panel-ddp: http: {e}");
+                eprintln!("duckboard: http: {e}");
                 thread::sleep(Duration::from_secs(1));
             }
         }

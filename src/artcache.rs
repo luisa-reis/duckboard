@@ -230,7 +230,7 @@ mod tests {
     }
 
     fn tempdir(name: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!("panel-ddp-artcache-{name}-{}", std::process::id()));
+        let d = std::env::temp_dir().join(format!("duckboard-artcache-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&d);
         d
     }

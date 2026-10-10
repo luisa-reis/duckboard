@@ -1,5 +1,5 @@
 //! The configuration files before the YAML one: TOML, or the same in JSON.
-//! Only `panel-ddp migrate` reads them now, to convert them; they resolve
+//! Only `duckboard migrate` reads them now, to convert them; they resolve
 //! into the model as they always did, so the conversion can be checked. `[tiles]` alone makes a single page shown for
 //! good; `pages` a loop of timed ones. On every page the background comes
 //! first, then the five regions in ascending `z`.
@@ -62,7 +62,7 @@ pub struct Config {
     /// tiles, pulses in the alert's colour and shows its label.
     #[serde(default)]
     pub alerts: Vec<Alert>,
-    /// The folder and pacing for `panel-ddp frame`.
+    /// The folder and pacing for `duckboard frame`.
     #[serde(default)]
     pub frame: FrameConfig,
     /// Dashboard pages shown in turn, each for its own time. When there are
@@ -666,7 +666,7 @@ fn validate_tiles(t: &Tiles) -> Result<()> {
 mod tests {
     #[test]
     fn json_and_toml_read_the_same() {
-        let dir = std::env::temp_dir().join(format!("panel-ddp-cfg-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("duckboard-cfg-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let toml_path = dir.join("c.toml");
         let json_path = dir.join("c.json");
@@ -704,7 +704,7 @@ mod tests {
 
     #[test]
     fn regions_must_fit_the_panel() {
-        let dir = std::env::temp_dir().join(format!("panel-ddp-regions-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("duckboard-regions-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         for (bad, why) in [
             ("hub = { x = 50, y = 0, width = 20, height = 10 }", "past the right edge"),

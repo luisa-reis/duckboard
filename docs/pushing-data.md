@@ -1,7 +1,7 @@
 # Pushing data to the panel
 
 Everything another program needs to put its own numbers and text on the
-panel: `panel-ddp` runs a small HTTP endpoint, and charts and tables draw
+panel: `duckboard` runs a small HTTP endpoint, and charts and tables draw
 what is sent to it. This page stands on its own; the tiles themselves are
 in [charts.md](charts.md) and the rest of the configuration in
 [dashboard.md](dashboard.md).
@@ -33,7 +33,7 @@ curl -X PUT -d '[{"name": "api", "ms": 42, "latency": [40, 44, 42]}]' http://127
 is the same with `curl`, once); run the two to see it work end to end:
 
 ```sh
-target/release/panel-ddp run --config docs/demos/http.yaml --target <board>
+target/release/duckboard run --config docs/demos/http.yaml --target <board>
 python3 tools/push_example.py            # in another terminal
 ```
 
@@ -66,7 +66,7 @@ Authorization: Bearer THE-TOKEN
 ```
 
 The config only names the secret. Its value is in the environment variable
-`PANEL_DDP_SECRET_<NAME>` of the panel's process (`PANEL_DDP_SECRET_HTTP_TOKEN`
+`DUCKBOARD_SECRET_<NAME>` of the panel's process (`DUCKBOARD_SECRET_HTTP_TOKEN`
 for `{secret: http_token}`), or in `secrets.yaml` beside the config. Whoever
 runs the panel hands it to the program that pushes; do not read or print
 `secrets.yaml` from a tool that logs what it does. Without a `token` in the
@@ -187,7 +187,7 @@ PANEL = "http://127.0.0.1:4049"
 
 def push(method, path, body):
     request = urllib.request.Request(PANEL + path, data=json.dumps(body).encode(), method=method)
-    token = os.environ.get("PANEL_DDP_TOKEN")
+    token = os.environ.get("DUCKBOARD_TOKEN")
     if token:
         request.add_header("Authorization", f"Bearer {token}")
     with urllib.request.urlopen(request, timeout=5) as response:
@@ -219,7 +219,7 @@ wrong. `tools/push_example.py` is the same with the errors handled.
 
 ## Things to know
 
-- **Memory only.** What is pushed is gone when `panel-ddp` restarts. Push
+- **Memory only.** What is pushed is gone when `duckboard` restarts. Push
   on a timer, or at least once at the start; a config reload keeps it.
 - **Push whole results.** `PUT` is one request that replaces everything,
   so the panel never shows half of an update. Prefer it to a `DELETE` and
@@ -241,7 +241,7 @@ wrong. `tools/push_example.py` is the same with the errors handled.
    whoever runs it. Get the token if the config has one.
 2. `GET /` and read the names and the columns. If the name you need is not
    there, the config needs the chart or table first: see
-   [charts.md](charts.md), and run `panel-ddp check` on the config after
+   [charts.md](charts.md), and run `duckboard check` on the config after
    editing it.
 3. Shape the data: an array of numbers for a series; for a table an array
    of objects with exactly the listed columns, text already formatted,

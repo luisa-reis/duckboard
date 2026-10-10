@@ -1,6 +1,6 @@
-# panel-ddp
+# duckboard
 
-A dashboard for an LED matrix. `panel-ddp` draws pages of tiles (a clock,
+A dashboard for an LED matrix. `duckboard` draws pages of tiles (a clock,
 the weather, sensor readings, charts, tables, album art, pictures) and
 streams them to a [WLED](https://kno.wled.ge) panel over the network, ten
 frames a second. Nothing is installed on the board: it runs on a Raspberry
@@ -20,7 +20,7 @@ there is one for each tile kind, chart kind and data source.
 - **Draws a dashboard from one YAML file.** Layouts are named regions of
   the panel; pages put tiles in them; playlists and a schedule say which
   pages show when (a dim clock at night, say). The file is checked against
-  a JSON Schema, by editors as you type and by `panel-ddp check`, and a
+  a JSON Schema, by editors as you type and by `duckboard check`, and a
   running panel picks up a saved change within a second.
 - **Tiles**
   - clock, date, weather (Open-Meteo, no account);
@@ -54,17 +54,17 @@ there is one for each tile kind, chart kind and data source.
 ```sh
 cargo build --release
 cp dashboard.example.yaml dashboard.yaml    # set target, the sources and the pages
-target/release/panel-ddp check dashboard.yaml
-target/release/panel-ddp preview            # one frame as a PNG
-target/release/panel-ddp run                # stream until Ctrl-C; edits apply as you save
+target/release/duckboard check dashboard.yaml
+target/release/duckboard preview            # one frame as a PNG
+target/release/duckboard run                # stream until Ctrl-C; edits apply as you save
 ```
 
 Without a board, or before writing a config, look at the demos
 ([docs/demos](docs/demos/README.md) lists them):
 
 ```sh
-target/release/panel-ddp preview --config docs/demos/line-charts.yaml --all-in-one --out preview.gif
-target/release/panel-ddp run --config docs/demos/demo.yaml --target <board> --once
+target/release/duckboard preview --config docs/demos/line-charts.yaml --all-in-one --out preview.gif
+target/release/duckboard run --config docs/demos/demo.yaml --target <board> --once
 ```
 
 ## Pushing data to it

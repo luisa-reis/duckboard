@@ -11,11 +11,11 @@ set -eu
 url=${1:-http://127.0.0.1:4049}
 
 # PUT what is on standard input to a path, replacing what was there. The
-# token, when the panel asks for one, comes from PANEL_DDP_TOKEN.
+# token, when the panel asks for one, comes from DUCKBOARD_TOKEN.
 put() {
   printf '%s: ' "$1"
   curl -sS --fail-with-body -X PUT --data-binary @- \
-    ${PANEL_DDP_TOKEN:+-H "Authorization: Bearer $PANEL_DDP_TOKEN"} "$url$1"
+    ${DUCKBOARD_TOKEN:+-H "Authorization: Bearer $DUCKBOARD_TOKEN"} "$url$1"
 }
 
 # A chart's series: all of its values at once, oldest first.

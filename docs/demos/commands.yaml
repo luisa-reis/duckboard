@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../panel-ddp.schema.json
+# yaml-language-server: $schema=../../duckboard.schema.json
 #
 # A table and two charts filled by commands: the panel runs each one on a
 # timer and draws the JSON it prints. Here they are SQLite queries, made up
@@ -6,7 +6,7 @@
 # `duckdb -json` or `psql`, for real ones (docs/dashboard.md, "Data from a
 # command").
 #
-#   target/release/panel-ddp run --config docs/demos/commands.yaml --target <board>
+#   target/release/duckboard run --config docs/demos/commands.yaml --target <board>
 
 target: "4.3.2.1"
 

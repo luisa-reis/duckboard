@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Context for Claude Code sessions working on panel-ddp.
+Context for Claude Code sessions working on duckboard.
 
 ## What it is
 
@@ -15,8 +15,8 @@ Context for Claude Code sessions working on panel-ddp.
 - One YAML file drives it (`dashboard.yaml` by default; `docs/demos/demo.yaml`
   is the demo, `dashboard.example.yaml` the starting point): named colour schemes,
   layouts (regions with x, y, width, height, `z`), tiles, pages, playlists
-  and a schedule. It is validated by `panel-ddp.schema.json` and
-  `panel-ddp check`, and a running `run` reloads it when it changes.
+  and a schedule. It is validated by `duckboard.schema.json` and
+  `duckboard check`, and a running `run` reloads it when it changes.
 - `src/format.rs` resolves the file into `Model` (`src/model.rs`): named
   pages, each a list of layers (an area, a tile, its palette) in drawing
   order; playlists of pages; and a schedule whose first matching rule picks
@@ -46,13 +46,13 @@ Context for Claude Code sessions working on panel-ddp.
   tile kinds, page data, schedule rules).
 - `src/secrets.rs` — `{secret: name}` references.
 - `src/fonts.rs` — the U8g2 fonts a text tile's `font` can name (the
-  u8g2-fonts crate), one line each; `panel-ddp fonts` lists them.
-- `panel-ddp.schema.json` — the file's JSON Schema, generated from the
+  u8g2-fonts crate), one line each; `duckboard fonts` lists them.
+- `duckboard.schema.json` — the file's JSON Schema, generated from the
   format's types (their doc comments are its descriptions). After changing
-  them: `target/release/panel-ddp schema > panel-ddp.schema.json`; a test
+  them: `target/release/duckboard schema > duckboard.schema.json`; a test
   fails until it is current.
 - `src/legacy.rs`, `src/migrate.rs` — the older TOML/JSON configs, read only
-  by `panel-ddp migrate`, which rewrites one as YAML (token to the secrets
+  by `duckboard migrate`, which rewrites one as YAML (token to the secrets
   file) and checks with `same_drawing` that it draws the same.
 - `src/ddp.rs` — the sender (an unconnected UDP socket, on purpose).
 - `src/dashboard.rs` — draws a page's layers in order; `src/tiles.rs`
@@ -83,9 +83,9 @@ the first `cargo` run here.
 cargo build --release
 cargo clippy --all-targets
 cargo test
-target/release/panel-ddp check dashboard.example.yaml docs/demos/demo.yaml
-target/release/panel-ddp preview --out preview.png   # check a change without the board (--page NAME, --all, --all-in-one, --commands, --push CMD)
-target/release/panel-ddp render --config docs/demos/demo.yaml --out /tmp/before   # frame hashes; diff before/after a refactor
+target/release/duckboard check dashboard.example.yaml docs/demos/demo.yaml
+target/release/duckboard preview --out preview.png   # check a change without the board (--page NAME, --all, --all-in-one, --commands, --push CMD)
+target/release/duckboard render --config docs/demos/demo.yaml --out /tmp/before   # frame hashes; diff before/after a refactor
 ```
 
 Cross-compiling for a Raspberry Pi (64-bit OS) from the Mac. `ring` needs a
@@ -95,7 +95,7 @@ C cross-compiler, which cargo-zigbuild supplies through Zig:
 brew install zig && cargo install --locked cargo-zigbuild
 rustup target add aarch64-unknown-linux-gnu     # run inside the repo so it lands on the pinned toolchain
 cargo zigbuild --release --target aarch64-unknown-linux-gnu.2.31
-# -> target/aarch64-unknown-linux-gnu/release/panel-ddp
+# -> target/aarch64-unknown-linux-gnu/release/duckboard
 ```
 
 Use `armv7-unknown-linux-gnueabihf` for 32-bit Raspberry Pi OS; `cross build`
@@ -122,10 +122,10 @@ and the launchd plist are in `docs/dashboard.md` under "Installing".
   when a demo or its tiles' drawing changes. Update the docs
   alongside behaviour or config changes, the schema alongside the format's
   types, and `dashboard.example.yaml` alongside new settings.
-- When editing a config, run `panel-ddp check` on it; refactors of the
+- When editing a config, run `duckboard check` on it; refactors of the
   drawing should leave `render` output of `docs/demos/demo.yaml` unchanged.
 - In configs secrets are references, `token: {secret: name}`, resolved from
-  `PANEL_DDP_SECRET_<NAME>` or `secrets.yaml` beside the config
+  `DUCKBOARD_SECRET_<NAME>` or `secrets.yaml` beside the config
   (`secrets.example.yaml` shows the shape). Never read or print
   `secrets.yaml`; a config never holds a secret itself.
 - Git-ignored, never committed: `dashboard.yaml` (and `dashboard-*.yaml`),

@@ -13,7 +13,7 @@ tables) and [dashboard.md](dashboard.md) (everything else);
 
 Point it here and say what you want to see. For example:
 
-> Read `docs/designing-dashboards.md` in the panel-ddp repository and
+> Read `docs/designing-dashboards.md` in the duckboard repository and
 > follow its loop. In `dashboard.yaml`, add a page called `energy` showing
 > today's solar production as a large number with an area chart under it,
 > and house consumption and battery level as two smaller rows. The values
@@ -31,8 +31,8 @@ The more of these you give, the fewer rounds it takes:
 ## The loop
 
 ```sh
-target/release/panel-ddp check dashboard.yaml                                # 1. is it right
-target/release/panel-ddp preview --config dashboard.yaml --page energy --out preview.png   # 2. draw it
+target/release/duckboard check dashboard.yaml                                # 1. is it right
+target/release/duckboard preview --config dashboard.yaml --page energy --out preview.png   # 2. draw it
 # 3. look at preview.png, change the YAML, go to 1
 ```
 
@@ -49,14 +49,14 @@ target/release/panel-ddp preview --config dashboard.yaml --page energy --out pre
 Other ways to look:
 
 ```sh
-target/release/panel-ddp preview --config dashboard.yaml --all --out pages.png     # every page: pages-NAME.png
-target/release/panel-ddp preview --config dashboard.yaml --page energy --out p.gif  # animated, for scrolling text
-target/release/panel-ddp preview --config dashboard.yaml --all-in-one --out all.gif # every page for its time, one animation
-target/release/panel-ddp preview --config dashboard.yaml --page energy --alert      # with the alert up
+target/release/duckboard preview --config dashboard.yaml --all --out pages.png     # every page: pages-NAME.png
+target/release/duckboard preview --config dashboard.yaml --page energy --out p.gif  # animated, for scrolling text
+target/release/duckboard preview --config dashboard.yaml --all-in-one --out all.gif # every page for its time, one animation
+target/release/duckboard preview --config dashboard.yaml --page energy --alert      # with the alert up
 ```
 
 If the build is missing, `cargo build --release` makes
-`target/release/panel-ddp`. A running panel picks a saved config up within
+`target/release/duckboard`. A running panel picks a saved config up within
 a second, so the last step can also be to look at the panel.
 
 ### What the preview draws with
@@ -135,7 +135,7 @@ font's height tall.
 - Upper case reads best at `4x6`. Only Latin-1 characters draw.
 - `font` in place of `size` gives a text tile a U8g2 font: proportional
   ones fit more characters in a line, and there are bold and tall ones for
-  a reading. `panel-ddp fonts` gives each one's height; the width depends
+  a reading. `duckboard fonts` gives each one's height; the width depends
   on the text, so check the preview (Other fonts in [charts.md](charts.md)).
 
 ### How much chart fits
@@ -247,7 +247,7 @@ Before calling a page done, on the PNG:
 
 And in the file:
 
-- `panel-ddp check` says `ok`.
+- `duckboard check` says `ok`.
 - The page's design-time `data` is gone, unless the page is a demo.
 - Every tile's source is configured: `sources.home_assistant` for
   `entity`; `sources.http`, or a command in `sources.commands`, for

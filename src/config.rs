@@ -158,7 +158,7 @@ impl ArtCacheConfig {
 pub struct SpotifyConfig {
     /// The Client ID of an app from developer.spotify.com/dashboard.
     pub client_id: String,
-    /// Where `panel-ddp spotify-login` keeps the tokens, relative to the
+    /// Where `duckboard spotify-login` keeps the tokens, relative to the
     /// config file.
     #[serde(default = "default_token_file")]
     pub token_file: PathBuf,

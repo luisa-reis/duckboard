@@ -16,7 +16,7 @@ long seen = -1;
 void setup() {
   size(640, 640);
   ART = artPath();
-  surface.setTitle("panel-ddp art");
+  surface.setTitle("duckboard art");
   noSmooth();  // the scaled-up panel version stays crisp; originals are big enough not to care
   background(0);
 }

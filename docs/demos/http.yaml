@@ -1,10 +1,10 @@
-# yaml-language-server: $schema=../../panel-ddp.schema.json
+# yaml-language-server: $schema=../../duckboard.schema.json
 #
 # Charts and a table that draw what another program pushes over HTTP: the
 # example docs/pushing-data.md and docs/charts.md go by. Nothing here has
 # data of its own; tools/push_example.py sends some.
 #
-#   target/release/panel-ddp run --config docs/demos/http.yaml --target <board>
+#   target/release/duckboard run --config docs/demos/http.yaml --target <board>
 #   python3 tools/push_example.py                       # in another terminal
 #   curl http://127.0.0.1:4049/                         # what it takes
 

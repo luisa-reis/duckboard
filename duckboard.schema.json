@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "panel-ddp configuration",
+  "title": "duckboard configuration",
   "type": "object",
   "properties": {
     "target": {
@@ -309,7 +309,7 @@
       "type": "object",
       "properties": {
         "secret": {
-          "description": "The secret's name in the secrets file; the environment variable\nPANEL_DDP_SECRET_<NAME> overrides it.",
+          "description": "The secret's name in the secrets file; the environment variable\nDUCKBOARD_SECRET_<NAME> overrides it.",
           "type": "string"
         }
       },
@@ -326,7 +326,7 @@
           "type": "string"
         },
         "token_file": {
-          "description": "Where `panel-ddp spotify-login` keeps the tokens, relative to the\nconfig file.",
+          "description": "Where `duckboard spotify-login` keeps the tokens, relative to the\nconfig file.",
           "type": "string",
           "default": "spotify-token.json"
         },

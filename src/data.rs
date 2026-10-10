@@ -313,7 +313,7 @@ pub fn spawn_sources(cfg: &Model, shared: &Shared) -> Sources {
 pub fn log_changed(last: &mut Option<String>, what: &str, e: anyhow::Error) {
     let msg = format!("{e:#}");
     if last.as_deref() != Some(&msg) {
-        eprintln!("panel-ddp: {what}: {msg}");
+        eprintln!("duckboard: {what}: {msg}");
         *last = Some(msg);
     }
 }

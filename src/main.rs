@@ -1,14 +1,14 @@
-//! panel-ddp: draws dashboard frames and streams them to a WLED matrix.
+//! duckboard: draws dashboard frames and streams them to a WLED matrix.
 //!
-//!     panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
-//!     panel-ddp preview [--config FILE] [--out FILE] [--page NAME | --all | --all-in-one] [--commands] [--push COMMAND] [--seconds S] [--test | --alert]
-//!     panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
-//!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N] [--size WxH]
-//!     panel-ddp spotify-login [--config FILE] [--port N]
-//!     panel-ddp check FILE...
-//!     panel-ddp migrate OLD [--out NEW.yaml] [--secrets FILE]
-//!     panel-ddp schema
-//!     panel-ddp fonts
+//!     duckboard run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
+//!     duckboard preview [--config FILE] [--out FILE] [--page NAME | --all | --all-in-one] [--commands] [--push COMMAND] [--seconds S] [--test | --alert]
+//!     duckboard render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
+//!     duckboard test [HOST[:PORT]] [--fps N] [--frames N] [--size WxH]
+//!     duckboard spotify-login [--config FILE] [--port N]
+//!     duckboard check FILE...
+//!     duckboard migrate OLD [--out NEW.yaml] [--secrets FILE]
+//!     duckboard schema
+//!     duckboard fonts
 //!
 //! The config file, YAML, defaults to dashboard.yaml in the current
 //! directory. `run` plays the playlist its schedule picks, reloading the
@@ -72,15 +72,15 @@ fn stop_flag() -> Arc<AtomicBool> {
 }
 
 const USAGE: &str = "usage:
-  panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
-  panel-ddp preview [--config FILE] [--out FILE] [--page NAME | --all | --all-in-one] [--commands] [--push COMMAND] [--seconds S] [--test | --weather-code N | --alert]
-  panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
-  panel-ddp test [HOST[:PORT]] [--fps N] [--frames N] [--size WxH]
-  panel-ddp spotify-login [--config FILE] [--port N]
-  panel-ddp check FILE...
-  panel-ddp migrate OLD [--out NEW.yaml] [--secrets FILE]
-  panel-ddp schema
-  panel-ddp fonts";
+  duckboard run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
+  duckboard preview [--config FILE] [--out FILE] [--page NAME | --all | --all-in-one] [--commands] [--push COMMAND] [--seconds S] [--test | --weather-code N | --alert]
+  duckboard render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
+  duckboard test [HOST[:PORT]] [--fps N] [--frames N] [--size WxH]
+  duckboard spotify-login [--config FILE] [--port N]
+  duckboard check FILE...
+  duckboard migrate OLD [--out NEW.yaml] [--secrets FILE]
+  duckboard schema
+  duckboard fonts";
 
 const DEFAULT_CONFIG: &str = "dashboard.yaml";
 
@@ -137,7 +137,7 @@ fn stream(s: &Stream, mut draw: impl FnMut(&mut Canvas, u32) -> bool) -> Result<
     let mut sender = DdpSender::new(&s.target)
         .with_context(|| format!("opening UDP socket to {}", s.target))?;
     eprintln!(
-        "panel-ddp: streaming to {} at {} fps{}",
+        "duckboard: streaming to {} at {} fps{}",
         s.target,
         s.fps,
         match s.frames {
@@ -201,7 +201,7 @@ fn frame_pictures(cfg: &Model) -> Result<Option<frame::Frame>> {
     match frame::Frame::new(cfg, &sizes) {
         Ok(f) => Ok(Some(f)),
         Err(e) => {
-            eprintln!("panel-ddp: pages: no [frame] pictures ({e:#})");
+            eprintln!("duckboard: pages: no [frame] pictures ({e:#})");
             Ok(None)
         }
     }
@@ -226,7 +226,7 @@ impl Show {
     /// page stays for good or nothing plays.
     fn pass_frames(&self, now: &chrono::DateTime<chrono::Local>) -> Option<u32> {
         let frames = self.pages.pass_frames(now)?;
-        eprintln!("panel-ddp: one pass is {:.0} s", frames as f32 / self.cfg.fps as f32);
+        eprintln!("duckboard: one pass is {:.0} s", frames as f32 / self.cfg.fps as f32);
         Some(frames)
     }
 
@@ -288,7 +288,7 @@ impl Live {
     fn reload(&mut self, cfg: Model, sample: bool) -> Result<()> {
         let old = &self.show.cfg;
         if cfg.target != old.target || cfg.fps != old.fps || cfg.size() != old.size() {
-            eprintln!("panel-ddp: target, fps, width and height apply at the next start");
+            eprintln!("duckboard: target, fps, width and height apply at the next start");
         }
         let same_sources = sources_key(&cfg) == sources_key(old);
         let same_art_file = (&cfg.art_file, cfg.art_open) == (&old.art_file, old.art_open);
@@ -370,10 +370,10 @@ fn cmd_run(args: &[String]) -> Result<()> {
     }
     let cfg = model::load(&config)?;
     if cfg.spotify.is_some() && cfg.home_assistant.as_ref().is_some_and(|h| h.media_player.is_some()) {
-        eprintln!("panel-ddp: both Spotify and a Home Assistant media player are set; Spotify feeds the art");
+        eprintln!("duckboard: both Spotify and a Home Assistant media player are set; Spotify feeds the art");
     }
     if sample {
-        eprintln!("panel-ddp: --sample: made-up data, no source is contacted");
+        eprintln!("duckboard: --sample: made-up data, no source is contacted");
     }
     let target = target.unwrap_or_else(|| cfg.target.clone());
     let (fps, size) = (cfg.fps, cfg.size());
@@ -393,13 +393,13 @@ fn cmd_run(args: &[String]) -> Result<()> {
                     let files = cfg.files.clone();
                     match live.reload(cfg, sample) {
                         Ok(()) => {
-                            eprintln!("panel-ddp: reloaded {}", config.display());
+                            eprintln!("duckboard: reloaded {}", config.display());
                             watch = Watch::new(&files);
                         }
-                        Err(e) => eprintln!("panel-ddp: {} not reloaded: {e:#}", config.display()),
+                        Err(e) => eprintln!("duckboard: {} not reloaded: {e:#}", config.display()),
                     }
                 }
-                Err(e) => eprintln!("panel-ddp: {} not reloaded: {e:#}", config.display()),
+                Err(e) => eprintln!("duckboard: {} not reloaded: {e:#}", config.display()),
             }
         }
         let mut data =
@@ -455,7 +455,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     let mask = if cfg.gaps.exists() {
         Mask::load(&cfg.gaps, cfg.size())?
     } else {
-        eprintln!("panel-ddp: no gap file at {}; the preview shows the whole panel", cfg.gaps.display());
+        eprintln!("duckboard: no gap file at {}; the preview shows the whole panel", cfg.gaps.display());
         Mask::none(cfg.size())
     };
     if whole && (all || page.is_some() || seconds.is_some() || test) {
@@ -491,7 +491,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
             let one = only(&cfg, &name)?;
             // A page whose cover or picture is not there has nothing to draw.
             if let Err(e) = Show::new(one.clone()) {
-                eprintln!("panel-ddp: {name}: no picture of it: {e:#}");
+                eprintln!("duckboard: {name}: no picture of it: {e:#}");
                 continue;
             }
             preview_one(one, &mask, &out.with_file_name(format!("{stem}-{name}.{ext}")), &opts, ran)?;
@@ -588,7 +588,7 @@ fn preview_one(cfg: Model, mask: &Mask, out: &Path, opts: &PreviewOpts, ran: Opt
     // time (ten seconds for the test frame or a page shown for good).
     let (first, on) = draw(0);
     if !on {
-        eprintln!("panel-ddp: nothing is scheduled now; the preview is dark");
+        eprintln!("duckboard: nothing is scheduled now; the preview is dark");
     }
     if let Some(ext) = animated {
         let page_seconds = show.as_ref().and_then(|s| s.pages.at(0, &start)).and_then(|at| at.page.seconds);
@@ -605,10 +605,10 @@ fn preview_one(cfg: Model, mask: &Mask, out: &Path, opts: &PreviewOpts, ran: Opt
         } else {
             mask.preview_apng(canvases, 4, fps, out)?;
         }
-        eprintln!("panel-ddp: wrote {} ({frames} frames, {:.1} s)", out.display(), frames as f32 / fps as f32);
+        eprintln!("duckboard: wrote {} ({frames} frames, {:.1} s)", out.display(), frames as f32 / fps as f32);
     } else {
         mask.preview_png(&first, 4, out)?;
-        eprintln!("panel-ddp: wrote {}", out.display());
+        eprintln!("duckboard: wrote {}", out.display());
     }
     Ok(())
 }
@@ -664,7 +664,7 @@ fn cmd_render(args: &[String]) -> Result<()> {
     }
     let path = out.join("frames.txt");
     std::fs::write(&path, list).with_context(|| format!("writing {}", path.display()))?;
-    eprintln!("panel-ddp: rendered {frames} frames into {}", out.display());
+    eprintln!("duckboard: rendered {frames} frames into {}", out.display());
     Ok(())
 }
 
@@ -690,7 +690,7 @@ fn cmd_check(args: &[String]) -> Result<()> {
         }
     }
     if bad > 0 {
-        eprintln!("panel-ddp: {bad} of {} files have mistakes", args.len());
+        eprintln!("duckboard: {bad} of {} files have mistakes", args.len());
         std::process::exit(1);
     }
     Ok(())
@@ -731,14 +731,14 @@ fn cmd_migrate(args: &[String]) -> Result<()> {
     };
     if let Some(token) = &m.token {
         add_secret(&secrets, migrate::TOKEN_SECRET, token)?;
-        eprintln!("panel-ddp: the Home Assistant token is in {} as {}", secrets.display(), migrate::TOKEN_SECRET);
+        eprintln!("duckboard: the Home Assistant token is in {} as {}", secrets.display(), migrate::TOKEN_SECRET);
     }
     std::fs::write(&out, yaml).with_context(|| format!("writing {}", out.display()))?;
     let original = legacy::load(&old)?;
     let migrated = model::load(&out).context("loading the migrated file")?;
     migrate::same_drawing(&original, &migrated)
         .with_context(|| format!("{} does not draw what {} does", out.display(), old.display()))?;
-    eprintln!("panel-ddp: wrote {}; it draws every page as {} does", out.display(), old.display());
+    eprintln!("duckboard: wrote {}; it draws every page as {} does", out.display(), old.display());
     Ok(())
 }
 
@@ -804,7 +804,7 @@ fn main() {
         other => Err(anyhow::anyhow!("unknown command {other}")),
     };
     if let Err(e) = result {
-        eprintln!("panel-ddp: {e:#}");
+        eprintln!("duckboard: {e:#}");
         eprintln!("{USAGE}");
         std::process::exit(1);
     }

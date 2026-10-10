@@ -17,7 +17,7 @@ use std::path::PathBuf;
 pub fn load(path: &std::path::Path) -> anyhow::Result<Model> {
     match path.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).as_deref() {
         Some("toml" | "json") => anyhow::bail!(
-            "{} is an older TOML or JSON config; convert it with: panel-ddp migrate {}",
+            "{} is an older TOML or JSON config; convert it with: duckboard migrate {}",
             path.display(),
             path.display()
         ),

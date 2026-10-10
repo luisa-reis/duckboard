@@ -1,6 +1,6 @@
 # Dashboard over DDP
 
-`panel-ddp` is a Rust program that draws a dashboard for a WLED matrix (64×64
+`duckboard` is a Rust program that draws a dashboard for a WLED matrix (64×64
 unless the config says otherwise)
 and streams it to the board over DDP (Distributed Display Protocol, UDP port 4048), which
 WLED listens on out of the box. Nothing is installed on the board: WLED shows
@@ -41,9 +41,9 @@ pages:
     tiles: {top_left: clock, hub: cover, bottom_left: {kind: date}}
 ```
 
-`panel-ddp.schema.json` describes every setting; editors that read the
-`# yaml-language-server: $schema=panel-ddp.schema.json` line at the top of
-the file check it as you type, and `panel-ddp check dashboard.yaml` loads it
+`duckboard.schema.json` describes every setting; editors that read the
+`# yaml-language-server: $schema=duckboard.schema.json` line at the top of
+the file check it as you type, and `duckboard check dashboard.yaml` loads it
 and names what is wrong, page and region included. A running panel picks a
 saved change up within a second.
 
@@ -89,7 +89,7 @@ No source needed:
   other character shows as `?`. `docs/demos/text.yaml` shows every size.
   `font`, in place of `size`, names a U8g2 font: most are proportional (a
   character as wide as it needs), and there are narrower, bolder and much
-  larger ones, and icons. `panel-ddp fonts` lists them with the height a
+  larger ones, and icons. `duckboard fonts` lists them with the height a
   line of each takes, and `docs/demos/fonts.yaml` shows them all; a
   character a font does not have is left out, and not all have `°`.
 - `blank`
@@ -207,7 +207,7 @@ the panel or run in the background on a laptop. Relative paths in a config
 (`gaps`, `secrets`, the token file, `art-cache`, the pictures) resolve
 against the config's own folder, so a service only has to pass `--config`
 with an absolute path. A secret can also come from the service's
-environment, `PANEL_DDP_SECRET_HOME_ASSISTANT_TOKEN` for
+environment, `DUCKBOARD_SECRET_HOME_ASSISTANT_TOKEN` for
 `{secret: home_assistant_token}`, for example from systemd's
 `EnvironmentFile=`.
 
@@ -223,7 +223,7 @@ brew install zig
 cargo install --locked cargo-zigbuild
 rustup target add aarch64-unknown-linux-gnu   # inside the repo: adds it to the pinned toolchain
 cargo zigbuild --release --target aarch64-unknown-linux-gnu.2.31
-# -> target/aarch64-unknown-linux-gnu/release/panel-ddp
+# -> target/aarch64-unknown-linux-gnu/release/duckboard
 ```
 
 The `.2.31` suffix links against glibc 2.31, so the binary runs on Bullseye
@@ -236,25 +236,25 @@ Copy the binary, the config, the secrets file and any Spotify token file
 over (the gap file is only for previews), and keep the secrets private:
 
 ```sh
-ssh pi mkdir -p panel-ddp
-scp target/aarch64-unknown-linux-gnu/release/panel-ddp \
-    dashboard.yaml secrets.yaml spotify-token.json pi:panel-ddp/
-ssh pi chmod 600 panel-ddp/secrets.yaml
+ssh pi mkdir -p duckboard
+scp target/aarch64-unknown-linux-gnu/release/duckboard \
+    dashboard.yaml secrets.yaml spotify-token.json pi:duckboard/
+ssh pi chmod 600 duckboard/secrets.yaml
 ```
 
 Do `spotify-login` on the laptop, where a browser can reach the redirect,
 and copy the token file; from then on the Pi rewrites it as Spotify rotates
-it. Run it as a systemd service, `/etc/systemd/system/panel-ddp.service`:
+it. Run it as a systemd service, `/etc/systemd/system/duckboard.service`:
 
 ```ini
 [Unit]
-Description=panel-ddp dashboard
+Description=duckboard dashboard
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 User=pi
-ExecStart=/home/pi/panel-ddp/panel-ddp run --config /home/pi/panel-ddp/dashboard.yaml
+ExecStart=/home/pi/duckboard/duckboard run --config /home/pi/duckboard/dashboard.yaml
 KillSignal=SIGINT
 Restart=on-failure
 RestartSec=10
@@ -265,8 +265,8 @@ WantedBy=multi-user.target
 
 ```sh
 sudo systemctl daemon-reload
-sudo systemctl enable --now panel-ddp
-journalctl -u panel-ddp -f          # the log
+sudo systemctl enable --now duckboard
+journalctl -u duckboard -f          # the log
 ```
 
 `KillSignal=SIGINT` makes `systemctl stop` end the run the way Ctrl-C does,
@@ -275,7 +275,7 @@ so it tidies up.
 ### In the background on a laptop
 
 On macOS a launchd agent keeps it running while logged in,
-`~/Library/LaunchAgents/panel-ddp.plist` (use absolute paths; launchd does
+`~/Library/LaunchAgents/duckboard.plist` (use absolute paths; launchd does
 not expand `~`):
 
 ```xml
@@ -283,30 +283,30 @@ not expand `~`):
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>panel-ddp</string>
+  <key>Label</key><string>duckboard</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/path/to/panel-ddp/target/release/panel-ddp</string>
+    <string>/path/to/duckboard/target/release/duckboard</string>
     <string>run</string>
     <string>--config</string>
-    <string>/path/to/panel-ddp/dashboard.yaml</string>
+    <string>/path/to/duckboard/dashboard.yaml</string>
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
-  <key>StandardErrorPath</key><string>/tmp/panel-ddp.log</string>
+  <key>StandardErrorPath</key><string>/tmp/duckboard.log</string>
 </dict>
 </plist>
 ```
 
 ```sh
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/panel-ddp.plist
-launchctl bootout gui/$(id -u)/panel-ddp     # stop it
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/duckboard.plist
+launchctl bootout gui/$(id -u)/duckboard     # stop it
 ```
 
 On a Linux laptop, the systemd unit above works as a user service
 (`~/.config/systemd/user/`, without `User=`, `WantedBy=default.target`,
 managed with `systemctl --user`). For a one-off, `nohup
-target/release/panel-ddp run > panel-ddp.log 2>&1 &` is enough.
+target/release/duckboard run > duckboard.log 2>&1 &` is enough.
 
 ## Settings
 
@@ -361,7 +361,7 @@ target/release/panel-ddp run > panel-ddp.log 2>&1 &` is enough.
 
 The config never holds a secret: it names one, `token: {secret:
 home_assistant_token}`, and the value comes from the environment variable
-`PANEL_DDP_SECRET_HOME_ASSISTANT_TOKEN` when that is set, and otherwise from
+`DUCKBOARD_SECRET_HOME_ASSISTANT_TOKEN` when that is set, and otherwise from
 the secrets file, a map of names to values:
 
 ```yaml
@@ -719,8 +719,8 @@ and order are all in the file. Its `target` is the WLED-AP address; point
 it at a board with `--target`:
 
 ```sh
-target/release/panel-ddp run --config docs/demos/demo.yaml --target wled.local          # loops
-target/release/panel-ddp run --config docs/demos/demo.yaml --target wled.local --once   # one pass
+target/release/duckboard run --config docs/demos/demo.yaml --target wled.local          # loops
+target/release/duckboard run --config docs/demos/demo.yaml --target wled.local --once   # one pass
 ```
 
 `text.yaml` is the text demo: every size of the `text` tile, each line in
@@ -774,7 +774,7 @@ you planning to use?" tick Web API only. Copy its Client ID into
 `sources.spotify.client_id` (it is not a secret). Then log in once:
 
 ```sh
-target/release/panel-ddp spotify-login        # --port N if 8888 is taken; register that URI instead
+target/release/duckboard spotify-login        # --port N if 8888 is taken; register that URI instead
 ```
 
 It opens Spotify's consent page (or prints the link), catches the redirect
@@ -787,27 +787,27 @@ default name). If it is lost, log in again.
 ## Running
 
 ```sh
-target/release/panel-ddp run                        # dashboard.yaml, until Ctrl-C
-target/release/panel-ddp run --config other.yaml --frames 100
-target/release/panel-ddp run --sample                 # made-up data, sensors sweep 0..100: a demo of the layout
-target/release/panel-ddp run --config docs/demos/demo.yaml --target <board>   # the demo; --once for a single pass
-target/release/panel-ddp preview --out preview.png  # the first page from sample data, mask applied
-target/release/panel-ddp preview --page home        # that page instead of the first
-target/release/panel-ddp preview --commands         # run sources.commands once and draw what they print, not made-up values
-target/release/panel-ddp preview --push "sh docs/demos/http-push.sh"   # serve sources.http while that runs and draw what it pushed
-target/release/panel-ddp preview --all --out p.png  # every page, a still picture each, into p-NAME.png (but one whose cover or picture is not there)
-target/release/panel-ddp preview --all-in-one --out p.gif  # every page in the file, in order, each for its time, as one animation
-target/release/panel-ddp preview --out preview.gif  # the first page animated, for its time; --seconds N for longer or shorter
-target/release/panel-ddp preview --out preview.apng # the same as an animated PNG, in full colour (GIF has 256 a frame)
+target/release/duckboard run                        # dashboard.yaml, until Ctrl-C
+target/release/duckboard run --config other.yaml --frames 100
+target/release/duckboard run --sample                 # made-up data, sensors sweep 0..100: a demo of the layout
+target/release/duckboard run --config docs/demos/demo.yaml --target <board>   # the demo; --once for a single pass
+target/release/duckboard preview --out preview.png  # the first page from sample data, mask applied
+target/release/duckboard preview --page home        # that page instead of the first
+target/release/duckboard preview --commands         # run sources.commands once and draw what they print, not made-up values
+target/release/duckboard preview --push "sh docs/demos/http-push.sh"   # serve sources.http while that runs and draw what it pushed
+target/release/duckboard preview --all --out p.png  # every page, a still picture each, into p-NAME.png (but one whose cover or picture is not there)
+target/release/duckboard preview --all-in-one --out p.gif  # every page in the file, in order, each for its time, as one animation
+target/release/duckboard preview --out preview.gif  # the first page animated, for its time; --seconds N for longer or shorter
+target/release/duckboard preview --out preview.apng # the same as an animated PNG, in full colour (GIF has 256 a frame)
                                                     # both store only what changes between frames: a still page costs next to nothing
-target/release/panel-ddp preview --weather-code 95  # check an icon (add 1000 for night)
-target/release/panel-ddp preview --alert            # the alert view
-target/release/panel-ddp test <board-ip>            # colour bars, ramp, counter, bouncing dot; --size 128x64 for another panel
-target/release/panel-ddp render --config docs/demos/demo.yaml --out /tmp/r   # every frame's hash, no network
-target/release/panel-ddp check dashboard.yaml docs/demos/demo.yaml   # load each, say what it holds or what is wrong
-target/release/panel-ddp schema                         # the YAML file's JSON Schema
-target/release/panel-ddp fonts                          # the fonts a text tile's `font` can name, and each one's height
-target/release/panel-ddp migrate dashboard.toml         # write dashboard.yaml (token to secrets.yaml), checked to draw the same
+target/release/duckboard preview --weather-code 95  # check an icon (add 1000 for night)
+target/release/duckboard preview --alert            # the alert view
+target/release/duckboard test <board-ip>            # colour bars, ramp, counter, bouncing dot; --size 128x64 for another panel
+target/release/duckboard render --config docs/demos/demo.yaml --out /tmp/r   # every frame's hash, no network
+target/release/duckboard check dashboard.yaml docs/demos/demo.yaml   # load each, say what it holds or what is wrong
+target/release/duckboard schema                         # the YAML file's JSON Schema
+target/release/duckboard fonts                          # the fonts a text tile's `font` can name, and each one's height
+target/release/duckboard migrate dashboard.toml         # write dashboard.yaml (token to secrets.yaml), checked to draw the same
 ```
 
 `render` draws what `run` would send, frame by frame, without sending it or
@@ -824,13 +824,13 @@ Common patterns:
 ```sh
 # One demo pass, then back to the live dashboard: --once makes the first
 # command end, so the second takes over.
-target/release/panel-ddp run --config docs/demos/demo.yaml --target <board> --once && \
-  target/release/panel-ddp run --config dashboard.yaml
+target/release/duckboard run --config docs/demos/demo.yaml --target <board> --once && \
+  target/release/duckboard run --config dashboard.yaml
 
 # Stop whatever is streaming, from another terminal. Ctrl-C does the same in
 # its own; either way the run ends cleanly and removes its art_file. The
 # board falls back to its presets a couple of seconds later.
-pkill -f "panel-ddp run"
+pkill -f "duckboard run"
 ```
 
 `run` checks about once a second whether its config file (or its secrets
@@ -870,7 +870,7 @@ Configs used to be TOML (`dashboard.toml`) or the same in JSON
 command that converts one:
 
 ```sh
-target/release/panel-ddp migrate dashboard.toml   # writes dashboard.yaml; --out FILE, --secrets FILE
+target/release/duckboard migrate dashboard.toml   # writes dashboard.yaml; --out FILE, --secrets FILE
 ```
 
 The five `[regions]` become a layout named `classic`, with a `background`

@@ -477,7 +477,7 @@ pub struct Rule {
 pub fn schema() -> String {
     let generator = schemars::generate::SchemaSettings::draft07().into_generator();
     let mut schema = generator.into_root_schema_for::<File>();
-    schema.insert("title".into(), "panel-ddp configuration".into());
+    schema.insert("title".into(), "duckboard configuration".into());
     serde_json::to_string_pretty(&schema).expect("a schema serialises") + "\n"
 }
 
@@ -921,7 +921,7 @@ mod tests {
 
     fn load(yaml: &str) -> anyhow::Result<crate::model::Model> {
         static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        let dir = std::env::temp_dir().join(format!("panel-ddp-format-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("duckboard-format-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join(format!("c{}.yaml", N.fetch_add(1, std::sync::atomic::Ordering::SeqCst)));
         std::fs::write(&path, yaml).unwrap();
@@ -1142,7 +1142,7 @@ pages:
                  pages: {{p: {{layout: l, tiles: {{a: sheet, b: {{kind: bar_chart, series: orders}}}}}}}}\n"
             )
         };
-        let dir = std::env::temp_dir().join(format!("panel-ddp-format-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("duckboard-format-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("command-secrets.yaml"), "ha_token: abc123\n").unwrap();
         let both = "[{table: rows, run: [sqlite3, -json, x.db, 'select 1'], every: 5, env: {PGPASSWORD: {secret: ha_token}}}, \
@@ -1202,10 +1202,10 @@ pages:
 
     #[test]
     fn the_committed_schema_is_current() {
-        let committed = include_str!("../panel-ddp.schema.json");
+        let committed = include_str!("../duckboard.schema.json");
         assert!(
             committed == super::schema(),
-            "panel-ddp.schema.json is out of date: target/release/panel-ddp schema > panel-ddp.schema.json"
+            "duckboard.schema.json is out of date: target/release/duckboard schema > duckboard.schema.json"
         );
     }
 
@@ -1243,7 +1243,7 @@ pages:
             "sources:\n",
             "secrets: test-secrets.yaml\nsources:\n  home_assistant: {url: \"http://ha\", token: {secret: ha_token}}\n",
         );
-        let dir = std::env::temp_dir().join(format!("panel-ddp-format-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("duckboard-format-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         assert!(format!("{:#}", load(&yaml).unwrap_err()).contains("test-secrets.yaml"));
         std::fs::write(dir.join("test-secrets.yaml"), "ha_token: abc123\n").unwrap();

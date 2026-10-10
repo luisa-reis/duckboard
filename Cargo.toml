@@ -1,11 +1,11 @@
 [package]
-name = "panel-ddp"
+name = "duckboard"
 version = "0.2.0"
 edition = "2021"
 description = "Dashboard for a WLED matrix: draws with embedded-graphics, streams over DDP"
 
 [[bin]]
-name = "panel-ddp"
+name = "duckboard"
 path = "src/main.rs"
 
 [dependencies]

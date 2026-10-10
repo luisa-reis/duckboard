@@ -90,7 +90,7 @@ impl Pages {
             .collect();
         if !skipped.is_empty() {
             eprintln!(
-                "panel-ddp: pages: left out {} naming a cover or picture that is not there ({} covers, {pictures} pictures): {}",
+                "duckboard: pages: left out {} naming a cover or picture that is not there ({} covers, {pictures} pictures): {}",
                 skipped.len(),
                 covers.len(),
                 skipped.join(", ")
@@ -150,7 +150,7 @@ impl Pages {
                     Some(n) if n.playlist == playlist => (n.pos + 1) % self.playlists[playlist].len(),
                     _ => {
                         if self.playlists.len() > 1 {
-                            eprintln!("panel-ddp: playing {}", self.names[playlist]);
+                            eprintln!("duckboard: playing {}", self.names[playlist]);
                         }
                         0
                     }
@@ -215,7 +215,7 @@ mod tests {
 
     fn model(schedule: Vec<Rule>) -> crate::model::Model {
         static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        let dir = std::env::temp_dir().join(format!("panel-ddp-pages-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("duckboard-pages-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join(format!("p{}.toml", N.fetch_add(1, std::sync::atomic::Ordering::SeqCst)));
         let page = "[[pages]]\nseconds = 1\n";

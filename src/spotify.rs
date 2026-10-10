@@ -1,6 +1,6 @@
 //! Spotify as the source of album art and the now-playing text, straight
 //! from the Web API. Uses the PKCE authorisation flow, so the only secret is
-//! the refresh token, which `panel-ddp spotify-login` obtains once and the
+//! the refresh token, which `duckboard spotify-login` obtains once and the
 //! client keeps in a token file, rewriting it as Spotify rotates the token.
 
 use crate::artcache::ArtCache;
@@ -43,7 +43,7 @@ fn now() -> u64 {
 
 fn read_tokens(path: &Path) -> Result<Tokens> {
     let text = std::fs::read_to_string(path).with_context(|| {
-        format!("reading {}; run `panel-ddp spotify-login` first", path.display())
+        format!("reading {}; run `duckboard spotify-login` first", path.display())
     })?;
     serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))
 }
@@ -169,7 +169,7 @@ impl Client {
         Read::take(resp.into_reader(), 8 << 20).read_to_end(&mut bytes).context("reading album art")?;
         let scaled = picture::decode(&bytes, self.gamma, &self.cache.sizes).context("album art")?;
         if let Err(e) = self.cache.put(url, &scaled).and_then(|()| self.cache.put_original(url, &bytes, name.as_deref())) {
-            eprintln!("panel-ddp: art cache: {e:#}");
+            eprintln!("duckboard: art cache: {e:#}");
         }
         Ok((scaled, Some(bytes)))
     }
@@ -258,7 +258,7 @@ pub fn login(cfg: &SpotifyConfig, port: u16) -> Result<()> {
         }
     }
     let ok = code.is_some() && got_state.as_deref() == Some(&state);
-    let body = if ok { "panel-ddp: Spotify login done, you can close this tab." } else { "panel-ddp: login failed, see the terminal." };
+    let body = if ok { "duckboard: Spotify login done, you can close this tab." } else { "duckboard: login failed, see the terminal." };
     let _ = write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
     let _ = stream.flush();
     if let Some(e) = error {

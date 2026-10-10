@@ -5,8 +5,8 @@ Each runs as it is, with no accounts; the pictures are the program's own
 previews, four times the panel's 64×64 pixels.
 
 ```sh
-target/release/panel-ddp preview --config docs/demos/tables.yaml --all-in-one --out preview.gif   # without a board
-target/release/panel-ddp run --config docs/demos/tables.yaml --target <board> --once  # on one
+target/release/duckboard preview --config docs/demos/tables.yaml --all-in-one --out preview.gif   # without a board
+target/release/duckboard run --config docs/demos/tables.yaml --target <board> --once  # on one
 ```
 
 Paths in a config are relative to it, so the demos name the gap file, the
@@ -83,7 +83,7 @@ own size and saying which, then lines too wide for the panel, scrolling.
 Every U8g2 font a `text` tile can name with `font` in place of `size`:
 tiny ones, pixel fonts, monospaced, Helvetica, serifs, tall display fonts
 and icons. A small one says its own name; a large one shows a reading under
-its name. `panel-ddp fonts` lists them with their heights.
+its name. `duckboard fonts` lists them with their heights.
 
 The other kinds (`clock`, `date`, `weather`, `sensor`, `progress`, `art`,
 `picture`) are in the tour.
@@ -138,7 +138,7 @@ Python, again and again with new values.
 [../pushing-data.md](../pushing-data.md) is the guide.
 
 ```sh
-target/release/panel-ddp run --config docs/demos/http.yaml --target <board>
+target/release/duckboard run --config docs/demos/http.yaml --target <board>
 sh docs/demos/http-push.sh               # in another terminal
 ```
 

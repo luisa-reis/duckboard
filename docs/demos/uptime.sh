@@ -10,7 +10,7 @@ set -eu
 # How many runs `history` keeps, and where: a command's series is replaced
 # by what it prints, so the past is the script's to remember.
 KEEP=60
-HISTORY="${TMPDIR:-/tmp}/panel-ddp-uptime-history"
+HISTORY="${TMPDIR:-/tmp}/duckboard-uptime-history"
 
 line=$(LC_ALL=C uptime)
 # "load averages: 4.36 3.73 2.34" on macOS, "load average: 0.52, 0.58, 0.59"

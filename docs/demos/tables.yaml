@@ -1,10 +1,10 @@
-# yaml-language-server: $schema=../../panel-ddp.schema.json
+# yaml-language-server: $schema=../../duckboard.schema.json
 #
 # The table demo: rows of text and charts, one table with a row for each
 # row of data and one with fixed rows. It needs no accounts: every page
 # brings its own data.
 #
-#   target/release/panel-ddp run --config docs/demos/tables.yaml --target <board> --once
+#   target/release/duckboard run --config docs/demos/tables.yaml --target <board> --once
 
 target: "4.3.2.1"
 

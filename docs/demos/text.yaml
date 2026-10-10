@@ -1,10 +1,10 @@
-# yaml-language-server: $schema=../../panel-ddp.schema.json
+# yaml-language-server: $schema=../../duckboard.schema.json
 #
 # The text demo: every size a text tile comes in, each line in its own
 # size and saying which, then lines too wide for the panel, scrolling. It
 # needs no accounts and no data.
 #
-#   target/release/panel-ddp run --config docs/demos/text.yaml --target <board> --once
+#   target/release/duckboard run --config docs/demos/text.yaml --target <board> --once
 
 target: "4.3.2.1"
 

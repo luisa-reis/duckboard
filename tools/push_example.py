@@ -6,7 +6,7 @@ one request per series or table. See docs/pushing-data.md.
 
     python3 tools/push_example.py [--url http://127.0.0.1:4049] [--every SECONDS]
 
-The token, when the panel asks for one, comes from PANEL_DDP_TOKEN.
+The token, when the panel asks for one, comes from DUCKBOARD_TOKEN.
 """
 
 import argparse
@@ -23,7 +23,7 @@ def send(base, method, path, body=None):
     """One request; the panel's answer as text. Raises on a refusal."""
     data = None if body is None else json.dumps(body).encode()
     request = urllib.request.Request(base.rstrip("/") + path, data=data, method=method)
-    token = os.environ.get("PANEL_DDP_TOKEN")
+    token = os.environ.get("DUCKBOARD_TOKEN")
     if token:
         request.add_header("Authorization", f"Bearer {token}")
     try:

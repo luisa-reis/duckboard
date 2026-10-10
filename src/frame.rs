@@ -32,13 +32,13 @@ impl Frame {
             let bytes = std::fs::read(&p).with_context(|| format!("reading {}", p.display()))?;
             match picture::decode(&bytes, cfg.gamma, sizes) {
                 Ok(scaled) => pictures.push((p, scaled)),
-                Err(e) => eprintln!("panel-ddp: frame: skipping {}: {e:#}", p.display()),
+                Err(e) => eprintln!("duckboard: frame: skipping {}: {e:#}", p.display()),
             }
         }
         if pictures.is_empty() {
             bail!("no pictures in {}", f.dir.display());
         }
-        eprintln!("panel-ddp: frame: {} pictures from {}", pictures.len(), f.dir.display());
+        eprintln!("duckboard: frame: {} pictures from {}", pictures.len(), f.dir.display());
         Ok(Self { pictures, frames_each: ((f.seconds * cfg.fps as f32).round() as u32).max(1) })
     }
 

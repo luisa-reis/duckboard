@@ -1,11 +1,11 @@
-# yaml-language-server: $schema=../../panel-ddp.schema.json
+# yaml-language-server: $schema=../../duckboard.schema.json
 #
 # This machine's load, from `uptime`: the smallest example of a command as
 # a source. uptime.sh turns what uptime says into JSON, and the panel
 # runs it on a timer (docs/dashboard.md, "Data from a command"). Commands
 # run in this file's directory, so the script's path is relative to it.
 #
-#   target/release/panel-ddp run --config docs/demos/uptime.yaml --target <board>
+#   target/release/duckboard run --config docs/demos/uptime.yaml --target <board>
 
 target: "4.3.2.1"
 

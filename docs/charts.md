@@ -12,7 +12,7 @@ The demos in the repository use all of it:
   `bullet-charts.yaml`, `tables.yaml` and `text.yaml` — dashboards on
   made-up data, a demo for each kind, to look at
   ([demos/README.md](demos/README.md) shows them all):
-  `target/release/panel-ddp preview --config docs/demos/line-charts.yaml --all-in-one --out preview.gif`
+  `target/release/duckboard preview --config docs/demos/line-charts.yaml --all-in-one --out preview.gif`
 - `docs/demos/http.yaml` — charts and a table fed over HTTP, to start from.
 - `docs/demos/commands.yaml` — the same fed by SQL queries the panel runs.
 - `docs/demos/uptime.yaml` — this machine's load, from a script around
@@ -87,7 +87,7 @@ tiles:
   (monospaced), `fub11` to `fub20` and `logisoso16` to `logisoso28` (tall
   and bold, for one reading), and small pixel fonts such as `tom_thumb_4x6`
   and `haxrcorp4089`.
-- `panel-ddp fonts` lists every name with the height a line of it takes,
+- `duckboard fonts` lists every name with the height a line of it takes,
   to size the region by; the width depends on the text, so preview it.
   `docs/demos/fonts.yaml` shows each one.
 - `align` and `overflow` work as with `size`.
@@ -273,7 +273,7 @@ pages:
 
 - The table's own `colors` (and `scheme`) reach every tile on it, under
   each tile's own: here every chart's line is blue without saying so.
-- A tile must fit its row and the rows the region; `panel-ddp check` names
+- A tile must fit its row and the rows the region; `duckboard check` names
   the row and the tile that does not.
 - The text in this table is fixed in the config. For text that changes,
   use the next kind.
@@ -351,9 +351,9 @@ tiles:
 ## Seeing it without the panel
 
 ```sh
-target/release/panel-ddp check my.yaml                              # is the file right
-target/release/panel-ddp preview --config my.yaml --out preview.png   # the first page, on made-up values
-target/release/panel-ddp preview --config my.yaml --out preview.gif   # the same, animated
+target/release/duckboard check my.yaml                              # is the file right
+target/release/duckboard preview --config my.yaml --out preview.png   # the first page, on made-up values
+target/release/duckboard preview --config my.yaml --out preview.gif   # the same, animated
 ```
 
 `preview` fills every chart with the same sample waves and every pushed

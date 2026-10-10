@@ -1,4 +1,4 @@
-//! `panel-ddp migrate`: a TOML or JSON configuration rewritten as a YAML
+//! `duckboard migrate`: a TOML or JSON configuration rewritten as a YAML
 //! one, its Home Assistant token moved to the secrets file. The regions
 //! become a layout named `classic` (with a `background` region under them
 //! when a page has a background), each distinct tile is named once, and
@@ -182,7 +182,7 @@ pub fn migrate(path: &Path, out_dir: &Path) -> Result<Migrated> {
     }
 
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    let mut yaml = format!("# yaml-language-server: $schema=panel-ddp.schema.json\n# Migrated from {name} by panel-ddp migrate.\n");
+    let mut yaml = format!("# yaml-language-server: $schema=duckboard.schema.json\n# Migrated from {name} by duckboard migrate.\n");
     emit_top(&Value::Object(strip_nulls_map(root)), &mut yaml);
     Ok(Migrated { yaml, token })
 }
@@ -536,7 +536,7 @@ mod tests {
 
     #[test]
     fn a_migrated_file_draws_the_same() {
-        let dir = std::env::temp_dir().join(format!("panel-ddp-migrate-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("duckboard-migrate-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let old = dir.join("old.toml");
         std::fs::write(

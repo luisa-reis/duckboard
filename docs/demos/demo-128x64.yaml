@@ -1,10 +1,10 @@
-# yaml-language-server: $schema=../../panel-ddp.schema.json
+# yaml-language-server: $schema=../../duckboard.schema.json
 #
 # The demo for a 128×64 panel: three dashboards that use the whole width,
 # built from text, line, area, bar and bullet charts and tables, on made-up
 # data. It needs no accounts: every page brings its own series and rows.
 #
-#   target/release/panel-ddp run --config docs/demos/demo-128x64.yaml --target <board> --once
+#   target/release/duckboard run --config docs/demos/demo-128x64.yaml --target <board> --once
 
 target: "4.3.2.1"
 

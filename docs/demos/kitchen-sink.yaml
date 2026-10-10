@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../panel-ddp.schema.json
+# yaml-language-server: $schema=../../duckboard.schema.json
 #
 # The kitchen sink for a 64×64 panel: everything the panel can show, a page
 # or two from each of the other demos, and at the end as much of it as two
@@ -6,7 +6,7 @@
 # covers come from the art cache and the pictures from frame/ (pages naming
 # one that is not there are left out).
 #
-#   target/release/panel-ddp run --config docs/demos/kitchen-sink.yaml --target <board> --once
+#   target/release/duckboard run --config docs/demos/kitchen-sink.yaml --target <board> --once
 
 target: "4.3.2.1"
 

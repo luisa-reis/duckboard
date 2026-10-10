@@ -207,7 +207,7 @@ mod animation_tests {
     fn animations_written_small_read_back_as_drawn() {
         let mask = Mask::none(Size::new(4, 4));
         let frames = || [canvas(None), canvas(Some((1, 2))), canvas(Some((1, 2))), canvas(Some((3, 0)))].into_iter();
-        let dir = std::env::temp_dir().join(format!("panel-ddp-anim-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("duckboard-anim-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("a.gif");
         mask.preview_gif(frames(), 2, 10, &path).unwrap();

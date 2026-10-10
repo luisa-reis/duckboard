@@ -1,10 +1,10 @@
-# yaml-language-server: $schema=../../panel-ddp.schema.json
+# yaml-language-server: $schema=../../duckboard.schema.json
 #
 # The line chart demo: a reading over its day, three readings with theirs
 # beside them, one under the clock, and text over a chart the size of the
 # panel. It needs no accounts: every page brings its own series.
 #
-#   target/release/panel-ddp run --config docs/demos/line-charts.yaml --target <board> --once
+#   target/release/duckboard run --config docs/demos/line-charts.yaml --target <board> --once
 
 target: "4.3.2.1"
 

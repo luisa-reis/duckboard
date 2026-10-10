@@ -1,11 +1,11 @@
-# yaml-language-server: $schema=../../panel-ddp.schema.json
+# yaml-language-server: $schema=../../duckboard.schema.json
 #
 # The fonts demo: every U8g2 font a text tile can name with `font`. A small
 # one says its own name; a large one shows a reading under its name. A line
-# too wide for the panel scrolls. `panel-ddp fonts` lists them with the
+# too wide for the panel scrolls. `duckboard fonts` lists them with the
 # height a line of each takes. It needs no accounts and no data.
 #
-#   target/release/panel-ddp run --config docs/demos/fonts.yaml --target <board> --once
+#   target/release/duckboard run --config docs/demos/fonts.yaml --target <board> --once
 
 target: "4.3.2.1"
 
