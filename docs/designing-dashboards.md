@@ -51,6 +51,7 @@ Other ways to look:
 ```sh
 target/release/panel-ddp preview --config dashboard.yaml --all --out pages.png     # every page: pages-NAME.png
 target/release/panel-ddp preview --config dashboard.yaml --page energy --out p.gif  # animated, for scrolling text
+target/release/panel-ddp preview --config dashboard.yaml --all-in-one --out all.gif # every page for its time, one animation
 target/release/panel-ddp preview --config dashboard.yaml --page energy --alert      # with the alert up
 ```
 
@@ -64,6 +65,9 @@ a second, so the last step can also be to look at the panel.
 - Otherwise sample values: every chart the same waves, every sensor a
   number sweeping to 100, every pushed table column `--`, a gradient for
   album art.
+- With `--commands`, what the config's `sources.commands` print, run once,
+  in place of the sample values for their tables and series; with
+  `--push COMMAND`, what that command pushes to `sources.http`.
 - The time is now. Greyed pixels, if any, are ones the panel's diffuser
   hides (from `2d-gaps.json`); keep content off them.
 
@@ -165,18 +169,19 @@ font's height tall.
 
 ## Layouts to start from
 
-`demo-dashboards.yaml` has each of these as a working page; copy the
-layout and the tiles and change the text and the sources. Render them all
-with `preview --config demo-dashboards.yaml --all --out demo.png`.
+The demos in `docs/demos` have each of these as a working page; copy the
+layout and the tiles and change the text and the sources. Render a demo's
+pages with `preview --config docs/demos/line-charts.yaml --all --out demo.png`;
+[demos/README.md](demos/README.md) shows them.
 
 | Layout | Looks like | Pages using it |
 |---|---|---|
-| `reading` | a name, one large value, a chart under it, a footer | `outside`, `solar`, `rain` |
-| `rows` | three readings, each a name over its value with a chart beside it | `energy`, `network`, `usage` |
-| `home` | the clock and the date over one reading | `home` |
-| `gauge` | one large value over a bullet chart the width of the panel | `budget` |
-| `over` | text over a chart the size of the panel | `week` |
-| `sheet` | one region for a table | `rooms` (rows from data), `energy-table`, `targets` (bullet charts from data) |
+| `reading` | a name, one large value, a chart under it, a footer | `outside` in `line-charts.yaml`, `solar` in `area-charts.yaml`, `rain` in `bar-charts.yaml` |
+| `rows` | three readings, each a name over its value with a chart beside it | `energy` in `line-charts.yaml`, `network` in `area-charts.yaml`, `usage` in `bar-charts.yaml` |
+| `home` | the clock and the date over one reading | `home` in `line-charts.yaml` |
+| `gauge` | one large value over a bullet chart the width of the panel | `budget` in `bullet-charts.yaml` |
+| `over` | text over a chart the size of the panel | `week` in `line-charts.yaml` |
+| `sheet` | one region for a table | `rooms` (rows from data) and `energy-table` in `tables.yaml`, `targets` (bullet charts from data) in `bullet-charts.yaml` |
 
 One reading, as a whole config to try:
 

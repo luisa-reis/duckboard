@@ -28,12 +28,12 @@ curl -X PUT -d '[412, 398, 455, 620]' http://127.0.0.1:4049/series/power
 curl -X PUT -d '[{"name": "api", "ms": 42, "latency": [40, 44, 42]}]' http://127.0.0.1:4049/tables/services
 ```
 
-`charts.example.yaml` is a config that takes exactly these, and
-`tools/push_example.py` a program that sends them; run the two to see it
-work end to end:
+`docs/demos/http.yaml` is a config that takes exactly these, and
+`tools/push_example.py` a program that sends them (`docs/demos/http-push.sh`
+is the same with `curl`, once); run the two to see it work end to end:
 
 ```sh
-target/release/panel-ddp run --config charts.example.yaml --target <board>
+target/release/panel-ddp run --config docs/demos/http.yaml --target <board>
 python3 tools/push_example.py            # in another terminal
 ```
 

@@ -7,12 +7,13 @@ frames a second. Nothing is installed on the board: it runs on a Raspberry
 Pi or a laptop nearby, and when it stops the board goes back to its own
 presets.
 
-| The demo | Charts and tables |
-|---|---|
-| ![The demo: the date, the clock, the weather, a progress bar, a sensor and an alert](docs/demo.gif) | ![The dashboards demo: line, area, bar and bullet charts, tables and text](docs/demo-dashboards.gif) |
+| The demo | Line charts | Tables | Bullet charts |
+|---|---|---|---|
+| ![The demo: the date, the clock, the weather, a progress bar, a sensor and an alert](docs/demos/demo.gif) | ![Line charts beside text of different sizes](docs/demos/line-charts.gif) | ![Tables of text and charts](docs/demos/tables.gif) | ![Bullet charts, one alone and a table of them](docs/demos/bullet-charts.gif) |
 
-Both are the program's own previews of `demo.yaml` and
-`demo-dashboards.yaml`, four times the panel's 64×64 pixels.
+These are the program's own previews of the demos in
+[docs/demos](docs/demos/README.md), four times the panel's 64×64 pixels;
+there is one for each tile kind, chart kind and data source.
 
 ## What it does
 
@@ -58,11 +59,12 @@ target/release/panel-ddp preview            # one frame as a PNG
 target/release/panel-ddp run                # stream until Ctrl-C; edits apply as you save
 ```
 
-Without a board, or before writing a config, look at the demos:
+Without a board, or before writing a config, look at the demos
+([docs/demos](docs/demos/README.md) lists them):
 
 ```sh
-target/release/panel-ddp preview --config demo-dashboards.yaml --out preview.gif
-target/release/panel-ddp run --config demo.yaml --target <board> --once
+target/release/panel-ddp preview --config docs/demos/line-charts.yaml --all-in-one --out preview.gif
+target/release/panel-ddp run --config docs/demos/demo.yaml --target <board> --once
 ```
 
 ## Pushing data to it
@@ -81,7 +83,7 @@ curl -X PUT -d '[412, 398, 455, 620]' http://127.0.0.1:4049/series/power
 [docs/pushing-data.md](docs/pushing-data.md) is the guide for the program
 on the other end, or for an agent working in another repository: where the
 endpoint is, what it takes, every request and answer, and an example that
-pushes a query's results. `charts.example.yaml` and
+pushes a query's results. `docs/demos/http.yaml` and
 `tools/push_example.py` are a config and a program that work together.
 
 Or let the panel fetch, with a command on a timer:
@@ -92,7 +94,9 @@ sources:
     - {table: rooms, every: 60, run: [sqlite3, -json, house.db, "SELECT room, temp FROM rooms"]}
 ```
 
-`commands.example.yaml` runs as it is; Data from a command in
+`docs/demos/commands.yaml` runs as it is, and `docs/demos/uptime.yaml` draws
+this machine's load from `uptime`, through a script of its own
+(`docs/demos/uptime.sh`); Data from a command in
 [docs/dashboard.md](docs/dashboard.md) has SQLite, DuckDB and Postgres.
 
 ## Documentation
@@ -100,8 +104,10 @@ sources:
 - [docs/dashboard.md](docs/dashboard.md) — the configuration file, every
   setting and tile kind, installing on a Raspberry Pi or as a background
   service, Spotify, pages and schedules, the demos.
-- [docs/charts.md](docs/charts.md) — text, line, area and bar charts and
-  tables, with an example of each.
+- [docs/demos](docs/demos/README.md) — a demo for each tile kind, chart
+  kind and data source, with its picture.
+- [docs/charts.md](docs/charts.md) — text, line, area, bar and bullet
+  charts and tables, with an example of each.
 - [docs/designing-dashboards.md](docs/designing-dashboards.md) — laying a
   page out and checking it without the board, written so an agent can be
   pointed at it and asked for a dashboard.

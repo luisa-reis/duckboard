@@ -6,14 +6,19 @@ example here is a piece of a config file; [dashboard.md](dashboard.md) has
 the file as a whole, and [pushing-data.md](pushing-data.md) how another
 program sends the values.
 
-Two configs in the repository use all of it:
+The demos in the repository use all of it:
 
-- `demo-dashboards.yaml` — twelve dashboards on made-up data, to look at:
-  `target/release/panel-ddp preview --config demo-dashboards.yaml --out preview.gif`
-- `charts.example.yaml` — charts and a table fed over HTTP, to start from.
-- `commands.example.yaml` — the same fed by SQL queries the panel runs.
+- `docs/demos/line-charts.yaml`, `area-charts.yaml`, `bar-charts.yaml`,
+  `bullet-charts.yaml`, `tables.yaml` and `text.yaml` — dashboards on
+  made-up data, a demo for each kind, to look at
+  ([demos/README.md](demos/README.md) shows them all):
+  `target/release/panel-ddp preview --config docs/demos/line-charts.yaml --all-in-one --out preview.gif`
+- `docs/demos/http.yaml` — charts and a table fed over HTTP, to start from.
+- `docs/demos/commands.yaml` — the same fed by SQL queries the panel runs.
+- `docs/demos/uptime.yaml` — this machine's load, from a script around
+  `uptime` (`docs/demos/uptime.sh`).
 
-![The dashboards demo](demo-dashboards.gif)
+![The line chart demo](demos/line-charts.gif)
 
 ## Where a chart's values come from
 
@@ -66,7 +71,7 @@ tiles:
   changes it.
 - The fonts cover Latin-1 (`°`, `é`, `£`); other characters show as `?`.
 
-`demo-text.yaml` shows every size.
+`docs/demos/text.yaml` shows every size.
 
 ## Line chart
 
@@ -252,7 +257,7 @@ each row pushed to `/tables/NAME`, and its tiles take their values by
 `column`. This is the table for a query's results: another program can
 push them, or the panel can run the query itself with a command in
 `sources.commands` (Data from a command, in [dashboard.md](dashboard.md);
-`commands.example.yaml` does it with SQLite).
+`docs/demos/commands.yaml` does it with SQLite).
 
 ```yaml
 sources:
@@ -295,7 +300,7 @@ curl -X PUT http://127.0.0.1:4049/tables/services -d '[
   formats.
 
 [pushing-data.md](pushing-data.md) has the endpoint in full, and
-`charts.example.yaml` is this table with three charts beside it.
+`docs/demos/http.yaml` is this table with three charts beside it.
 
 ### Tiles anywhere on a row
 

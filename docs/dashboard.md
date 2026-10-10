@@ -85,7 +85,7 @@ No source needed:
   height of a character in pixels: `4x6`, `5x7`, `5x8`, `6x9`, `6x10` (the
   default), `6x12`, `6x13`, `7x13`, `7x14`, `8x13`, `9x15`, `9x18` or
   `10x20`. It is drawn in the `text` colour. The fonts cover Latin-1; any
-  other character shows as `?`. `demo-text.yaml` shows every size.
+  other character shows as `?`. `docs/demos/text.yaml` shows every size.
 - `blank`
 - `table` — rows of other tiles; see Tables.
 
@@ -125,7 +125,7 @@ With `sources.home_assistant`:
   without it there is none. The history is fetched once a minute; states
   that are not numbers are skipped, and a flat line in the `track` colour
   shows while there is nothing to draw. Text tiles beside it name it and
-  give the value; `demo-dashboards.yaml` has examples.
+  give the value; `docs/demos/line-charts.yaml` has examples.
 - `area_chart` — a `line_chart` with the area under the line filled, down
   to the bottom of the region; it takes the same settings. `area` is the
   area's colour, the line's at a third of its strength unless set.
@@ -492,7 +492,7 @@ curl -X PUT http://127.0.0.1:4049/tables/rooms -d '[
   (`ROUND`, `printf`) the way they should read; `null` is empty; an array of
   numbers is a chart's values, oldest first.
 
-`demo-dashboards.yaml` has two tables, the first from data.
+`docs/demos/tables.yaml` has two tables, the first from data.
 
 ## Pushing data
 
@@ -525,7 +525,7 @@ curl -X PUT -d '[{"room": "Kitchen", "temp": 22.8}]' -H "Authorization: Bearer $
 
 [pushing-data.md](pushing-data.md) is the whole of it, written for the
 program on the other end: every request and answer, the shape of the data,
-and an example that pushes a query's results. `charts.example.yaml` is a
+and an example that pushes a query's results. `docs/demos/http.yaml` is a
 config that takes pushed data and `tools/push_example.py` a program that
 sends it.
 
@@ -551,7 +551,12 @@ sources:
 - `run` is the program and its arguments, each its own item; no shell
   reads them, so a query needs no escaping beyond YAML's. For a pipeline
   or a redirect, run a shell: `[sh, -c, "…"]`. A long query reads best as
-  a YAML block (`- |`); `commands.example.yaml` has some.
+  a YAML block (`- |`); `docs/demos/commands.yaml` has some. A program that
+  does not print JSON wants a script around it: `docs/demos/uptime.yaml` runs
+  `docs/demos/uptime.sh`, which turns what `uptime` says into rows and a series.
+- A series is replaced by what the command prints, so a history of
+  something that only has a present (the load, a temperature) is the
+  script's to keep: `docs/demos/uptime.sh history` does, in a file.
 - `table: NAME` fills the table whose `data` is that name; `series: NAME`
   is the series of that name, for a chart. One or the other.
 - `every` is the seconds from the end of one run to the start of the next
@@ -698,7 +703,8 @@ source is missing is allowed when its page brings the data:
 
 A page naming a cover or picture that is not there is left out, with a note.
 
-`demo.yaml` is the demo built this way: the date alone touring the tiles,
+The demos are in `docs/demos`. `demo.yaml` is the demo built this way: the
+date alone touring the tiles,
 the clock joining, every kind of sky, the print progress filling, the
 laundry temperature in its place, the water leak alert, the whole dashboard
 plain, a cover in the hub, the dashboard over each cover, the covers alone,
@@ -707,26 +713,29 @@ and order are all in the file. Its `target` is the WLED-AP address; point
 it at a board with `--target`:
 
 ```sh
-target/release/panel-ddp run --config demo.yaml --target wled.local          # loops
-target/release/panel-ddp run --config demo.yaml --target wled.local --once   # one pass
+target/release/panel-ddp run --config docs/demos/demo.yaml --target wled.local          # loops
+target/release/panel-ddp run --config docs/demos/demo.yaml --target wled.local --once   # one pass
 ```
 
-`demo-text.yaml` is the text demo: every size of the `text` tile, each line
-in its own size and saying which, then lines too wide for the panel,
+`text.yaml` is the text demo: every size of the `text` tile, each line in
+its own size and saying which, then lines too wide for the panel,
 scrolling. It needs no data.
 
-`demo-dashboards.yaml` is the dashboards demo: twelve dashboards built from
-line charts, area charts, bar charts, bullet charts, tables and text of
-different sizes on made-up series: one reading with its day under it, three readings each beside its
-chart, the clock and the date over a reading, text over a chart the size of
-the panel, then area charts, one with a gradient under a reading and three
-beside theirs, bar charts the same way, two tables, and bullet charts, one under a
-reading and a table of them.
+The charts and tables each have a demo of their own, dashboards on made-up
+series beside text of different sizes: `line-charts.yaml` (one reading
+with its day under it, three readings each beside its chart, the clock and
+the date over a reading, text over a chart the size of the panel),
+`area-charts.yaml` (one with a gradient under a reading and three beside
+theirs), `bar-charts.yaml` (the same way), `tables.yaml` (two tables, one
+from data) and `bullet-charts.yaml` (one under a reading and a table of
+them). `http.yaml`, `commands.yaml` and `uptime.yaml` are the demos of
+data that is pushed or fetched by a command.
+[demos/README.md](demos/README.md) shows each with its picture.
 
 `art_file`, a top-level setting, keeps a JPEG at the album cover on show,
 the original as downloaded, black when no cover is on, and removes it when
-the run ends; `demo.yaml` sets it to `demo-art.jpg`. `art_open: true` runs
-`open` on it after each change for macOS Preview. `tools/DemoArtViewer` is
+the run ends; `docs/demos/demo.yaml` sets it to `../../demo-art.jpg`, at
+the top of the repository. `art_open: true` runs `open` on it after each change for macOS Preview. `tools/DemoArtViewer` is
 a Processing sketch that follows the file without that.
 
 ## Alerts
@@ -775,17 +784,20 @@ default name). If it is lost, log in again.
 target/release/panel-ddp run                        # dashboard.yaml, until Ctrl-C
 target/release/panel-ddp run --config other.yaml --frames 100
 target/release/panel-ddp run --sample                 # made-up data, sensors sweep 0..100: a demo of the layout
-target/release/panel-ddp run --config demo.yaml --target <board>   # the demo; --once for a single pass
+target/release/panel-ddp run --config docs/demos/demo.yaml --target <board>   # the demo; --once for a single pass
 target/release/panel-ddp preview --out preview.png  # the first page from sample data, mask applied
 target/release/panel-ddp preview --page home        # that page instead of the first
-target/release/panel-ddp preview --all --out p.png  # every page, each into p-NAME.png
+target/release/panel-ddp preview --commands         # run sources.commands once and draw what they print, not made-up values
+target/release/panel-ddp preview --push "sh docs/demos/http-push.sh"   # serve sources.http while that runs and draw what it pushed
+target/release/panel-ddp preview --all --out p.png  # every page, a still picture each, into p-NAME.png
+target/release/panel-ddp preview --all-in-one --out p.gif  # every page in the file, in order, each for its time, as one animation
 target/release/panel-ddp preview --out preview.gif  # the first page animated, for its time; --seconds N for longer or shorter
 target/release/panel-ddp preview --out preview.apng # the same as an animated PNG, in full colour (GIF has 256 a frame)
 target/release/panel-ddp preview --weather-code 95  # check an icon (add 1000 for night)
 target/release/panel-ddp preview --alert            # the alert view
 target/release/panel-ddp test <board-ip>            # colour bars, ramp, counter, bouncing dot; --size 128x64 for another panel
-target/release/panel-ddp render --config demo.yaml --out /tmp/r   # every frame's hash, no network
-target/release/panel-ddp check dashboard.yaml demo.yaml   # load each, say what it holds or what is wrong
+target/release/panel-ddp render --config docs/demos/demo.yaml --out /tmp/r   # every frame's hash, no network
+target/release/panel-ddp check dashboard.yaml docs/demos/demo.yaml   # load each, say what it holds or what is wrong
 target/release/panel-ddp schema                         # the YAML file's JSON Schema
 target/release/panel-ddp migrate dashboard.toml         # write dashboard.yaml (token to secrets.yaml), checked to draw the same
 ```
@@ -804,7 +816,7 @@ Common patterns:
 ```sh
 # One demo pass, then back to the live dashboard: --once makes the first
 # command end, so the second takes over.
-target/release/panel-ddp run --config demo.yaml --target <board> --once && \
+target/release/panel-ddp run --config docs/demos/demo.yaml --target <board> --once && \
   target/release/panel-ddp run --config dashboard.yaml
 
 # Stop whatever is streaming, from another terminal. Ctrl-C does the same in
