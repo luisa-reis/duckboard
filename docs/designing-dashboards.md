@@ -133,6 +133,10 @@ font's height tall.
   number: make the region wider, the font smaller, or the text shorter, or
   use `overflow: truncate` for names in a table.
 - Upper case reads best at `4x6`. Only Latin-1 characters draw.
+- `font` in place of `size` gives a text tile a U8g2 font: proportional
+  ones fit more characters in a line, and there are bold and tall ones for
+  a reading. `panel-ddp fonts` gives each one's height; the width depends
+  on the text, so check the preview (Other fonts in [charts.md](charts.md)).
 
 ### How much chart fits
 

@@ -71,6 +71,34 @@ tiles:
   changes it.
 - The fonts cover Latin-1 (`°`, `é`, `£`); other characters show as `?`.
 
+### Other fonts
+
+```yaml
+tiles:
+  title: {kind: text, text: "Conservatory", font: helvR08, align: left}
+  value: {kind: text, text: "21.4", font: logisoso24}
+  sky: {kind: text, text: "@", font: open_iconic_weather_2x}
+```
+
+- `font`, in place of `size`, names one of the U8g2 fonts built in. Most
+  are proportional, so more characters fit a line than at a `size` of the
+  same height: `helvR08` and `helvB08` (Helvetica, regular and bold) up to
+  `helvB24`, `ncenB10` and `timB10` (serifs), `profont10` to `profont29`
+  (monospaced), `fub11` to `fub20` and `logisoso16` to `logisoso28` (tall
+  and bold, for one reading), and small pixel fonts such as `tom_thumb_4x6`
+  and `haxrcorp4089`.
+- `panel-ddp fonts` lists every name with the height a line of it takes,
+  to size the region by; the width depends on the text, so preview it.
+  `docs/demos/fonts.yaml` shows each one.
+- `align` and `overflow` work as with `size`.
+- The names are U8g2's, less the `u8g2_font_` before and the `_tf` after;
+  <https://github.com/olikraus/u8g2/wiki/fntlistall> pictures them.
+- A character the font does not have is left out. Not every font has `°`
+  or accents: check the preview.
+- In the `open_iconic_…` fonts each character is an icon, from `@` on:
+  `@ABCDE` in `open_iconic_weather_2x` is a cloud, a cloud over the sun,
+  the moon, rain, a star and the sun.
+
 `docs/demos/text.yaml` shows every size.
 
 ## Line chart

@@ -38,13 +38,15 @@ Context for Claude Code sessions working on panel-ddp.
 ## Layout
 
 - `src/main.rs` — CLI (`run`, `preview`, `render`, `test`, `spotify-login`,
-  `check`, `schema`, `migrate`).
+  `check`, `schema`, `fonts`, `migrate`).
 - `src/format.rs` — the YAML configuration file, resolved into the model
   with errors that name the page and region.
 - `src/model.rs` — the resolved configuration everything works from.
 - `src/config.rs` — building blocks the file is made of (sources, alerts,
   tile kinds, page data, schedule rules).
 - `src/secrets.rs` — `{secret: name}` references.
+- `src/fonts.rs` — the U8g2 fonts a text tile's `font` can name (the
+  u8g2-fonts crate), one line each; `panel-ddp fonts` lists them.
 - `panel-ddp.schema.json` — the file's JSON Schema, generated from the
   format's types (their doc comments are its descriptions). After changing
   them: `target/release/panel-ddp schema > panel-ddp.schema.json`; a test

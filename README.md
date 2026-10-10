@@ -106,8 +106,8 @@ this machine's load from `uptime`, through a script of its own
   service, Spotify, pages and schedules, the demos.
 - [docs/demos](docs/demos/README.md) — a demo for each tile kind, chart
   kind and data source, with its picture.
-- [docs/charts.md](docs/charts.md) — text, line, area, bar and bullet
-  charts and tables, with an example of each.
+- [docs/charts.md](docs/charts.md) — text and its fonts, line, area, bar
+  and bullet charts and tables, with an example of each.
 - [docs/designing-dashboards.md](docs/designing-dashboards.md) — laying a
   page out and checking it without the board, written so an agent can be
   pointed at it and asked for a dashboard.

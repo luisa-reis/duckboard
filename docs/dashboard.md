@@ -86,6 +86,11 @@ No source needed:
   default), `6x12`, `6x13`, `7x13`, `7x14`, `8x13`, `9x15`, `9x18` or
   `10x20`. It is drawn in the `text` colour. The fonts cover Latin-1; any
   other character shows as `?`. `docs/demos/text.yaml` shows every size.
+  `font`, in place of `size`, names a U8g2 font: most are proportional (a
+  character as wide as it needs), and there are narrower, bolder and much
+  larger ones, and icons. `panel-ddp fonts` lists them with the height a
+  line of each takes, and `docs/demos/fonts.yaml` shows them all; a
+  character a font does not have is left out, and not all have `°`.
 - `blank`
 - `table` — rows of other tiles; see Tables.
 
@@ -800,6 +805,7 @@ target/release/panel-ddp test <board-ip>            # colour bars, ramp, counter
 target/release/panel-ddp render --config docs/demos/demo.yaml --out /tmp/r   # every frame's hash, no network
 target/release/panel-ddp check dashboard.yaml docs/demos/demo.yaml   # load each, say what it holds or what is wrong
 target/release/panel-ddp schema                         # the YAML file's JSON Schema
+target/release/panel-ddp fonts                          # the fonts a text tile's `font` can name, and each one's height
 target/release/panel-ddp migrate dashboard.toml         # write dashboard.yaml (token to secrets.yaml), checked to draw the same
 ```
 
