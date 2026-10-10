@@ -1,7 +1,7 @@
 //! panel-ddp: draws dashboard frames and streams them to a WLED matrix.
 //!
 //!     panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
-//!     panel-ddp preview [--config FILE] [--out FILE] [--page NAME | --all] [--commands] [--push COMMAND] [--seconds S] [--test | --alert]
+//!     panel-ddp preview [--config FILE] [--out FILE] [--page NAME | --all | --all-in-one] [--commands] [--push COMMAND] [--seconds S] [--test | --alert]
 //!     panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
 //!     panel-ddp test [HOST[:PORT]] [--fps N] [--frames N] [--size WxH]
 //!     panel-ddp spotify-login [--config FILE] [--port N]
@@ -71,7 +71,7 @@ fn stop_flag() -> Arc<AtomicBool> {
 
 const USAGE: &str = "usage:
   panel-ddp run [--config FILE] [--target HOST] [--frames N] [--once] [--sample]
-  panel-ddp preview [--config FILE] [--out FILE] [--page NAME | --all] [--commands] [--push COMMAND] [--seconds S] [--test | --weather-code N | --alert]
+  panel-ddp preview [--config FILE] [--out FILE] [--page NAME | --all | --all-in-one] [--commands] [--push COMMAND] [--seconds S] [--test | --weather-code N | --alert]
   panel-ddp render [--config FILE] --out DIR [--at SECONDS] [--frames N] [--sample] [--png FRAME]...
   panel-ddp test [HOST[:PORT]] [--fps N] [--frames N] [--size WxH]
   panel-ddp spotify-login [--config FILE] [--port N]
@@ -423,6 +423,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     let mut page: Option<String> = None;
     let mut all = false;
     let mut commands = false;
+    let mut whole = false;
     let mut push: Option<String> = None;
     let mut it = args.iter();
     while let Some(a) = it.next() {
@@ -431,6 +432,7 @@ fn cmd_preview(args: &[String]) -> Result<()> {
             "--out" => out = it.next().context("--out needs a file")?.into(),
             "--page" => page = Some(it.next().context("--page needs a page's name")?.clone()),
             "--all" => all = true,
+            "--all-in-one" => whole = true,
             "--commands" => commands = true,
             "--push" => push = Some(it.next().context("--push needs a command")?.clone()),
             "--seconds" => {
@@ -453,7 +455,10 @@ fn cmd_preview(args: &[String]) -> Result<()> {
         eprintln!("panel-ddp: no gap file at {}; the preview shows the whole panel", cfg.gaps.display());
         Mask::none(cfg.size())
     };
-    let opts = PreviewOpts { test, alert: alert_preview, weather_code, seconds };
+    if whole && (all || page.is_some() || seconds.is_some() || test) {
+        bail!("--all-in-one goes through every page for its time: not with --all, --page, --seconds or --test");
+    }
+    let opts = PreviewOpts { test, alert: alert_preview, weather_code, seconds, whole };
     // What the config's commands print now, and what a command pushes, in
     // place of made-up values.
     let mut ran = commands.then(|| command::once(&cfg.commands, &cfg.table_columns())).transpose()?;
@@ -476,15 +481,23 @@ fn cmd_preview(args: &[String]) -> Result<()> {
     if all {
         let stem = out.file_stem().and_then(|s| s.to_str()).unwrap_or("preview").to_string();
         let ext = out.extension().and_then(|e| e.to_str()).unwrap_or("png").to_string();
+        if ["gif", "apng"].contains(&ext.to_ascii_lowercase().as_str()) {
+            bail!("--all draws one still picture a page: name a .png with --out (--all-in-one animates them all, --page NAME one)");
+        }
         for name in cfg.pages.iter().map(|p| p.name.clone()) {
             preview_one(only(&cfg, &name)?, &mask, &out.with_file_name(format!("{stem}-{name}.{ext}")), &opts, ran)?;
         }
         return Ok(());
     }
-    let cfg = match &page {
+    let mut cfg = match &page {
         Some(name) => only(&cfg, name)?,
         None => cfg,
     };
+    if whole {
+        // Every page of the file in its order, whatever the schedule says.
+        cfg.playlists = vec![model::Playlist { name: "all".to_string(), pages: (0..cfg.pages.len()).collect() }];
+        cfg.schedule = vec![model::Rule { playlist: 0, when: None }];
+    }
     preview_one(cfg, &mask, &out, &opts, ran)
 }
 
@@ -520,13 +533,18 @@ struct PreviewOpts {
     alert: bool,
     weather_code: Option<u16>,
     seconds: Option<f32>,
+    /// Every page for its time, in one animation.
+    whole: bool,
 }
 
 /// One preview: the first page `cfg` has on now, as a picture or animated.
 /// The series and rows of `ran` take the place of the made-up ones.
 fn preview_one(cfg: Model, mask: &Mask, out: &Path, opts: &PreviewOpts, ran: Option<&data::Snapshot>) -> Result<()> {
-    let PreviewOpts { test, alert: alert_preview, weather_code, seconds } = *opts;
+    let PreviewOpts { test, alert: alert_preview, weather_code, seconds, whole } = *opts;
     let animated = out.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).filter(|e| e == "gif" || e == "apng");
+    if whole && animated.is_none() {
+        bail!("--all-in-one draws an animation: name a .gif or .apng with --out");
+    }
     if let Some(dir) = out.parent().filter(|d| !d.as_os_str().is_empty()) {
         std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
     }
@@ -565,7 +583,12 @@ fn preview_one(cfg: Model, mask: &Mask, out: &Path, opts: &PreviewOpts, ran: Opt
     }
     if let Some(ext) = animated {
         let page_seconds = show.as_ref().and_then(|s| s.pages.at(0, &start)).and_then(|at| at.page.seconds);
-        let frames = ((seconds.or(page_seconds).unwrap_or(10.0) * fps as f32).round() as u32).max(1);
+        let frames = if whole {
+            let pass = show.as_ref().and_then(|s| s.pages.pass_frames(&start));
+            pass.context("--all-in-one needs an end to stop at: a page stays for good, or none can be shown")?
+        } else {
+            ((seconds.or(page_seconds).unwrap_or(10.0) * fps as f32).round() as u32).max(1)
+        };
         let mut first = Some(first);
         let canvases = (0..frames).map(|f| first.take().unwrap_or_else(|| draw(f).0));
         if ext == "gif" {
